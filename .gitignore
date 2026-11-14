@@ -1,0 +1,39 @@
+# Abhängigkeiten
+node_modules
+
+# Build-Ausgaben
+dist
+dist-ssr
+dev-dist
+coverage
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Umgebungsvariablen und Secrets (nie committen)
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+
+# Claude Code: nur lokale Einstellungen ausschließen, launch.json bleibt im Repo
+.claude/settings.local.json
+.claude/scratch/
+
+# Editor und OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
