@@ -26,7 +26,7 @@ export function weekProgress(
       const ex = lookup(pe.exerciseId)
       if (!ex || ex.cardio) continue
       const planned = effectiveSets(pe.sets, plan)
-      const logged = session?.exercises.find((e) => e.exerciseId === pe.exerciseId)?.sets.length ?? 0
+      const logged = session?.exercises.find((e) => e.exerciseId === pe.exerciseId)?.sets.filter((x) => !x.warmup).length ?? 0
       exTotal += 1
       if (logged > 0) exDone += 1
       setTotal += planned

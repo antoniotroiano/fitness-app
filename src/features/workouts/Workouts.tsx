@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Page, cx } from '../../components/ui'
-import { saveWeekState, useActiveProgram, useSessions, useSettings, useWeekState } from '../../db/db'
+import { saveWeekState, useActiveProgram, useActiveWorkoutParam, useSessions, useSettings, useWeekState } from '../../db/db'
 import { formatTime } from '../../utils/units'
 import { markSlot, unmarkSlot } from '../../engine/weekCycle'
 import { weekPlan } from '../../engine/periodization'
@@ -40,6 +40,7 @@ export default function Workouts() {
   const week = useWeekState()
   const sessions = useSessions()
   const settings = useSettings()
+  const running = useActiveWorkoutParam()
 
   if (!program) {
     return (
@@ -74,6 +75,13 @@ export default function Workouts() {
         <Button variant="ghost" onClick={() => nav('/new')}>Neues Programm</Button>
       </div>
 
+      {running && (
+        <Card className="flex items-center justify-between !py-3 border-accent">
+          <div className="text-sm font-medium">Ein Workout läuft</div>
+          <Button onClick={() => nav(`/workout/${running}`)}>Fortsetzen</Button>
+        </Card>
+      )}
+
       <div className="space-y-2">
         {program.weekSlots.map((slot, i) => {
           const done = week.done[i]
@@ -99,7 +107,7 @@ export default function Workouts() {
               </div>
               {done
                 ? <span className="text-accent text-sm font-semibold">✓ Geloggt</span>
-                : <Button onClick={() => nav(`/workout/s${i}`)}>Starten</Button>}
+                : <Button onClick={() => nav(`/workout-preview/s${i}`)}>Öffnen</Button>}
             </Card>
           )
         })}
@@ -111,7 +119,7 @@ export default function Workouts() {
           {extra.map(({ d, i }) => (
             <Card key={d.id} className="flex items-center justify-between !py-3">
               <div className="text-sm font-medium">{d.name}</div>
-              <Button variant="ghost" onClick={() => nav(`/workout/d${i}`)}>Starten</Button>
+              <Button variant="ghost" onClick={() => nav(`/workout-preview/d${i}`)}>Öffnen</Button>
             </Card>
           ))}
         </div>

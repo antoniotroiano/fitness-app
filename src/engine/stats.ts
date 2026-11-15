@@ -22,7 +22,7 @@ export const METRIC_UNIT: Record<ExerciseMetric, 'weight' | 'reps' | 'sets'> = {
   bestSetVolume: 'weight', totalReps: 'reps', bestSetReps: 'reps', totalSets: 'sets',
 }
 
-const work = (sets: LoggedSet[]) => sets.filter((s) => s.weight > 0 && s.reps > 0)
+const work = (sets: LoggedSet[]) => sets.filter((s) => !s.warmup && s.weight > 0 && s.reps > 0)
 
 /** Höchstes Gewicht, das nach Schätzung für n Wiederholungen reicht (bester Satz). */
 export function rmN(sets: LoggedSet[], n: number): number {

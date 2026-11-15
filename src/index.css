@@ -32,3 +32,11 @@ input, select, button { font: inherit; }
 .safe-top { padding-top: env(safe-area-inset-top); }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
+
+/* RIR-Farben: 0-1 rot, 2-3 gelb, 4-5 grün, 6+ blau */
+:root { --rir-red: #dc2626; --rir-yellow: #ca8a04; --rir-green: #16a34a; --rir-blue: #2563eb; }
+.dark { --rir-red: #f87171; --rir-yellow: #facc15; --rir-green: #4ade80; --rir-blue: #60a5fa; }
+
+/* Dashboard: Ringe und Gewohnheiten */
+:root { --ring-sets: #0ea5e9; --ring-muscles: #8b5cf6; --ring-ex: #ec4899; --habit-weight: #22c55e; --habit-workout: #f97316; }
+.dark { --ring-sets: #38bdf8; --ring-muscles: #a78bfa; --ring-ex: #f472b6; --habit-weight: #4ade80; --habit-workout: #fb923c; }

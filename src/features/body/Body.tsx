@@ -1,12 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { MeasureSite } from '../../types'
-import { Button, Card, Chip, Page, cx, inputCls } from '../../components/ui'
+import { Button, Card, Page, cx, inputCls } from '../../components/ui'
 import { db, parseWeightImport, setWeight, useMeasures, useSettings, useWeights } from '../../db/db'
 import { cmToDisplay, displayToCm, displayToKg, kgToDisplay } from '../../utils/units'
 import { formatDate, parse, todayStr, fmt as fmtDate } from '../../utils/dates'
-import { filterPeriod, type Period } from '../../engine/stats'
-import { SeriesChart } from '../stats/StatsView'
+import { TimeSeries } from '../stats/TimeSeries'
 
 export function WeightCalendar({ dates }: { dates: Set<string> }) {
   const [offset, setOffset] = useState(0)
@@ -45,12 +44,11 @@ export function WeightPage() {
   const settings = useSettings()
   const [date, setDate] = useState(todayStr())
   const [value, setValue] = useState('')
-  const [period, setPeriod] = useState<Period>('3M')
   const [msg, setMsg] = useState('')
   const file = useRef<HTMLInputElement>(null)
   const u = settings.weightUnit
 
-  const points = useMemo(() => filterPeriod(weights.map((w) => ({ date: w.date, value: w.kg })), period), [weights, period])
+  const points = useMemo(() => weights.map((w) => ({ date: w.date, value: w.kg })), [weights])
   const dates = useMemo(() => new Set(weights.map((w) => w.date)), [weights])
   const latest = weights.at(-1)
 
@@ -81,10 +79,7 @@ export function WeightPage() {
       </Card>
 
       <Card className="space-y-3">
-        <SeriesChart points={points} bar={false} daily fmt={(v) => `${kgToDisplay(v, u)}`} />
-        <div className="flex gap-1.5 flex-wrap">
-          {(['1M', '3M', '6M', '1Y', 'All'] as Period[]).map((p) => <Chip key={p} active={p === period} onClick={() => setPeriod(p)}>{p}</Chip>)}
-        </div>
+        <TimeSeries daily={points} bar={false} fmt={(v) => `${kgToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
       </Card>
 
       <Card><WeightCalendar dates={dates} /></Card>
@@ -183,7 +178,7 @@ export function MeasuresPage() {
 
       <Card className="space-y-2">
         <div className="font-semibold text-sm">Verlauf: {label}</div>
-        <SeriesChart points={series} bar={false} daily fmt={(v) => `${cmToDisplay(v, u)}`} />
+        <TimeSeries daily={series} bar={false} fmt={(v) => `${cmToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
       </Card>
       <p className="text-xs text-muted">Werte werden intern in cm gespeichert.</p>
     </Page>

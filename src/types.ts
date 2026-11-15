@@ -1,6 +1,7 @@
 export type MuscleId =
-  | 'chest' | 'lats' | 'upperBack' | 'traps' | 'shoulders' | 'biceps' | 'triceps' | 'forearms'
-  | 'quads' | 'hamstrings' | 'glutes' | 'calves' | 'adductors' | 'abductors' | 'core'
+  | 'chest' | 'upperBack' | 'lats' | 'biceps' | 'triceps' | 'frontDelts' | 'sideDelts' | 'lowerBack'
+  | 'abs' | 'traps' | 'rearDelts' | 'forearms' | 'obliques' | 'neck' | 'serratus'
+  | 'quads' | 'glutes' | 'hamstrings' | 'calves' | 'abductors' | 'adductors' | 'tibialis'
 
 export interface Muscle {
   id: MuscleId
@@ -84,6 +85,8 @@ export interface LoggedSet {
   reps: number
   weight: number
   rir?: number
+  /** Aufwärmsatz: zählt nie in Volumen, e1RM oder Progression */
+  warmup?: boolean
   /** Cardio: Minuten und Kilometer */
   minutes?: number
   km?: number
@@ -101,6 +104,10 @@ export interface Session {
   /** yyyy-mm-dd (lokal) */
   date: string
   finishedAt: number
+  /** Start des Workouts (ms), optional bei älteren Einheiten */
+  startedAt?: number
+  /** Aktive Dauer in Sekunden ohne Pausen */
+  durationSec?: number
   /** Programmwoche (0-basiert), für Rep-Schema und Deload */
   week: number
   exercises: LoggedExercise[]
@@ -125,6 +132,8 @@ export interface MeasureEntry {
   values: Partial<Record<MeasureSite, number>>
 }
 
+export type RestCategory = 'compoundUpper' | 'compoundLower' | 'isoUpper' | 'isoLower' | 'core'
+
 export interface Settings {
   theme: 'system' | 'light' | 'dark'
   weightUnit: 'kg' | 'lb'
@@ -135,6 +144,13 @@ export interface Settings {
   birthday: string
   sex: '' | 'm' | 'f' | 'x'
   heightCm: number | null
+  /** Pausen nach Arbeitssätzen in Sekunden pro Übungskategorie */
+  restSeconds: Record<RestCategory, number>
+  /** Pause nach Aufwärmsatz: Verbundübung / sonstige */
+  warmupRestCompound: number
+  warmupRestOther: number
+  /** Aufwärmsätze automatisch vorschlagen */
+  warmupsEnabled: boolean
 }
 
 export interface WeekState {

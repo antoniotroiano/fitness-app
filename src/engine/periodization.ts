@@ -56,3 +56,12 @@ export function effectiveSets(base: number, plan: WeekPlan): number {
 export function effectiveRir(base: number, plan: WeekPlan): number {
   return Math.max(0, base + plan.rirDelta)
 }
+
+/**
+ * Ziel-RIR pro Satz (Heuristik, Hypertrophie nahe am Muskelversagen, aber mit Reserve bei Verbund).
+ * Verbund: erster Satz Basis+1. Isolation: letzter Satz Basis-1 (min. 0). Sonst Basis.
+ */
+export function setRir(base: number, index: number, total: number, compound: boolean): number {
+  if (compound) return index === 0 && total > 1 ? base + 1 : base
+  return index === total - 1 && total > 1 ? Math.max(0, base - 1) : base
+}

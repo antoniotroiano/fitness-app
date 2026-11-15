@@ -7,10 +7,10 @@ export function Card({ children, className }: { children: ReactNode; className?:
 }
 
 export function Button({
-  children, onClick, variant = 'primary', className, disabled, type = 'button',
+  children, onClick, variant = 'primary', className, disabled, type = 'button', 'aria-label': ariaLabel,
 }: {
   children: ReactNode; onClick?: () => void; variant?: 'primary' | 'ghost' | 'danger'
-  className?: string; disabled?: boolean; type?: 'button' | 'submit'
+  className?: string; disabled?: boolean; type?: 'button' | 'submit'; 'aria-label'?: string
 }) {
   const v = {
     primary: 'bg-accent text-slate-900 font-semibold',
@@ -18,7 +18,7 @@ export function Button({
     danger: 'bg-red-500/15 text-red-500',
   }[variant]
   return (
-    <button type={type} disabled={disabled} onClick={onClick}
+    <button type={type} disabled={disabled} onClick={onClick} aria-label={ariaLabel}
       className={cx('rounded-xl px-4 py-3 text-sm active:opacity-70 disabled:opacity-40', v, className)}>
       {children}
     </button>
@@ -77,16 +77,17 @@ export function Page({ title, children, back, right }: { title: string; children
   )
 }
 
-export function BottomSheet({ open, onClose, children, title }: { open: boolean; onClose: () => void; children: ReactNode; title?: string }) {
+export function BottomSheet({ open, onClose, children, title, tall }: { open: boolean; onClose: () => void; children: ReactNode; title?: string; tall?: boolean }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
       <div onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl mx-auto bg-surface rounded-t-3xl border-t border-line p-5 safe-bottom max-h-[85%] overflow-y-auto">
-        <div className="w-10 h-1 bg-line rounded-full mx-auto mb-4" />
-        {title && <h2 className="font-bold text-lg mb-3">{title}</h2>}
-        {children}
+        className={cx('relative w-full max-w-2xl mx-auto bg-surface rounded-t-3xl border-t border-line pt-5 px-5 safe-bottom',
+          tall ? 'h-[92%] flex flex-col' : 'max-h-[85%] overflow-y-auto')}>
+        <div className="w-10 h-1 bg-line rounded-full mx-auto mb-4 shrink-0" />
+        {title && <h2 className="font-bold text-lg mb-3 shrink-0">{title}</h2>}
+        {tall ? <div className="flex-1 min-h-0 overflow-y-auto pb-5">{children}</div> : <div className="pb-5">{children}</div>}
       </div>
     </div>
   )

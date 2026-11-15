@@ -1,4 +1,4 @@
-import type { Equipment, LoggedSet } from '../types'
+import type { Equipment, LoggedSet, Session } from '../types'
 
 /** Kleinste Gewichtssprünge pro Equipment (kg). Konfigurierbare Defaults. */
 export const INCREMENT: Record<Equipment, number> = {
@@ -45,7 +45,7 @@ export interface SuggestInput {
 
 export function suggestNext({ range, targetRir, equipment, last, stalled }: SuggestInput): Suggestion {
   const inc = INCREMENT[equipment]
-  const sets = (last ?? []).filter((s) => s.weight > 0 && s.reps > 0)
+  const sets = (last ?? []).filter((s) => !s.warmup && s.weight > 0 && s.reps > 0)
   if (sets.length === 0) return { weight: null, reps: range.min }
 
   const lastWeight = Math.max(...sets.map((s) => s.weight))
@@ -82,5 +82,15 @@ export function isStalled(history: number[]): boolean {
 
 /** e1RM einer Einheit: bester Satz */
 export function sessionE1rm(sets: LoggedSet[], fallbackRir = 2): number {
-  return Math.max(0, ...sets.map((s) => e1rm(s.weight, s.reps, s.rir ?? fallbackRir)))
+  return Math.max(0, ...sets.filter((s) => !s.warmup).map((s) => e1rm(s.weight, s.reps, s.rir ?? fallbackRir)))
+}
+
+/** Letzte Einheit einer Übung, getrennt in Aufwärm- und Arbeitssätze (Sortierung: Datum, dann finishedAt). */
+export function previousSets(sessions: Session[], exerciseId: string): { warmups: LoggedSet[]; work: LoggedSet[] } {
+  const last = sessions
+    .filter((s) => s.exercises.some((e) => e.exerciseId === exerciseId))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.finishedAt - b.finishedAt)
+    .at(-1)
+  const sets = last?.exercises.find((e) => e.exerciseId === exerciseId)?.sets ?? []
+  return { warmups: sets.filter((s) => s.warmup), work: sets.filter((s) => !s.warmup) }
 }
