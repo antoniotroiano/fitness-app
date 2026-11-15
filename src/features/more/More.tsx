@@ -1,41 +1,133 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Equipment, Exercise, MuscleId, Settings } from '../../types'
-import { Button, Card, Page, Segmented, cx, inputCls } from '../../components/ui'
-import { DEFAULT_SETTINGS, exportAll, importAll, parseWeightImport, saveSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
+import { BottomSheet, Button, Card, Page, Segmented, cx, inputCls } from '../../components/ui'
+import { DEFAULT_SETTINGS, exportAll, importAll, parseWeightImport, resetAllData, saveSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
 import { EQUIPMENT_LABEL } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
 import { ExerciseInfoSheet } from '../workouts/ExerciseInfoSheet'
 import { ExerciseThumb } from '../../components/ExerciseThumb'
+import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/library'
 import { DEFAULT_REST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
 
 export const APP_VERSION = '0.1.0'
 
-function Row({ label, desc, to }: { label: string; desc?: string; to: string }) {
+function Row({ label, desc, to, icon }: { label: string; desc?: string; to: string; icon?: IconName }) {
   const nav = useNavigate()
   return (
-    <button onClick={() => nav(to, { state: { fromMore: true } })} className="w-full flex items-center justify-between py-3.5 text-left">
-      <span><span className="block text-sm font-medium">{label}</span>{desc && <span className="block text-xs text-muted">{desc}</span>}</span>
+    <button onClick={() => nav(to, { state: { fromMore: true } })} className="w-full flex items-center gap-3 py-3.5 text-left">
+      {icon && <Icon name={icon} />}
+      <span className="flex-1 min-w-0"><span className="block text-sm font-medium">{label}</span>{desc && <span className="block text-xs text-muted">{desc}</span>}</span>
       <span className="text-muted">›</span>
     </button>
   )
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <h2 className="text-xs uppercase tracking-wide text-muted px-1">{title}</h2>
+      <Card className="divide-y divide-line !py-1">{children}</Card>
+    </section>
+  )
+}
+
+function Option<T extends string>({ label, value, options, onChange, icon }: {
+  icon?: IconName; label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-3">
+      <span className="flex items-center gap-3 text-sm font-medium">{icon && <Icon name={icon} />}{label}</span>
+      <div className="flex gap-1.5">
+        {options.map((o) => (
+          <button key={o.value} type="button" onClick={() => onChange(o.value)} aria-pressed={o.value === value}
+            className={cx('rounded-full px-3 py-1.5 text-xs whitespace-nowrap border',
+              o.value === value ? 'bg-accent text-slate-900 border-accent font-semibold' : 'bg-surface2 text-muted border-line')}>{o.label}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const THEME_TILES: { value: Settings['theme']; label: string; bg: string }[] = [
+  { value: 'system', label: 'System Default', bg: 'linear-gradient(135deg, #f5f6f8 50%, #0b1020 50%)' },
+  { value: 'light', label: 'Light', bg: '#f5f6f8' },
+  { value: 'dark', label: 'Dark', bg: '#0b1020' },
+]
+
+function ThemePicker({ value, onChange }: { value: Settings['theme']; onChange: (v: Settings['theme']) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-3 py-3" role="radiogroup" aria-label="Theme">
+      {THEME_TILES.map((t) => (
+        <button key={t.value} role="radio" aria-checked={value === t.value} aria-label={t.label} title={t.label} onClick={() => onChange(t.value)}
+          className={cx('relative h-20 rounded-2xl border-2 overflow-hidden', value === t.value ? 'border-accent' : 'border-line')}
+          style={{ background: t.bg }}>
+          {/* Mini-Vorschau: Karte und Akzent */}
+          <span className="absolute left-3 right-3 top-4 h-3 rounded-full" style={{ background: t.value === 'dark' ? '#1c2540' : t.value === 'light' ? '#fff' : 'linear-gradient(90deg, #fff 50%, #1c2540 50%)' }} />
+          <span className="absolute left-3 w-8 bottom-4 h-3 rounded-full" style={{ background: '#38bdf8' }} />
+          {value === t.value && (
+            <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-accent text-slate-900 text-xs flex items-center justify-center">✓</span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function More() {
+  const { s, update } = useSettingsForm()
   return (
     <Page title="More">
+      <Section title="General">
+        <Row icon="profile" label="Profil" desc="Name, Geburtstag, Geschlecht, Größe" to="/more/profile" />
+        <Row icon="units" label="Units" desc={`${s.weightUnit}, ${s.lengthUnit === 'in' ? 'in / ft' : 'cm'}, ${s.distanceUnit}, ${s.clock === '12h' ? '12 h' : '24 h'}`} to="/more/units" />
+        <Option icon="language" label="Language" value={s.language} onChange={(v) => update({ language: v })}
+          options={[{ value: 'de', label: 'DE' }, { value: 'en', label: 'EN' }]} />
+        {s.language === 'en' && <p className="py-2 text-xs text-muted">English ist noch nicht verfügbar, die App bleibt vorerst auf Deutsch.</p>}
+      </Section>
+
+      <Section title="Feature Settings">
+        <Row icon="workouts" label="Workouts" desc="Pause, Aufwärmen" to="/more/workouts" />
+        <Row icon="library" label="Übungen" desc="Übungsbibliothek durchsuchen" to="/more/library" />
+      </Section>
+
+      <section className="space-y-2">
+        <h2 className="text-xs uppercase tracking-wide text-muted px-1">Theme</h2>
+        <Card className="!py-1"><ThemePicker value={s.theme} onChange={(v) => update({ theme: v })} /></Card>
+      </section>
+
+      <Section title="Data Management">
+        <Row icon="weight" label="Körpergewicht" to="/weight" />
+        <Row icon="measures" label="Körpermaße" to="/measures" />
+        <Row icon="data" label="Daten" desc="Backup, Import, Zurücksetzen" to="/more/data" />
+      </Section>
+
+      <Section title="Other">
+        <Row icon="help" label="Hilfe" to="/more/help" />
+        <Row icon="about" label="About" to="/more/about" />
+      </Section>
+    </Page>
+  )
+}
+
+/** General → Units */
+export function UnitsPage() {
+  const nav = useNavigate()
+  const { s, update } = useSettingsForm()
+  return (
+    <Page title="Units" back={() => nav('/more')}>
       <Card className="divide-y divide-line !py-1">
-        <Row label="Einstellungen" desc="Design, Einheiten, Zeitformat" to="/more/settings" />
-        <Row label="Profil" desc="Name, Geburtstag, Geschlecht, Größe" to="/more/profile" />
-        <Row label="Körpergewicht" to="/weight" />
-        <Row label="Körpermaße" to="/measures" />
-        <Row label="Alle Übungen" desc="Übungsbibliothek durchsuchen" to="/more/library" />
-        <Row label="Daten" desc="Backup, Export, Import" to="/more/data" />
-        <Row label="Hilfe" to="/more/help" />
-        <Row label="About" to="/more/about" />
+        <Option label="Gewicht" value={s.weightUnit} onChange={(v) => update({ weightUnit: v })}
+          options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]} />
+        <Option label="Länge" value={s.lengthUnit} onChange={(v) => update({ lengthUnit: v })}
+          options={[{ value: 'cm', label: 'cm' }, { value: 'in', label: 'in / ft' }]} />
+        <Option label="Distanz" value={s.distanceUnit} onChange={(v) => update({ distanceUnit: v })}
+          options={[{ value: 'km', label: 'km' }, { value: 'mi', label: 'mi' }]} />
+        <Option label="Zeitformat" value={s.clock} onChange={(v) => update({ clock: v })}
+          options={[{ value: '24h', label: '24 h' }, { value: '12h', label: '12 h' }]} />
       </Card>
     </Page>
   )
@@ -61,42 +153,47 @@ function Stepper({ label, value, onChange }: { label: string; value: number; onC
   )
 }
 
-export function SettingsPage() {
+/** Feature Settings → Workouts: Untermenü */
+export function WorkoutSettingsPage() {
+  const nav = useNavigate()
+  return (
+    <Page title="Workouts" back={() => nav('/more')}>
+      <Card className="divide-y divide-line !py-1">
+        <Row icon="timer" label="Pause" desc="Rest-Timer je Übungstyp" to="/more/workouts/rest" />
+        <Row icon="warmup" label="Aufwärmen" desc="Aufwärmsätze vorschlagen" to="/more/workouts/warmup" />
+      </Card>
+    </Page>
+  )
+}
+
+export function RestSettingsPage() {
   const nav = useNavigate()
   const { s, update } = useSettingsForm()
-  const group = (title: string, el: React.ReactNode) => (
-    <Card className="space-y-3"><div className="text-xs uppercase tracking-wide text-muted">{title}</div>{el}</Card>
-  )
   return (
-    <Page title="Einstellungen" back={() => nav('/more')}>
-      {group('Design', <Segmented value={s.theme} onChange={(v) => update({ theme: v })}
-        options={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Hell' }, { value: 'dark', label: 'Dunkel' }]} />)}
-      {group('Gewicht', <Segmented value={s.weightUnit} onChange={(v) => update({ weightUnit: v })}
-        options={[{ value: 'kg', label: 'Kilogramm' }, { value: 'lb', label: 'Pounds' }]} />)}
-      {group('Länge', <Segmented value={s.lengthUnit} onChange={(v) => update({ lengthUnit: v })}
-        options={[{ value: 'cm', label: 'Zentimeter' }, { value: 'in', label: 'Inch / Feet' }]} />)}
-      {group('Distanz', <Segmented value={s.distanceUnit} onChange={(v) => update({ distanceUnit: v })}
-        options={[{ value: 'km', label: 'km / m' }, { value: 'mi', label: 'Meilen / Yards' }]} />)}
-      {group('Zeitformat', <Segmented value={s.clock} onChange={(v) => update({ clock: v })}
-        options={[{ value: '24h', label: '24 h' }, { value: '12h', label: '12 h' }]} />)}
-      {group('Aufwärmen', (
-        <div className="space-y-2">
-          <Segmented value={s.warmupsEnabled ? 'on' : 'off'} onChange={(v) => update({ warmupsEnabled: v === 'on' })}
-            options={[{ value: 'on', label: 'Vorschlagen' }, { value: 'off', label: 'Aus' }]} />
-          <p className="text-xs text-muted">Aufwärmsätze werden aus dem Arbeitsgewicht berechnet: bei der ersten Verbundübung einer Muskelgruppe 3 Sätze, sonst weniger oder keine. Das ist eine praxisnahe Heuristik, die Studienlage zur Satzzahl ist dünn.</p>
-        </div>
-      ))}
-      {group('Pausen', (
-        <div className="space-y-3">
-          {REST_CATEGORIES.map((c) => (
-            <Stepper key={c} label={REST_LABEL[c]} value={s.restSeconds[c]} onChange={(v) => update({ restSeconds: { ...s.restSeconds, [c]: v } })} />
-          ))}
-          <Stepper label="Nach Aufwärmsatz (Verbund)" value={s.warmupRestCompound} onChange={(v) => update({ warmupRestCompound: v })} />
-          <Stepper label="Nach Aufwärmsatz (sonst)" value={s.warmupRestOther} onChange={(v) => update({ warmupRestOther: v })} />
-          <p className="text-xs text-muted">Richtwerte aus der Studienlage: Verbundübungen 2-3 min, Isolation 1-2 min. Längere Pausen halten bei schweren Übungen Leistung und Volumen.</p>
-          <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45 })}>Standard wiederherstellen</Button>
-        </div>
-      ))}
+    <Page title="Pause" back={() => nav('/more/workouts')}>
+      <Card className="space-y-3">
+        {REST_CATEGORIES.map((c) => (
+          <Stepper key={c} label={REST_LABEL[c]} value={s.restSeconds[c]} onChange={(v) => update({ restSeconds: { ...s.restSeconds, [c]: v } })} />
+        ))}
+        <Stepper label="Nach Aufwärmsatz (Verbund)" value={s.warmupRestCompound} onChange={(v) => update({ warmupRestCompound: v })} />
+        <Stepper label="Nach Aufwärmsatz (sonst)" value={s.warmupRestOther} onChange={(v) => update({ warmupRestOther: v })} />
+        <p className="text-xs text-muted">Richtwerte aus der Studienlage: Verbundübungen 2-3 min, Isolation 1-2 min. Längere Pausen halten bei schweren Übungen Leistung und Volumen.</p>
+        <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45 })}>Standard wiederherstellen</Button>
+      </Card>
+    </Page>
+  )
+}
+
+export function WarmupSettingsPage() {
+  const nav = useNavigate()
+  const { s, update } = useSettingsForm()
+  return (
+    <Page title="Aufwärmen" back={() => nav('/more/workouts')}>
+      <Card className="space-y-2">
+        <Segmented value={s.warmupsEnabled ? 'on' : 'off'} onChange={(v) => update({ warmupsEnabled: v === 'on' })}
+          options={[{ value: 'on', label: 'Vorschlagen' }, { value: 'off', label: 'Aus' }]} />
+        <p className="text-xs text-muted">Aufwärmsätze werden aus dem Arbeitsgewicht berechnet: bei der ersten Verbundübung einer Muskelgruppe 3 Sätze, sonst weniger oder keine. Das ist eine praxisnahe Heuristik, die Studienlage zur Satzzahl ist dünn.</p>
+      </Card>
     </Page>
   )
 }
@@ -228,6 +325,7 @@ export function DataPage() {
   const [msg, setMsg] = useState('')
   const file = useRef<HTMLInputElement>(null)
   const hFile = useRef<HTMLInputElement>(null)
+  const [resetOpen, setResetOpen] = useState(false)
 
   const doExport = async () => {
     const blob = new Blob([await exportAll()], { type: 'application/json' })
@@ -263,6 +361,22 @@ export function DataPage() {
         <Button variant="ghost" className="w-full" onClick={() => hFile.current?.click()}>Gewichtsdaten importieren</Button>
       </Card>
       {msg && <div className="text-sm text-accent">{msg}</div>}
+      <Card className="space-y-3">
+        <p className="text-sm text-muted">Löscht alle Daten von diesem Gerät. Erstelle vorher ein Backup.</p>
+        <Button variant="danger" className="w-full" onClick={() => setResetOpen(true)}>Alle Daten zurücksetzen</Button>
+      </Card>
+
+      <BottomSheet open={resetOpen} onClose={() => setResetOpen(false)} title="Alle Daten zurücksetzen?">
+        <p className="text-sm text-muted mb-4">
+          Programme, Workouts, Körpergewicht, Maße, eigene Übungen und Einstellungen werden dauerhaft von diesem Gerät gelöscht.
+          Das lässt sich nicht rückgängig machen.
+        </p>
+        <div className="space-y-2">
+          <Button variant="ghost" className="w-full" onClick={() => { setResetOpen(false); doExport() }}>Erst ein Backup erstellen</Button>
+          <Button variant="danger" className="w-full" onClick={async () => { await resetAllData(); setResetOpen(false); nav('/', { replace: true }) }}>Endgültig löschen</Button>
+          <Button variant="ghost" className="w-full" onClick={() => setResetOpen(false)}>Abbrechen</Button>
+        </div>
+      </BottomSheet>
     </Page>
   )
 }

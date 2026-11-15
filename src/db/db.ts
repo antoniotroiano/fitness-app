@@ -39,7 +39,7 @@ class LiftDB extends Dexie {
 export const db = new LiftDB()
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: 'system', weightUnit: 'kg', lengthUnit: 'cm', distanceUnit: 'km', clock: '24h',
+  theme: 'system', weightUnit: 'kg', lengthUnit: 'cm', distanceUnit: 'km', clock: '24h', language: 'de',
   name: '', birthday: '', sex: '', heightCm: null,
   restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45, warmupsEnabled: true,
 }
@@ -106,6 +106,14 @@ export async function setWeight(date: string, kg: number, source: 'manual' | 'im
   const existing = await db.weights.where('date').equals(date).first()
   if (existing?.id) await db.weights.update(existing.id, { kg, source })
   else await db.weights.add({ date, kg, source })
+}
+
+/** Löscht alle lokalen Daten (Programme, Einheiten, Gewicht, Maße, eigene Übungen, Einstellungen, laufendes Workout). */
+export async function resetAllData() {
+  await db.transaction('rw', [db.programs, db.sessions, db.weights, db.measures, db.customExercises, db.kv], async () => {
+    await Promise.all([db.programs.clear(), db.sessions.clear(), db.weights.clear(), db.measures.clear(),
+      db.customExercises.clear(), db.kv.clear()])
+  })
 }
 
 export async function exportAll(): Promise<string> {

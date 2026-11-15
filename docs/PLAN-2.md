@@ -114,3 +114,22 @@ Aufteilung von `Logger.tsx` (148 Zeilen) in: `Logger.tsx` (Orchestrierung), `use
   - **Muskelfigur** hat Regionen für alle 22 Gruppen (Vorder- und Rückseite).
   - **Planer:** Vordere Schulter, hintere Schulter, Trapez, Bauch und Ab-/Adduktoren bekommen anteilig weniger Volumen, weil Verbundübungen sie schon treffen. Unterarme, Nacken, Serratus, Schienbein, Seitbauch und unterer Rücken werden nur bei Fokus "Höher" eingeplant.
   - **Migration:** Dexie Version 2 stellt gespeicherte eigene Übungen und den Programm-Fokus um ("Schultern" gilt dann für alle drei Schulterteile). Auch beim Backup-Import (alte Backups bleiben gültig).
+
+## Nachträge (Runde 5): More neu strukturiert
+- **Hell/Dunkel:** Früher unter More → Einstellungen → "Design". Jetzt eigener Bereich **Theme** mit drei Boxen ohne Beschriftung (System Default, Light, Dark). Die Auswahl wirkt sofort, "System Default" folgt dem Betriebssystem.
+- **Neue Struktur von More:**
+  - **General:** Language (DE/EN, EN ist vorerst nur ein Platzhalter und zeigt einen Hinweis), Gewicht, Länge, Distanz, Zeitformat als direkte Auswahl, Profil.
+  - **Feature Settings:** Workouts (Pausen-Timer plus "Aufwärmen vorschlagen" an/aus), Übungen.
+  - **Theme:** drei Boxen.
+  - **Data Management:** Körpergewicht, Körpermaße, Daten (Backup, Export, Import) und der Knopf "Alle Daten zurücksetzen" (mit Bestätigungsfenster und dem Angebot, vorher ein Backup zu erstellen).
+  - **Other:** Hilfe, About.
+- Die frühere Seite "Einstellungen" entfällt, ihre Inhalte sind verteilt. Neue Einstellung `language` (Standard `de`).
+- "Alle Daten zurücksetzen" löscht Programme, Einheiten, Gewicht, Maße, eigene Übungen, Einstellungen und ein laufendes Workout (`resetAllData` in `db/db.ts`).
+
+## Nachträge (Runde 6): More verfeinert, Körpergewicht
+
+- **General:** Reihenfolge Profil, Units (eigene Unterseite `/more/units` mit Gewicht, Länge, Distanz, Zeitformat), Language als letzter Punkt.
+- **Feature Settings → Workouts** (`/more/workouts`) ist jetzt ein Untermenü: **Pause** (`/more/workouts/rest`, Rest-Timer) und **Aufwärmen** (`/more/workouts/warmup`, Vorschlagen an/aus).
+- **Körpergewicht** (`/weight`) sieht aus wie das aufgeklappte Dashboard-Panel: Heute/Streak, Eintragen, derselbe Monatskalender mit Legende (`MonthCalendar`, Farbe Gewicht). Zusätzlich Verlaufsdiagramm, Import und Einträge. Der alte `WeightCalendar` entfällt.
+- **Alle Daten zurücksetzen** liegt in More → Daten (nicht mehr als eigener Knopf in More). "Erst ein Backup erstellen" exportiert das Backup direkt.
+- **Icons in More:** eigene Linien-SVGs (`components/icons.tsx`, `currentColor`) vor allen Einträgen, auch bei Workouts → Pause/Aufwärmen. Die Farbe folgt dem Theme (dunkel auf hell, hell auf dunkel).
