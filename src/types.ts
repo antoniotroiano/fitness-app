@@ -140,6 +140,8 @@ export interface Settings {
   lengthUnit: 'cm' | 'in'
   distanceUnit: 'km' | 'mi'
   clock: '24h' | '12h'
+  /** Sprache der Oberfläche; Englisch ist vorerst nur ein Platzhalter */
+  language: 'de' | 'en'
   name: string
   birthday: string
   sex: '' | 'm' | 'f' | 'x'

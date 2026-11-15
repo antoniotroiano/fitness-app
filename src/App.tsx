@@ -10,7 +10,7 @@ import Wizard from './features/wizard/Wizard'
 import ManualBuilder from './features/wizard/ManualBuilder'
 import { WeightPage, MeasuresPage } from './features/body/Body'
 import { ExerciseStatsPage, MuscleStatsPage } from './features/stats/StatsPages'
-import More, { SettingsPage, ProfilePage, LibraryPage, AboutPage, HelpPage, DataPage } from './features/more/More'
+import More, { UnitsPage, RestSettingsPage, WarmupSettingsPage, WorkoutSettingsPage, ProfilePage, LibraryPage, AboutPage, HelpPage, DataPage } from './features/more/More'
 
 function useTheme() {
   const { theme } = useSettings()
@@ -61,7 +61,10 @@ function Shell() {
         <Route path="/stats/exercise/:id" element={<ExerciseStatsPage />} />
         <Route path="/stats/muscle/:id" element={<MuscleStatsPage />} />
         <Route path="/more" element={<More />} />
-        <Route path="/more/settings" element={<SettingsPage />} />
+        <Route path="/more/workouts" element={<WorkoutSettingsPage />} />
+        <Route path="/more/workouts/rest" element={<RestSettingsPage />} />
+        <Route path="/more/workouts/warmup" element={<WarmupSettingsPage />} />
+        <Route path="/more/units" element={<UnitsPage />} />
         <Route path="/more/profile" element={<ProfilePage />} />
         <Route path="/more/library" element={<LibraryPage />} />
         <Route path="/more/data" element={<DataPage />} />

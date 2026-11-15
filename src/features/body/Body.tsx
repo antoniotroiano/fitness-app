@@ -4,39 +4,10 @@ import type { MeasureSite } from '../../types'
 import { Button, Card, Page, cx, inputCls } from '../../components/ui'
 import { db, parseWeightImport, setWeight, useMeasures, useSettings, useWeights } from '../../db/db'
 import { cmToDisplay, displayToCm, displayToKg, kgToDisplay } from '../../utils/units'
-import { formatDate, parse, todayStr, fmt as fmtDate } from '../../utils/dates'
+import { formatDate, todayStr } from '../../utils/dates'
+import { streakDays } from '../../engine/habits'
+import { CalendarLegend, MonthCalendar } from '../dashboard/widgets'
 import { TimeSeries } from '../stats/TimeSeries'
-
-export function WeightCalendar({ dates }: { dates: Set<string> }) {
-  const [offset, setOffset] = useState(0)
-  const base = parse(todayStr())
-  base.setMonth(base.getMonth() + offset, 1)
-  const first = new Date(base)
-  const lead = (first.getDay() + 6) % 7
-  const days = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate()
-  const cells = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => fmtDate(new Date(base.getFullYear(), base.getMonth(), i + 1)))]
-  const today = todayStr()
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <button className="px-3 text-xl text-accent" onClick={() => setOffset(offset - 1)} aria-label="Vorheriger Monat">‹</button>
-        <span className="text-sm font-semibold">{base.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
-        <button className="px-3 text-xl text-accent" onClick={() => setOffset(offset + 1)} aria-label="Nächster Monat">›</button>
-      </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted mb-1">
-        {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => <span key={d}>{d}</span>)}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((d, i) => d ? (
-          <div key={d} className={cx('aspect-square rounded-lg flex items-center justify-center text-xs border',
-            dates.has(d) ? 'bg-accent text-slate-900 border-accent font-bold' : d <= today ? 'border-line text-muted' : 'border-transparent text-muted/50')}>
-            {Number(d.slice(8))}
-          </div>
-        ) : <div key={`e${i}`} />)}
-      </div>
-    </div>
-  )
-}
 
 export function WeightPage() {
   const nav = useNavigate()
@@ -51,6 +22,7 @@ export function WeightPage() {
   const points = useMemo(() => weights.map((w) => ({ date: w.date, value: w.kg })), [weights])
   const dates = useMemo(() => new Set(weights.map((w) => w.date)), [weights])
   const latest = weights.at(-1)
+  const todayW = weights.find((w) => w.date === todayStr())
 
   const save = async () => {
     const n = Number(value.replace(',', '.'))
@@ -69,6 +41,10 @@ export function WeightPage() {
 
   return (
     <Page title="Körpergewicht" back={() => nav(-1)}>
+      <Card className="flex items-center justify-between">
+        <div><div className="text-xs text-muted">Heute</div><div className="text-lg font-bold">{todayW ? `${kgToDisplay(todayW.kg, u)} ${u}` : `-- ${u}`}</div></div>
+        <div className="text-right"><div className="text-xs text-muted">Streak</div><div className="text-lg font-bold">{streakDays(dates, todayStr())} Tage</div></div>
+      </Card>
       <Card className="space-y-3">
         <div className="flex gap-2">
           <input type="date" className={inputCls} value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} />
@@ -78,11 +54,11 @@ export function WeightPage() {
         {latest && <div className="text-xs text-muted">Zuletzt: {kgToDisplay(latest.kg, u)} {u} am {formatDate(latest.date)}</div>}
       </Card>
 
+      <Card><MonthCalendar tracked={dates} today={todayStr()} color="var(--habit-weight)" /><CalendarLegend color="var(--habit-weight)" /></Card>
+
       <Card className="space-y-3">
         <TimeSeries daily={points} bar={false} fmt={(v) => `${kgToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
       </Card>
-
-      <Card><WeightCalendar dates={dates} /></Card>
 
       <Card className="space-y-2">
         <div className="font-semibold text-sm">Import</div>
