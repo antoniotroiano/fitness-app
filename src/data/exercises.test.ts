@@ -45,3 +45,16 @@ describe('Generator mit eingeschränktem Equipment', () => {
     })
   }
 })
+
+import { INSTRUCTIONS } from './instructions'
+
+describe('Anleitungen', () => {
+  it('jede Kraftübung hat eine Anleitung', () => {
+    const missing = EXERCISES.filter((e) => !(INSTRUCTIONS[e.id]?.length >= 2)).map((e) => e.id)
+    expect(missing).toEqual([])
+  })
+  it('keine verwaisten Anleitungen', () => {
+    const ids = new Set(EXERCISES.map((e) => e.id))
+    expect(Object.keys(INSTRUCTIONS).filter((id) => !ids.has(id))).toEqual([])
+  })
+})

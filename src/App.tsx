@@ -4,6 +4,7 @@ import { useSettings } from './db/db'
 import { BottomSheet, cx } from './components/ui'
 import Dashboard from './features/dashboard/Dashboard'
 import Workouts from './features/workouts/Workouts'
+import WorkoutPreview from './features/workouts/WorkoutPreview'
 import Logger from './features/workouts/Logger'
 import Wizard from './features/wizard/Wizard'
 import ManualBuilder from './features/wizard/ManualBuilder'
@@ -37,7 +38,7 @@ function Shell() {
   const loc = useLocation()
   const [sheet, setSheet] = useState(false)
   const go = (to: string) => { setSheet(false); nav(to) }
-  const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/new')
+  const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/workout-preview/') || loc.pathname.startsWith('/new')
 
   const items = [
     { icon: '⚖️', label: 'Gewicht eintragen', to: '/weight' },
@@ -52,6 +53,7 @@ function Shell() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/workouts" element={<Workouts />} />
         <Route path="/workout/:slot" element={<Logger />} />
+        <Route path="/workout-preview/:slot" element={<WorkoutPreview />} />
         <Route path="/new" element={<Wizard />} />
         <Route path="/new/manual" element={<ManualBuilder />} />
         <Route path="/weight" element={<WeightPage />} />

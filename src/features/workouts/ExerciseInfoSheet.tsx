@@ -1,0 +1,99 @@
+import { useMemo, useState } from 'react'
+import type { Exercise } from '../../types'
+import { BottomSheet, cx } from '../../components/ui'
+import { MuscleDetail } from '../../components/MuscleFigure'
+import { instructionsFor } from '../../data/instructions'
+import { EQUIPMENT_LABEL } from '../../data/exercises'
+import { muscleLabel } from '../../data/muscles'
+import { usePrograms, useSessions, useSettings } from '../../db/db'
+import { formatDate } from '../../utils/dates'
+import { kgToDisplay, kmToDisplay } from '../../utils/units'
+
+type Tab = 'instructions' | 'details' | 'history'
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'instructions', label: 'Instructions' }, { id: 'details', label: 'Details' }, { id: 'history', label: 'History' },
+]
+
+function History({ ex }: { ex: Exercise }) {
+  const sessions = useSessions()
+  const programs = usePrograms()
+  const s = useSettings()
+  const [open, setOpen] = useState<string | null>(null)
+  const entries = useMemo(() => {
+    const out: { key: string; date: string; program?: { name: string; icon: string; color: string }; warm: string[]; work: string[] }[] = []
+    for (const sess of [...sessions].sort((a, b) => b.date.localeCompare(a.date) || b.finishedAt - a.finishedAt)) {
+      const logged = sess.exercises.find((e) => e.exerciseId === ex.id)
+      if (!logged) continue
+      const warm: string[] = []
+      const work: string[] = []
+      for (const set of logged.sets) {
+        const text = ex.cardio
+          ? `${set.minutes ?? 0} min${set.km ? ` · ${kmToDisplay(set.km, s.distanceUnit)} ${s.distanceUnit}` : ''}`
+          : `${kgToDisplay(set.weight, s.weightUnit)} ${s.weightUnit} × ${set.reps}`
+        ;(set.warmup ? warm : work).push(text)
+      }
+      out.push({ key: String(sess.id ?? `${sess.date}-${sess.finishedAt}`), date: sess.date, program: programs.find((p) => p.id === sess.programId), warm, work })
+    }
+    return out
+  }, [sessions, programs, ex, s.weightUnit, s.distanceUnit])
+
+  if (!entries.length) return <p className="text-sm text-muted">Noch keine Einträge für diese Übung.</p>
+  return (
+    <ul className="divide-y divide-line">
+      {entries.map((e) => (
+        <li key={e.key}>
+          <button className="w-full flex items-center gap-3 py-3 text-left" aria-expanded={open === e.key}
+            onClick={() => setOpen(open === e.key ? null : e.key)}>
+            <span className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-lg"
+              style={{ background: `${e.program?.color ?? '#64748b'}33`, border: `2px solid ${e.program?.color ?? '#64748b'}` }}>
+              {e.program?.icon ?? '🏋️'}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{formatDate(e.date)}</span>
+              <span className="block text-xs text-muted truncate">{e.program?.name ?? 'Einzelnes Workout'}</span>
+            </span>
+            <span className="text-muted text-xs">{e.work.length} Sätze {open === e.key ? '▴' : '▾'}</span>
+          </button>
+          {open === e.key && (
+            <div className="pb-3 pl-12 space-y-1 text-sm">
+              {e.warm.map((t, i) => <div key={`w${i}`} className="flex gap-3"><span className="w-6 text-amber-500 font-semibold">W</span><span>{t}</span></div>)}
+              {e.work.map((t, i) => <div key={i} className="flex gap-3"><span className="w-6 text-muted">{i + 1}</span><span>{t}</span></div>)}
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Übungs-Info: Anleitung, Muskeln (Details) und Verlauf. */
+export function ExerciseInfoSheet({ ex, open, onClose }: { ex: Exercise | null; open: boolean; onClose: () => void }) {
+  const [tab, setTab] = useState<Tab>('instructions')
+  if (!ex) return null
+  return (
+    <BottomSheet tall open={open} onClose={onClose} title={ex.name}>
+      <div role="tablist" className="sticky top-0 z-10 flex gap-1 p-1 rounded-xl bg-surface2 mb-4">
+        {TABS.map((t) => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+            className={cx('flex-1 py-2 rounded-lg text-sm', tab === t.id ? 'bg-surface font-semibold shadow-sm' : 'text-muted')}>{t.label}</button>
+        ))}
+      </div>
+      {tab === 'instructions' && (
+        <ol className="space-y-3 text-sm list-decimal pl-5">
+          {instructionsFor(ex).map((step, i) => <li key={i}>{step}</li>)}
+        </ol>
+      )}
+      {tab === 'details' && (
+        <div className="space-y-4">
+          {!ex.cardio && <MuscleDetail primary={ex.primary} secondary={ex.secondary} />}
+          <dl className="text-sm space-y-1">
+            <div className="flex gap-2"><dt className="text-muted w-24">Primär</dt><dd>{ex.primary.map(muscleLabel).join(', ') || '–'}</dd></div>
+            <div className="flex gap-2"><dt className="text-muted w-24">Sekundär</dt><dd>{ex.secondary.map(muscleLabel).join(', ') || '–'}</dd></div>
+            <div className="flex gap-2"><dt className="text-muted w-24">Equipment</dt><dd>{EQUIPMENT_LABEL[ex.equipment]}</dd></div>
+          </dl>
+        </div>
+      )}
+      {tab === 'history' && <History ex={ex} />}
+    </BottomSheet>
+  )
+}

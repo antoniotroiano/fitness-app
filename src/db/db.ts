@@ -5,6 +5,8 @@ import type {
 } from '../types'
 import { ALL_EXERCISES } from '../data/exercises'
 import { emptyWeek } from '../engine/weekCycle'
+import { DEFAULT_REST } from '../engine/rest'
+import { migrateExercise, migrateProgram } from '../data/muscleMigration'
 
 interface KV { key: string; value: unknown }
 
@@ -26,6 +28,11 @@ class LiftDB extends Dexie {
       customExercises: 'id',
       kv: 'key',
     })
+    // 22 Muskelgruppen: gespeicherte eigene Übungen und Programm-Fokus auf die neuen IDs umstellen
+    this.version(2).stores({}).upgrade(async (tx) => {
+      await tx.table('customExercises').toCollection().modify((e: Exercise) => Object.assign(e, migrateExercise(e)))
+      await tx.table('programs').toCollection().modify((p: Program) => Object.assign(p, migrateProgram(p)))
+    })
   }
 }
 
@@ -34,18 +41,30 @@ export const db = new LiftDB()
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system', weightUnit: 'kg', lengthUnit: 'cm', distanceUnit: 'km', clock: '24h',
   name: '', birthday: '', sex: '', heightCm: null,
+  restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45, warmupsEnabled: true,
 }
 
 async function getKV<T>(key: string, fallback: T): Promise<T> {
   const row = await db.kv.get(key)
   return (row?.value as T) ?? fallback
 }
+export const ACTIVE_WORKOUT_KEY = 'activeWorkout'
 const setKV = (key: string, value: unknown) => db.kv.put({ key, value })
 
-export const getSettings = () => getKV<Settings>('settings', DEFAULT_SETTINGS).then((s) => ({ ...DEFAULT_SETTINGS, ...s }))
+export const getSettings = () => getKV<Settings>('settings', DEFAULT_SETTINGS).then((s) => ({
+  ...DEFAULT_SETTINGS, ...s, restSeconds: { ...DEFAULT_SETTINGS.restSeconds, ...s.restSeconds },
+}))
 export const saveSettings = (s: Settings) => setKV('settings', s)
 export const getWeekState = () => getKV<WeekState>('weekState', emptyWeek())
+export const loadActiveWorkout = <T>() => db.kv.get(ACTIVE_WORKOUT_KEY).then((r) => (r?.value as T | undefined) ?? null)
+export const saveActiveWorkout = (v: unknown) => setKV(ACTIVE_WORKOUT_KEY, v)
+export const clearActiveWorkout = () => db.kv.delete(ACTIVE_WORKOUT_KEY)
 export const saveWeekState = (w: WeekState) => setKV('weekState', w)
+
+/** Param (s0, d2 …) des laufenden Workouts oder null */
+export function useActiveWorkoutParam(): string | null {
+  return useLiveQuery(() => db.kv.get(ACTIVE_WORKOUT_KEY).then((r) => ((r?.value as { param?: string } | undefined)?.param ?? null)), [], null) ?? null
+}
 
 export function useSettings(): Settings {
   return useLiveQuery(getSettings, [], DEFAULT_SETTINGS) ?? DEFAULT_SETTINGS
@@ -94,8 +113,10 @@ export async function exportAll(): Promise<string> {
     db.programs.toArray(), db.sessions.toArray(), db.weights.toArray(), db.measures.toArray(),
     db.customExercises.toArray(), db.kv.toArray(),
   ])
-  return JSON.stringify({ app: 'liftlab', version: 1, exportedAt: new Date().toISOString(),
-    programs, sessions, weights, measures, customExercises, kv }, null, 2)
+  return JSON.stringify({ app: 'liftlab', version: 2, exportedAt: new Date().toISOString(),
+    programs, sessions, weights, measures, customExercises,
+    // Das laufende Workout ist flüchtig und gehört nicht ins Backup
+    kv: kv.filter((r) => r.key !== ACTIVE_WORKOUT_KEY) }, null, 2)
 }
 
 export async function importAll(json: string) {
@@ -104,11 +125,11 @@ export async function importAll(json: string) {
   await db.transaction('rw', [db.programs, db.sessions, db.weights, db.measures, db.customExercises, db.kv], async () => {
     await Promise.all([db.programs.clear(), db.sessions.clear(), db.weights.clear(), db.measures.clear(),
       db.customExercises.clear(), db.kv.clear()])
-    await db.programs.bulkAdd(data.programs ?? [])
+    await db.programs.bulkAdd((data.programs ?? []).map(migrateProgram))
     await db.sessions.bulkAdd(data.sessions ?? [])
     await db.weights.bulkAdd(data.weights ?? [])
     await db.measures.bulkAdd(data.measures ?? [])
-    await db.customExercises.bulkAdd(data.customExercises ?? [])
+    await db.customExercises.bulkAdd((data.customExercises ?? []).map(migrateExercise))
     await db.kv.bulkAdd(data.kv ?? [])
   })
 }

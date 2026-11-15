@@ -7,12 +7,29 @@ import { baseRepRange, baseRir } from './periodization'
 type DayType = 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full'
 
 const DAY_MUSCLES: Record<DayType, MuscleId[]> = {
-  push: ['chest', 'shoulders', 'triceps'],
-  pull: ['lats', 'upperBack', 'traps', 'biceps', 'forearms'],
-  legs: ['quads', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors', 'core'],
-  upper: ['chest', 'lats', 'upperBack', 'shoulders', 'biceps', 'triceps', 'traps', 'forearms'],
-  lower: ['quads', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors', 'core'],
-  full: ['chest', 'lats', 'upperBack', 'quads', 'hamstrings', 'glutes', 'shoulders', 'biceps', 'triceps', 'calves', 'core'],
+  push: ['chest', 'frontDelts', 'sideDelts', 'triceps'],
+  pull: ['lats', 'upperBack', 'rearDelts', 'traps', 'biceps', 'forearms'],
+  legs: ['quads', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors', 'abs'],
+  upper: ['chest', 'lats', 'upperBack', 'frontDelts', 'sideDelts', 'rearDelts', 'biceps', 'triceps', 'traps', 'forearms'],
+  lower: ['quads', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors', 'abs'],
+  full: ['chest', 'lats', 'upperBack', 'quads', 'hamstrings', 'glutes', 'sideDelts', 'biceps', 'triceps', 'calves', 'abs'],
+}
+
+/** An welchen Tagen Fokus-Muskeln trainiert werden, wenn sie nicht ohnehin im Tagesmuster stehen. */
+const DAY_HOME: Partial<Record<MuscleId, DayType[]>> = {
+  neck: ['upper', 'pull', 'full'], serratus: ['upper', 'push', 'full'], tibialis: ['lower', 'legs', 'full'],
+  obliques: ['lower', 'legs', 'full'], lowerBack: ['lower', 'legs', 'pull', 'full'],
+}
+
+/** Nur auf ausdrücklichen Wunsch (Fokus "Höher") eingeplant, sonst reichen Verbund- und Isolationsübungen anderer Gruppen. */
+const FOCUS_ONLY: MuscleId[] = ['forearms', 'neck', 'serratus', 'tibialis', 'obliques', 'lowerBack']
+
+/**
+ * Anteil des Standard-Wochenvolumens pro Muskelgruppe: Viele Gruppen werden durch Verbundübungen
+ * bereits indirekt trainiert (vordere Schulter beim Drücken, Trapez und hintere Schulter beim Rudern).
+ */
+const VOLUME_FACTOR: Partial<Record<MuscleId, number>> = {
+  frontDelts: 0.5, rearDelts: 0.8, traps: 0.6, abs: 0.7, adductors: 0.7, abductors: 0.7,
 }
 
 const DAY_LABEL: Record<DayType, string> = {
@@ -21,8 +38,8 @@ const DAY_LABEL: Record<DayType, string> = {
 
 /** Reihenfolge innerhalb eines Tages: große Muskeln zuerst */
 const ORDER: MuscleId[] = [
-  'quads', 'hamstrings', 'glutes', 'chest', 'lats', 'upperBack', 'shoulders', 'triceps', 'biceps',
-  'traps', 'adductors', 'abductors', 'calves', 'forearms', 'core',
+  'quads', 'hamstrings', 'glutes', 'chest', 'lats', 'upperBack', 'frontDelts', 'sideDelts', 'rearDelts', 'triceps', 'biceps',
+  'traps', 'adductors', 'abductors', 'calves', 'abs', 'forearms', 'obliques', 'lowerBack', 'neck', 'serratus', 'tibialis',
 ]
 
 export function dayTypes(split: Split, days: number): DayType[] {
@@ -63,6 +80,7 @@ const BASE_WEEKLY_SETS: Record<Experience, number> = { none: 6, beginner: 8, int
 export function weeklyTarget(config: ProgramConfig, muscle: MuscleId): number {
   let sets = BASE_WEEKLY_SETS[config.experience]
   if (config.goal === 'strength') sets *= 0.8
+  sets *= VOLUME_FACTOR[muscle] ?? 1
   const prio = config.focus[muscle]
   if (prio === 'high') sets *= 1.35
   if (prio === 'low') sets *= 0.6
@@ -97,8 +115,14 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
   const pool = exercises.filter(
     (e) => !e.cardio && (!config.equipment || config.equipment.includes(e.equipment)),
   )
+  const dayMuscles = (t: DayType): MuscleId[] => {
+    const base = DAY_MUSCLES[t].filter((m) => !FOCUS_ONLY.includes(m) || config.focus[m] === 'high')
+    // Fokus-Muskeln, die in keinem Tagesmuster vorkommen, hängen an Pull (Rücken, Nacken), Upper/Full (Oberkörper) oder Legs/Lower (Unterkörper)
+    const extra = FOCUS_ONLY.filter((m) => config.focus[m] === 'high' && !DAY_MUSCLES[t].includes(m) && (DAY_HOME[m] ?? []).includes(t))
+    return [...base, ...extra]
+  }
   const freq: Partial<Record<MuscleId, number>> = {}
-  types.forEach((t) => DAY_MUSCLES[t].forEach((m) => { freq[m] = (freq[m] ?? 0) + 1 }))
+  types.forEach((t) => dayMuscles(t).forEach((m) => { freq[m] = (freq[m] ?? 0) + 1 }))
 
   // Wochenvolumen an das Zeitbudget anpassen
   const cap = SESSION_SET_CAP[config.time]
@@ -109,13 +133,12 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
     const credit: Partial<Record<MuscleId, number>> = {}
     const used = new Set<string>()
     const planned: PlannedExercise[] = []
-    const muscles = [...DAY_MUSCLES[type]].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
+    const muscles = [...dayMuscles(type)].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
     let remainingCap = cap
 
     for (const m of muscles) {
       if (remainingCap <= 0) break
-      // Unterarme nur auf ausdrücklichen Wunsch, sonst reichen Zug- und Curl-Übungen
-      if (m === 'forearms' && config.focus.forearms !== 'high') continue
+      if (FOCUS_ONLY.includes(m) && config.focus[m] !== 'high') continue
       const perDay = (weeklyTarget(config, m) * scale) / (freq[m] ?? 1)
       const needed = Math.round(perDay - (credit[m] ?? 0))
       if (needed <= 0) continue

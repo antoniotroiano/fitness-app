@@ -1,0 +1,21 @@
+/** Anleitungen: Erweiterung um feinere Muskelgruppen (Nacken, Serratus, Schienbein, unterer Rücken, Seitbauch) */
+export const EXTRA: Record<string, string[]> = {
+  'superman': ['Lege dich bäuchlings auf den Boden, Arme nach vorn gestreckt.', 'Hebe Arme und Beine gleichzeitig wenige Zentimeter an, Blick zum Boden.', 'Halte kurz die Spannung im unteren Rücken und senke kontrolliert ab.'],
+  'weighted-hyperextension': ['Fixiere die Füße im Gerät, die Hüfte liegt am Polster, halte eine Hantel vor der Brust.', 'Senke den Oberkörper mit geradem Rücken ab.', 'Richte dich bis zur Körperlinie auf, ohne ins Hohlkreuz zu gehen.'],
+  'neck-curl-plate': ['Lege dich rücklings auf eine Bank, der Kopf hängt über der Kante, eine Hantelscheibe liegt auf der Stirn.', 'Hebe den Kopf langsam, das Kinn nähert sich der Brust.', 'Senke kontrolliert und mit leichtem Gewicht ab.'],
+  'neck-extension-machine': ['Stelle das Polster hinten am Kopf ein, Oberkörper aufrecht.', 'Drücke den Kopf kontrolliert nach hinten.', 'Kehre langsam zurück, nutze nur leichte Lasten.'],
+  'neck-band-extension': ['Befestige das Band hinter dir und lege es um den Hinterkopf.', 'Neige den Kopf gegen den Widerstand nach vorn und strecke ihn wieder.', 'Bewege dich langsam und ohne Ruck.'],
+  'neck-lateral-band': ['Befestige das Band seitlich und lege es auf Kopfhöhe an.', 'Neige den Kopf gegen den Widerstand zur Schulter.', 'Kehre kontrolliert zurück, dann Seite wechseln.'],
+  'scapular-pushup': ['Gehe in die Liegestützposition mit gestreckten Armen.', 'Lasse die Brust zwischen den Schulterblättern absinken, ohne die Ellbogen zu beugen.', 'Drücke die Schulterblätter weit auseinander und halte kurz.'],
+  'cable-serratus-punch': ['Kabel auf Brusthöhe, Griff in einer Hand, seitlich zum Kabel stehen.', 'Strecke den Arm nach vorn und schiebe dabei die Schulter aktiv nach vorn.', 'Kehre langsam zurück.'],
+  'band-serratus-punch': ['Befestige das Band hinter dir auf Brusthöhe.', 'Strecke den Arm nach vorn und schiebe die Schulterblätter auseinander.', 'Gib langsam nach.'],
+  'db-serratus-press': ['Lege dich mit einer Hantel über der Brust auf die Bank, Arm gestreckt.', 'Schiebe die Schulter nach oben Richtung Decke, ohne den Arm zu beugen.', 'Senke die Schulter kontrolliert ab.'],
+  'wall-slide': ['Stehe mit dem Rücken zur Wand, Unterarme an der Wand.', 'Gleite mit den Armen nach oben und schiebe dabei die Schulterblätter nach vorn.', 'Kehre langsam zurück.'],
+  'tibialis-raise': ['Lehne dich mit dem Rücken an eine Wand, Füße einen Schritt vor der Wand.', 'Ziehe die Zehen so weit wie möglich zu den Schienbeinen.', 'Senke die Zehen kontrolliert ab.'],
+  'tibialis-machine': ['Setze dich an die Maschine, die Füße unter dem Polster.', 'Ziehe die Fußspitzen nach oben.', 'Senke langsam ab.'],
+  'db-tibialis-raise': ['Setze dich hin, eine Hantel liegt auf dem Vorfuß.', 'Ziehe die Fußspitze nach oben.', 'Senke kontrolliert ab.'],
+  'band-tibialis': ['Befestige das Band vor dir am Boden und lege es über den Vorfuß.', 'Ziehe die Zehen gegen den Widerstand zu dir.', 'Gib langsam nach.'],
+  'cable-side-bend': ['Kabel unten, Griff in einer Hand, seitlich zum Kabel stehen.', 'Beuge den Oberkörper seitlich vom Kabel weg.', 'Richte dich langsam wieder auf.'],
+  'db-side-bend': ['Halte eine Hantel in einer Hand seitlich am Körper.', 'Beuge den Oberkörper zur Seite der Hantel.', 'Richte dich auf, ohne zu schwingen.'],
+  'bicycle-crunch': ['Lege dich auf den Rücken, Hände an den Schläfen, Beine angehoben.', 'Führe den Ellbogen zum gegenüberliegenden Knie, das andere Bein streckt sich.', 'Wechsle im Rhythmus die Seiten.'],
+}
