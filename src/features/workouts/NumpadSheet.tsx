@@ -58,7 +58,7 @@ export function NumpadSheet({ field, label, value, rir, onValue, onRir, onConfir
           <button className={key} onClick={back} aria-label="Löschen">⌫</button>
           {['4', '5', '6'].map((k) => <button key={k} className={key} onClick={() => press(k)}>{k}</button>)}
           <button onClick={onConfirm} aria-label="Bestätigen"
-            className="row-span-3 rounded-xl bg-accent text-slate-900 text-2xl font-bold">✓</button>
+            className="row-span-3 rounded-xl bg-accent text-accent-fg text-2xl font-bold">✓</button>
           {['7', '8', '9'].map((k) => <button key={k} className={key} onClick={() => press(k)}>{k}</button>)}
           <button className={cx(key, !isWeight && 'opacity-30')} disabled={!isWeight} onClick={() => press(',')}>,</button>
           <button className={key} onClick={() => press('0')}>0</button>

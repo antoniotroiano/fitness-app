@@ -10,6 +10,11 @@ import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
 import { baseRepRange, effectiveSets, setRir, weekPlan } from './periodization'
 import { dayTypes, generate, weekSlots } from './planGenerator'
 import { alternatives } from './swap'
+import { targetMuscles } from './targetMuscles'
+import { weekProgress } from './weekProgress'
+import { MEDIA_MAP, posterSlug } from '../data/media'
+import { TIPS } from '../data/media/tips'
+import manifest from '../data/media/manifest.json'
 import { emptyWeek, isWeekComplete, markSlot } from './weekCycle'
 import { average, cardioDaily, exerciseDaily, filterPeriod, groupByMonth, muscleDaily, summary } from './stats'
 import { ALL_EXERCISES, EXERCISES, exerciseById } from '../data/exercises'
@@ -439,5 +444,82 @@ describe('Muskel-Migration (15 auf 22 Gruppen)', () => {
       .flatMap((d) => d.exercises.map((e) => exerciseById(e.exerciseId)!.primary[0]))
     expect(withFocus).toContain('neck')
     expect(withFocus).toContain('tibialis')
+  })
+})
+
+describe('targetMuscles', () => {
+  it('summiert Übungen und Sätze je primärem Muskel, ignoriert Cardio', () => {
+    const bench = exerciseById('bb-bench', ALL_EXERCISES)!
+    const fly = exerciseById('cable-fly', ALL_EXERCISES)!
+    const curl = exerciseById('bb-curl', ALL_EXERCISES)!
+    const cardio = ALL_EXERCISES.find((e) => e.cardio)!
+    const t = targetMuscles([{ ex: bench, sets: 3 }, { ex: fly, sets: 2 }, { ex: curl, sets: 3 }, { ex: cardio, sets: 1 }])
+    const chest = t.find((x) => x.muscle === 'chest')!
+    expect(chest).toEqual({ muscle: 'chest', exercises: 2, sets: 5 })
+    expect(t.find((x) => x.muscle === 'biceps')).toEqual({ muscle: 'biceps', exercises: 1, sets: 3 })
+    expect(t[0].muscle).toBe('chest')
+    expect(t.every((x) => x.sets > 0)).toBe(true)
+  })
+})
+
+describe('weekProgress Muskeln', () => {
+  const ex = (id: string) => exerciseById(id, ALL_EXERCISES)!
+  const pe = (id: string) => ({ exerciseId: id, sets: 2, repMin: 8, repMax: 12, rir: 2 })
+  const program = {
+    id: 1, name: 'T', icon: '', color: '', weekSlots: [0, 1], createdAt: 0,
+    days: [
+      { id: 'a', name: 'A', exercises: [pe('bb-bench'), pe('bb-curl')] },
+      { id: 'b', name: 'B', exercises: [pe('cable-fly')] },
+    ],
+  } as unknown as Parameters<typeof weekProgress>[0]
+  const week = { week: 0, done: [false, false], markedDates: [] } as unknown as Parameters<typeof weekProgress>[1]
+  const sets = (n: number) => Array.from({ length: n }, () => ({ weight: 50, reps: 8 }))
+  const session = (dayIndex: number, exs: [string, number][]) => ({
+    programId: 1, week: 0, dayIndex, date: '2026-01-01', finishedAt: 1,
+    exercises: exs.map(([exerciseId, n]) => ({ exerciseId, sets: sets(n) })),
+  }) as unknown as Parameters<typeof weekProgress>[2][number]
+
+  it('zählt Muskeln anteilig, wenn ein Workout erledigt ist', () => {
+    // Brust: 2 Sätze Bankdrücken (A) + 2 Sätze Fly (B) = 4 geplant; Bizeps: 2 in A
+    const p = weekProgress(program, week, [session(0, [['bb-bench', 2], ['bb-curl', 2]])], (id) => ex(id))
+    expect(p.muscles.total).toBe(2)
+    expect(p.muscles.done).toBeCloseTo(1.5) // Bizeps 1 + Brust 0,5
+  })
+  it('ist 0 ohne Sessions und voll nach allen Workouts', () => {
+    expect(weekProgress(program, week, [], (id) => ex(id)).muscles.done).toBe(0)
+    const all = [session(0, [['bb-bench', 2], ['bb-curl', 2]]), session(1, [['cable-fly', 2]])]
+    expect(weekProgress(program, week, all, (id) => ex(id)).muscles.done).toBe(2)
+  })
+})
+
+describe('Übungsbilder (Mapping)', () => {
+  it('mappt nur auf vorhandene App-Übungen und vorhandene Poster', () => {
+    for (const [id, slug] of Object.entries(MEDIA_MAP)) {
+      expect(exerciseById(id), `unbekannte Übung ${id}`).toBeTruthy()
+      expect(manifest, `Poster fehlt: ${slug}`).toContain(slug)
+      expect(posterSlug(id)).toBe(slug)
+    }
+  })
+  it('hat keine Dubletten bei den Slugs', () => {
+    const slugs = Object.values(MEDIA_MAP)
+    expect(new Set(slugs).size).toBe(slugs.length)
+  })
+  it('liefert null ohne Mapping', () => {
+    expect(posterSlug('gibt-es-nicht')).toBeNull()
+  })
+})
+
+describe('Übungs-Tipps', () => {
+  it('hat zu jeder Übung mit Bild vollständige Tipps', () => {
+    for (const id of Object.keys(MEDIA_MAP)) {
+      const t = TIPS[id]
+      expect(t, `Tipps fehlen: ${id}`).toBeTruthy()
+      expect(t.cues.length, id).toBeGreaterThan(0)
+      expect(t.mistakes.length, id).toBeGreaterThan(0)
+      expect(t.breathing.length, id).toBeGreaterThan(0)
+    }
+  })
+  it('hat keine Tipps zu unbekannten Übungen', () => {
+    for (const id of Object.keys(TIPS)) expect(exerciseById(id), id).toBeTruthy()
   })
 })

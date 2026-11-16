@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { HashRouter, NavLink, Route, Routes, useNavigate, useLocation } from 'react-router-dom'
 import { useSettings } from './db/db'
 import { BottomSheet, cx } from './components/ui'
+import { Icon, type IconName } from './components/icons'
 import Dashboard from './features/dashboard/Dashboard'
 import Workouts from './features/workouts/Workouts'
 import WorkoutPreview from './features/workouts/WorkoutPreview'
@@ -23,11 +24,11 @@ function useTheme() {
   }, [theme])
 }
 
-function Tab({ to, label, icon }: { to: string; label: string; icon: string }) {
+function Tab({ to, label, icon }: { to: string; label: string; icon: IconName }) {
   return (
     <NavLink to={to} end={to === '/'}
       className={({ isActive }) => cx('flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px]', isActive ? 'text-accent' : 'text-muted')}>
-      <span className="text-xl leading-none">{icon}</span>{label}
+      <Icon name={icon} size={24} />{label}
     </NavLink>
   )
 }
@@ -41,10 +42,10 @@ function Shell() {
   const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/workout-preview/') || loc.pathname.startsWith('/new')
 
   const items = [
-    { icon: '⚖️', label: 'Gewicht eintragen', to: '/weight' },
-    { icon: '📏', label: 'Maße eintragen', to: '/measures' },
-    { icon: '📋', label: 'Neues Programm', to: '/new' },
-    { icon: '🏋️', label: 'Einzelnes Workout erstellen', to: '/new/manual?single=1' },
+    { icon: 'weight' as IconName, label: 'Gewicht eintragen', to: '/weight' },
+    { icon: 'measures' as IconName, label: 'Maße eintragen', to: '/measures' },
+    { icon: 'program' as IconName, label: 'Neues Programm', to: '/new' },
+    { icon: 'workouts' as IconName, label: 'Einzelnes Workout erstellen', to: '/new/manual?single=1' },
   ]
 
   return (
@@ -73,14 +74,14 @@ function Shell() {
       </Routes>
 
       {!hideTabs && (
-        <nav className="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur border-t border-line safe-bottom">
+        <nav className="fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-line safe-bottom-tight">
           <div className="max-w-2xl mx-auto flex items-center">
-            <Tab to="/" label="Dashboard" icon="📊" />
-            <Tab to="/workouts" label="Workouts" icon="🗓️" />
+            <Tab to="/" label="Dashboard" icon="dashboard" />
+            <Tab to="/workouts" label="Workouts" icon="calendar" />
             <button onClick={() => setSheet(true)} aria-label="Hinzufügen"
-              className="-mt-6 w-14 h-14 rounded-full bg-accent text-slate-900 text-3xl font-light shadow-lg active:scale-95">＋</button>
-            <Tab to="/more/library" label="Übungen" icon="💪" />
-            <Tab to="/more" label="More" icon="⋯" />
+              className="-mt-6 w-14 h-14 rounded-full bg-accent text-accent-fg text-3xl font-light shadow-lg active:scale-95">＋</button>
+            <Tab to="/more/library" label="Übungen" icon="library" />
+            <Tab to="/more" label="More" icon="more" />
           </div>
         </nav>
       )}
@@ -90,7 +91,7 @@ function Shell() {
           {items.map((i) => (
             <button key={i.to} onClick={() => go(i.to)}
               className="rounded-2xl bg-surface2 p-4 text-left active:opacity-70">
-              <div className="text-2xl">{i.icon}</div>
+              <Icon name={i.icon} size={26} />
               <div className="text-sm font-medium mt-2">{i.label}</div>
             </button>
           ))}

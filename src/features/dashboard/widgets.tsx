@@ -39,7 +39,7 @@ export function RingStat({ label, done, total, color, big }: { label: string; do
 }
 
 /** Kleines Balkendiagramm (z. B. letzte 7 Tage, rechts = heute). */
-export function MiniBars({ values, color = 'var(--accent)' }: { values: number[]; color?: string }) {
+export function MiniBars({ values, color = 'var(--chart-bar)' }: { values: number[]; color?: string }) {
   const max = Math.max(1, ...values)
   const w = 100 / values.length
   return (
@@ -54,7 +54,7 @@ export function MiniBars({ values, color = 'var(--accent)' }: { values: number[]
 }
 
 /** Kleines Liniendiagramm (z. B. 1RM der letzten 7 Tage); Tage ohne Wert (null) werden übersprungen. */
-export function MiniLine({ values, color = 'var(--accent)' }: { values: (number | null)[]; color?: string }) {
+export function MiniLine({ values, color = 'var(--chart-line)' }: { values: (number | null)[]; color?: string }) {
   const present = values.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v !== null)
   const min = Math.min(...present.map((p) => p.v))
   const max = Math.max(...present.map((p) => p.v))

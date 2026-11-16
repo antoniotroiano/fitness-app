@@ -25,7 +25,7 @@ function WeekStrip({ marked }: { marked: string[] }) {
             <span className="text-[11px] text-muted">{WEEKDAYS[weekdayIndex(d)]}</span>
             <span className={cx(
               'w-9 h-9 rounded-full flex items-center justify-center text-sm border',
-              isMarked ? 'bg-accent text-slate-900 border-accent font-bold' : d === today ? 'border-accent text-accent' : 'border-line',
+              isMarked ? 'bg-accent text-accent-fg border-accent font-bold' : d === today ? 'border-accent text-accent' : 'border-line',
             )}>{Number(d.slice(8))}</span>
           </div>
         )
@@ -90,24 +90,27 @@ export default function Workouts() {
               <Card key={i} className="flex items-center justify-between !py-3">
                 <div><div className="text-sm font-medium">Rest Day</div><div className="text-xs text-muted">Tag {i + 1}</div></div>
                 <button onClick={() => toggleRest(i)}
-                  className={cx('w-8 h-8 rounded-full border flex items-center justify-center', done ? 'bg-accent border-accent text-slate-900' : 'border-line text-transparent')}
+                  className={cx('w-8 h-8 rounded-full border flex items-center justify-center', done ? 'bg-accent border-accent text-accent-fg' : 'border-line text-transparent')}
                   aria-label="Ruhetag abhaken">✓</button>
               </Card>
             )
           }
           const day = program.days[slot]
           const s = cycleSessions.find((x) => x.dayIndex === slot)
+          const open = () => nav(`/workout-preview/s${i}`)
           return (
-            <Card key={i} className="flex items-center justify-between !py-3">
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{day.name}</div>
-                <div className="text-xs text-muted">
-                  {done ? `Geloggt${s ? ` · ${formatDate(s.date)} · ${formatTime(new Date(s.finishedAt), settings.clock)}` : ''}` : `${day.exercises.length} Übungen · Tag ${i + 1}`}
+            <Card key={i} className="!p-0">
+              <div role="button" tabIndex={0} onClick={open} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } }}
+                className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer active:opacity-70">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{day.name}</div>
+                  <div className="text-xs text-muted">
+                    {done ? `Geloggt${s ? ` · ${formatDate(s.date)} · ${formatTime(new Date(s.finishedAt), settings.clock)}` : ''}` : `${day.exercises.length} Übungen · Tag ${i + 1}`}
+                  </div>
                 </div>
+                <button onClick={(e) => { e.stopPropagation(); open() }} aria-label={`${day.name} öffnen`}
+                  className={cx('w-8 h-8 shrink-0 rounded-full border flex items-center justify-center', done ? 'bg-accent border-accent text-accent-fg' : 'border-line text-transparent')}>✓</button>
               </div>
-              {done
-                ? <span className="text-accent text-sm font-semibold">✓ Geloggt</span>
-                : <Button onClick={() => nav(`/workout-preview/s${i}`)}>Öffnen</Button>}
             </Card>
           )
         })}
@@ -117,9 +120,14 @@ export default function Workouts() {
         <div className="space-y-2">
           <div className="text-xs uppercase tracking-wide text-muted">Zusätzliche Workouts</div>
           {extra.map(({ d, i }) => (
-            <Card key={d.id} className="flex items-center justify-between !py-3">
-              <div className="text-sm font-medium">{d.name}</div>
-              <Button variant="ghost" onClick={() => nav(`/workout-preview/d${i}`)}>Öffnen</Button>
+            <Card key={d.id} className="!p-0">
+              <div role="button" tabIndex={0} onClick={() => nav(`/workout-preview/d${i}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nav(`/workout-preview/d${i}`) } }}
+                className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer active:opacity-70">
+                <div className="text-sm font-medium truncate">{d.name}</div>
+                <button onClick={(e) => { e.stopPropagation(); nav(`/workout-preview/d${i}`) }} aria-label={`${d.name} öffnen`}
+                  className="w-8 h-8 shrink-0 rounded-full border border-line text-transparent">✓</button>
+              </div>
             </Card>
           ))}
         </div>

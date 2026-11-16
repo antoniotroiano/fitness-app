@@ -137,6 +137,22 @@ export default function Logger() {
       setRest({ endsAt: Date.now() + sec * 1000, total: sec })
     }
   }
+  /** Header-Checkbox: alle Sätze der Übung abhaken bzw. alle zurücksetzen (ohne Pausen-Timer). */
+  const toggleAll = () => {
+    const allDone = isComplete(rows)
+    setActive((a) => {
+      if (!a) return a
+      const id = current.pe.exerciseId
+      const nextRows = { ...a.rows, [id]: (a.rows[id] ?? []).map((r) => ({ ...r, done: !allDone })) }
+      let cur = a.current
+      if (!allDone) {
+        const open = views.find((v) => !isComplete(nextRows[v.pe.exerciseId] ?? []))
+        if (open) cur = open.pe.exerciseId
+      }
+      return { ...a, rows: nextRows, current: cur }
+    })
+    if (!allDone) setPad(null)
+  }
   const addSet = () => setRows(current.pe.exerciseId, (rs) => {
     const last = [...rs].reverse().find((r) => r.type === 'work') ?? rs.at(-1)
     const base: Row = last ?? { id: '', type: 'work', weight: '', reps: '', rir: '', done: false, minutes: '', km: '' }
@@ -193,7 +209,7 @@ export default function Logger() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-8" style={{ paddingBottom: pad ? '22rem' : undefined }}>
-      <div className="sticky top-0 z-30 bg-bg/95 backdrop-blur -mx-4 px-4 pt-3 pb-2 safe-top border-b border-line">
+      <div className="sticky top-0 z-30 bg-bg -mx-4 px-4 pt-3 pb-2 safe-top border-b border-line">
         <WorkoutHeader clock={active.clock} onBack={() => nav('/workouts')} onTogglePause={togglePause} onFinish={() => setFinishOpen(true)} />
         {rest && !paused && (
           <RestBar rest={rest} onDone={() => setRest(null)}
@@ -218,7 +234,7 @@ export default function Logger() {
         </div>
 
         <SetTable view={current} rows={rows} settings={settings} activePad={pad}
-          onPatch={patch} onToggleDone={toggleDone} onAdd={addSet} onDelete={deleteRow}
+          onPatch={patch} onToggleDone={toggleDone} onToggleAll={toggleAll} onAdd={addSet} onDelete={deleteRow}
           onType={setTypeRow} onPad={(rowId, field) => setPad({ rowId, field })} />
       </div>
 

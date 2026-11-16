@@ -102,7 +102,7 @@ export default function Wizard() {
         <div className="flex gap-2 justify-between">
           {[2, 3, 4, 5, 6].map((d) => (
             <button key={d} onClick={() => set({ days: d })}
-              className={cx('flex-1 aspect-square rounded-2xl text-2xl font-bold border', cfg.days === d ? 'bg-accent text-slate-900 border-accent' : 'bg-surface border-line')}>{d}</button>
+              className={cx('flex-1 aspect-square rounded-2xl text-2xl font-bold border', cfg.days === d ? 'bg-accent text-accent-fg border-accent' : 'bg-surface border-line')}>{d}</button>
           ))}
         </div>
       )}
