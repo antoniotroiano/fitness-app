@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import type { Exercise } from '../../types'
 import { BottomSheet, cx } from '../../components/ui'
 import { MuscleDetail } from '../../components/MuscleFigure'
+import { ExerciseHero } from '../../components/ExerciseMedia'
+import { tipsFor } from '../../data/media/tips'
 import { instructionsFor } from '../../data/instructions'
 import { EQUIPMENT_LABEL } from '../../data/exercises'
 import { muscleLabel } from '../../data/muscles'
@@ -13,6 +15,29 @@ type Tab = 'instructions' | 'details' | 'history'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'instructions', label: 'Instructions' }, { id: 'details', label: 'Details' }, { id: 'history', label: 'History' },
 ]
+
+function Tips({ id }: { id: string }) {
+  const t = tipsFor(id)
+  if (!t) return null
+  const block = (title: string, items: string[]) => items.length > 0 && (
+    <section className="mt-5">
+      <h3 className="text-sm font-semibold mb-1.5">{title}</h3>
+      <ul className="space-y-1 text-sm text-muted list-disc pl-5">{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+    </section>
+  )
+  return (
+    <>
+      {block('Tipps', t.cues)}
+      {block('Häufige Fehler', t.mistakes)}
+      {t.breathing && (
+        <section className="mt-5">
+          <h3 className="text-sm font-semibold mb-1.5">Atmung</h3>
+          <p className="text-sm text-muted">{t.breathing}</p>
+        </section>
+      )}
+    </>
+  )
+}
 
 function History({ ex }: { ex: Exercise }) {
   const sessions = useSessions()
@@ -79,9 +104,13 @@ export function ExerciseInfoSheet({ ex, open, onClose }: { ex: Exercise | null; 
         ))}
       </div>
       {tab === 'instructions' && (
-        <ol className="space-y-3 text-sm list-decimal pl-5">
-          {instructionsFor(ex).map((step, i) => <li key={i}>{step}</li>)}
-        </ol>
+        <div>
+          <ExerciseHero ex={ex} />
+          <ol className="space-y-3 text-sm list-decimal pl-5">
+            {instructionsFor(ex).map((step, i) => <li key={i}>{step}</li>)}
+          </ol>
+          <Tips id={ex.id} />
+        </div>
       )}
       {tab === 'details' && (
         <div className="space-y-4">

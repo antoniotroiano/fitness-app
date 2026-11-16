@@ -7,7 +7,7 @@ import { EQUIPMENT_LABEL } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
 import { ExerciseInfoSheet } from '../workouts/ExerciseInfoSheet'
-import { ExerciseThumb } from '../../components/ExerciseThumb'
+import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/library'
@@ -45,7 +45,7 @@ function Option<T extends string>({ label, value, options, onChange, icon }: {
         {options.map((o) => (
           <button key={o.value} type="button" onClick={() => onChange(o.value)} aria-pressed={o.value === value}
             className={cx('rounded-full px-3 py-1.5 text-xs whitespace-nowrap border',
-              o.value === value ? 'bg-accent text-slate-900 border-accent font-semibold' : 'bg-surface2 text-muted border-line')}>{o.label}</button>
+              o.value === value ? 'bg-accent text-accent-fg border-accent font-semibold' : 'bg-surface2 text-muted border-line')}>{o.label}</button>
         ))}
       </div>
     </div>
@@ -67,9 +67,9 @@ function ThemePicker({ value, onChange }: { value: Settings['theme']; onChange: 
           style={{ background: t.bg }}>
           {/* Mini-Vorschau: Karte und Akzent */}
           <span className="absolute left-3 right-3 top-4 h-3 rounded-full" style={{ background: t.value === 'dark' ? '#1c2540' : t.value === 'light' ? '#fff' : 'linear-gradient(90deg, #fff 50%, #1c2540 50%)' }} />
-          <span className="absolute left-3 w-8 bottom-4 h-3 rounded-full" style={{ background: '#38bdf8' }} />
+          <span className="absolute left-3 w-8 bottom-4 h-3 rounded-full" style={{ background: 'var(--accent)' }} />
           {value === t.value && (
-            <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-accent text-slate-900 text-xs flex items-center justify-center">✓</span>
+            <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-accent text-accent-fg text-xs flex items-center justify-center">✓</span>
           )}
         </button>
       ))}
@@ -288,7 +288,7 @@ export function LibraryPage() {
                   {shown.map((e) => (
                     <li key={e.id}>
                       <button className="w-full py-3 flex items-center gap-3 text-left" onClick={() => setInfo(e)}>
-                        <ExerciseThumb ex={e} size={44} />
+                        <ExercisePhoto ex={e} size={44} />
                         <span className="min-w-0">
                           <span className="block text-sm font-medium">{e.name}</span>
                           <span className="block text-xs text-muted">
@@ -309,7 +309,7 @@ export function LibraryPage() {
       </div>
 
       <div className="fixed inset-x-0 z-30 px-4 transition-all duration-200"
-        style={{ bottom: 'calc(5.75rem + env(safe-area-inset-bottom))', transform: barHidden ? 'translateY(160%)' : 'none', opacity: barHidden ? 0 : 1, pointerEvents: barHidden ? 'none' : 'auto' }}>
+        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom) * 0.45)', transform: barHidden ? 'translateY(160%)' : 'none', opacity: barHidden ? 0 : 1, pointerEvents: barHidden ? 'none' : 'auto' }}>
         <div className="max-w-2xl mx-auto">
           <input className={`${inputCls} shadow-lg !rounded-full !px-4`} placeholder="Übung suchen…" value={q} aria-label="Übung suchen"
             onChange={(e) => setQ(e.target.value)} />
@@ -390,6 +390,10 @@ export function AboutPage() {
         <div className="text-muted">Version {APP_VERSION}</div>
         <p>Eigenständige Trainings-App mit regelbasierter Progression (Double Progression, e1RM, RIR). Alle Daten bleiben auf deinem Gerät.</p>
         <p className="text-muted text-xs">Die Vorschläge sind allgemeine Trainingsheuristiken und ersetzen keine individuelle Beratung durch Trainer:innen oder Ärzt:innen.</p>
+      </Card>
+      <Card className="space-y-2 text-sm">
+        <div className="font-semibold">Quellen</div>
+        <p className="text-muted text-xs">Übungsbilder (und ausgewählte Texte) stammen aus dem Projekt „free-exercise-db-with-videos“ (MIT-Lizenz, © 2026 Arham Wani). Muskelfiguren und Anleitungen sind eigene Arbeit.</p>
       </Card>
       <Button variant="danger" className="w-full" onClick={() => { saveSettings(DEFAULT_SETTINGS) }}>Einstellungen zurücksetzen</Button>
     </Page>

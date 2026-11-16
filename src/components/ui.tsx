@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -13,7 +13,7 @@ export function Button({
   className?: string; disabled?: boolean; type?: 'button' | 'submit'; 'aria-label'?: string
 }) {
   const v = {
-    primary: 'bg-accent text-slate-900 font-semibold',
+    primary: 'bg-accent text-accent-fg font-semibold',
     ghost: 'bg-surface2 text-fg',
     danger: 'bg-red-500/15 text-red-500',
   }[variant]
@@ -29,7 +29,7 @@ export function Chip({ active, children, onClick }: { active?: boolean; children
   return (
     <button type="button" onClick={onClick}
       className={cx('rounded-full px-3 py-1.5 text-xs whitespace-nowrap border',
-        active ? 'bg-accent text-slate-900 border-accent font-semibold' : 'bg-surface2 text-muted border-line')}>
+        active ? 'bg-accent text-accent-fg border-accent font-semibold' : 'bg-surface2 text-muted border-line')}>
       {children}
     </button>
   )
@@ -65,7 +65,7 @@ export function Collapsible({
 export function Page({ title, children, back, right }: { title: string; children: ReactNode; back?: () => void; right?: ReactNode }) {
   return (
     <div className="min-h-full pb-28">
-      <header className="safe-top sticky top-0 z-10 bg-bg/90 backdrop-blur border-b border-line">
+      <header className="safe-top sticky top-0 z-10 bg-bg border-b border-line">
         <div className="flex items-center gap-3 px-4 h-14">
           {back && <button onClick={back} className="text-accent text-xl -ml-1" aria-label="Zurück">‹</button>}
           <h1 className="font-bold text-lg flex-1 truncate">{title}</h1>
@@ -77,17 +77,55 @@ export function Page({ title, children, back, right }: { title: string; children
   )
 }
 
+const CLOSE_DRAG = 100
+
+/** Bottom-Sheet: schließt per Wischen nach unten (Griff/Titelzeile), ✕ oder Tipp auf den Hintergrund. */
 export function BottomSheet({ open, onClose, children, title, tall }: { open: boolean; onClose: () => void; children: ReactNode; title?: string; tall?: boolean }) {
+  const [dy, setDy] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const start = useRef<number | null>(null)
+  const dyRef = useRef(0)
   if (!open) return null
+
+  const down = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return
+    start.current = e.clientY
+    setDragging(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const move = (e: React.PointerEvent) => {
+    if (start.current === null) return
+    dyRef.current = Math.max(0, e.clientY - start.current)
+    setDy(dyRef.current)
+  }
+  const end = () => {
+    if (start.current === null) return
+    start.current = null
+    setDragging(false)
+    const far = dyRef.current > CLOSE_DRAG
+    dyRef.current = 0
+    setDy(0)
+    if (far) onClose()
+  }
+  const maxH = 'calc(100% - env(safe-area-inset-top) - 12px)'
+
   return (
     <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
-      <div onClick={(e) => e.stopPropagation()}
-        className={cx('relative w-full max-w-2xl mx-auto bg-surface rounded-t-3xl border-t border-line pt-5 px-5 safe-bottom',
-          tall ? 'h-[92%] flex flex-col' : 'max-h-[85%] overflow-y-auto')}>
-        <div className="w-10 h-1 bg-line rounded-full mx-auto mb-4 shrink-0" />
-        {title && <h2 className="font-bold text-lg mb-3 shrink-0">{title}</h2>}
-        {tall ? <div className="flex-1 min-h-0 overflow-y-auto pb-5">{children}</div> : <div className="pb-5">{children}</div>}
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}
+        style={{ ...(tall ? { height: maxH } : { maxHeight: maxH }), transform: `translateY(${dy}px)`, transition: dragging ? 'none' : 'transform 0.2s ease-out' }}
+        className={cx('relative w-full max-w-2xl mx-auto bg-surface rounded-t-3xl border-t border-line px-5 safe-bottom flex flex-col')}>
+        <div onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end}
+          className="shrink-0 pt-3 pb-2 -mx-5 px-5 cursor-grab" style={{ touchAction: 'none' }}>
+          <div className="w-10 h-1 bg-line rounded-full mx-auto mb-3" />
+          <div className="flex items-center gap-3 min-h-8">
+            {title && <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{title}</h2>}
+            {!title && <span className="flex-1" />}
+            <button type="button" onClick={onClose} aria-label="Schließen"
+              className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto pb-5 overscroll-contain">{children}</div>
       </div>
     </div>
   )

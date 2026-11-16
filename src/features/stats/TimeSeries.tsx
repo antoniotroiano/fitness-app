@@ -88,14 +88,14 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
         {bar && placed.map((p, i) => {
           const spanW = mode === 'daily' ? bw : Math.max(3, (p.to - p.from + 1) * dayW * 0.8)
           return <rect key={p.date} x={p.cx - spanW / 2} y={y(p.value)} width={spanW} height={Math.max(1, y(lo) - y(p.value))} rx={3}
-            fill="var(--accent)" opacity={sel === null || sel === i ? 1 : 0.5} onClick={() => setSel(sel === i ? null : i)} />
+            fill="var(--chart-bar)" opacity={sel === null || sel === i ? 1 : 0.5} onClick={() => setSel(sel === i ? null : i)} />
         })}
         {!bar && linePts.length > 1 && (
-          <polyline fill="none" stroke="var(--accent)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
+          <polyline fill="none" stroke="var(--chart-line)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
             points={linePts.map((p) => `${p.cx},${y(p.value)}`).join(' ')} />
         )}
         {!bar && placed.map((p, i) => (
-          <circle key={p.date} cx={p.cx} cy={y(p.value)} r={sel === i ? 5 : 3.5} fill="var(--accent)" onClick={() => setSel(sel === i ? null : i)} />
+          <circle key={p.date} cx={p.cx} cy={y(p.value)} r={sel === i ? 5 : 3.5} fill="var(--chart-line)" onClick={() => setSel(sel === i ? null : i)} />
         ))}
         {selected && (() => {
           const label = `${formatDate(selected.date, { weekday: 'short', day: 'numeric', month: 'short' })}: ${fmt(selected.value)}`
@@ -141,7 +141,7 @@ export function TimeSeries({ daily, bar, fmt, defaultPeriod = '1W', showAveragin
   const pick = (p: Period) => { setPeriod(p); setOffset(0); setHighlight(true) }
   const pan = (o: number) => { if (o !== offset) { setOffset(o); setHighlight(false) } }
   const chipCls = (on: boolean) => cx('rounded-full px-2.5 py-1.5 text-xs whitespace-nowrap border',
-    on ? 'bg-accent text-slate-900 border-accent font-semibold' : 'bg-surface2 text-muted border-line')
+    on ? 'bg-accent text-accent-fg border-accent font-semibold' : 'bg-surface2 text-muted border-line')
 
   return (
     <div className="space-y-3">

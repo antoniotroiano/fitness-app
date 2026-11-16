@@ -67,7 +67,7 @@ function Body({ view, primary, secondary }: { view: View; primary: MuscleId[]; s
       {(Object.keys(map) as MuscleId[]).map((m) => {
         const role = primary.includes(m) ? 'p' : secondary.includes(m) ? 's' : 'n'
         return map[m]!.map((d, i) => (
-          <path key={`${m}${i}`} d={d} fill={role === 'n' ? 'var(--line)' : 'var(--accent)'}
+          <path key={`${m}${i}`} d={d} fill={role === 'n' ? 'var(--line)' : 'var(--muscle)'}
             fillOpacity={role === 'p' ? 1 : role === 's' ? 0.45 : 0.55} />
         ))
       })}

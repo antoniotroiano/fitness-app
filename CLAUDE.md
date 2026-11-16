@@ -1,6 +1,6 @@
 # Lift Lab
 
-Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. Ausführliche Planung: `docs/PLAN-1.md` (Grundplan) und `docs/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard).
+Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. **Ausnahme (bewusste Entscheidung):** Übungsbilder und ausgewählte Texte aus `free-exercise-db-with-videos` (MIT), siehe `THIRD_PARTY.md`, `docs/PLAN-3.md`. Ausführliche Planung: `docs/PLAN-1.md` (Grundplan) und `docs/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard).
 
 ## Befehle
 ```bash
@@ -23,6 +23,7 @@ Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Paramete
   - `warmup.ts` (Aufwärmrampe), `rest.ts` (Pausen-Kategorien/Defaults), `plannedDay.ts` (geteilte Tagesberechnung für Vorschau + Logger), `workoutClock.ts` (Timer mit Pausen)
 - `db/db.ts`: Dexie-Schema, Hooks (`useSessions` …), Backup Export/Import, Gewichts-Import (Apple-Health-XML/CSV)
 - `features/`: `wizard`, `workouts` (Wochenplan, Vorschau, Logger mit Timer/Satztabelle/Numpad/Info-Sheet), `dashboard`, `stats`, `body` (Gewicht, Maße), `more`
+- `data/media/`: `map.json` (App-ID → Repo-Slug), `manifest.json` (vorhandene Poster, erzeugt von `scripts/build-media.mjs`), `index.ts` (`posterUrl`). Bilder in `public/exercise-media/poster/`. Videos: nur Idee, `docs/IDEAS-VIDEOS.md`.
 - `data/instructions.ts` (+ `data/instr/*`): eigene Anleitungen pro Übungs-ID. `components/MuscleFigure.tsx`: eigene SVG-Muskelfigur (kein Fremd-Asset).
 - `components/ui.tsx`: gemeinsame UI-Bausteine; `utils/`: Datum und Einheiten
 

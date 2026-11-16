@@ -3,9 +3,13 @@ import { PUSH } from './instr/push'
 import { PULL } from './instr/pull'
 import { LEGS } from './instr/legs'
 import { EXTRA } from './instr/extra'
+import { TIPS } from './media/tips'
 
 /** Kurze, selbst formulierte Ausführungsanleitungen pro Übungs-ID. */
-export const INSTRUCTIONS: Record<string, string[]> = { ...PUSH, ...PULL, ...LEGS, ...EXTRA }
+const MEDIA_STEPS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(TIPS).flatMap(([id, t]) => (t.steps?.length ? [[id, t.steps]] : [])),
+)
+export const INSTRUCTIONS: Record<string, string[]> = { ...MEDIA_STEPS, ...PUSH, ...PULL, ...LEGS, ...EXTRA }
 
 const FALLBACK: string[] = ['Für diese Übung liegt noch keine Anleitung vor.']
 

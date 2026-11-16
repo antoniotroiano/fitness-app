@@ -15,6 +15,7 @@ interface Props {
   activePad: { rowId: string; field: PadField } | null
   onPatch: (rowId: string, p: Partial<Row>) => void
   onToggleDone: (row: Row) => void
+  onToggleAll: () => void
   onAdd: () => void
   onDelete: (rowId: string) => void
   onType: (rowId: string) => void
@@ -30,8 +31,10 @@ function previousText(s: LoggedSet | undefined, cardio: boolean, settings: Setti
 const COLS = 'grid-cols-[2.75rem_1fr_4.5rem_4.5rem_2.75rem]'
 
 /** Satztabelle: Set | Previous | kg | Reps | Haken */
-export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDone, onAdd, onDelete, onType, onPad }: Props) {
+export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDone, onToggleAll, onAdd, onDelete, onType, onPad }: Props) {
   const cardio = !!view.ex.cardio
+  const doneN = rows.filter((r) => r.done).length
+  const allDone = rows.length > 0 && doneN === rows.length
   let warmIdx = -1
   let workIdx = -1
   const cell = 'h-10 rounded-lg bg-surface2 text-center text-sm tabular-nums flex items-center justify-center'
@@ -40,7 +43,12 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
     <div className="rounded-2xl border border-line overflow-hidden bg-surface">
       <div className={cx('grid gap-2 px-2 py-2 text-xs text-muted text-center border-b border-line', COLS)}>
         <span>Set</span><span>Previous</span>
-        <span>{cardio ? 'min' : settings.weightUnit}</span><span>{cardio ? settings.distanceUnit : 'Reps'}</span><span />
+        <span>{cardio ? 'min' : settings.weightUnit}</span><span>{cardio ? settings.distanceUnit : 'Reps'}</span>
+        <button onClick={onToggleAll} disabled={rows.length === 0} role="checkbox" aria-checked={allDone ? true : doneN > 0 ? 'mixed' : false}
+          aria-label="Alle Sätze abhaken"
+          className={cx('h-7 rounded-md border text-sm leading-none', allDone ? 'bg-accent text-accent-fg border-accent' : doneN > 0 ? 'border-accent text-accent' : 'border-line text-transparent')}>
+          {allDone ? '✓' : doneN > 0 ? '–' : '✓'}
+        </button>
       </div>
       {rows.map((r) => {
         const warm = r.type === 'warmup'
@@ -75,7 +83,7 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
                 </>
               )}
               <button aria-label="Satz abhaken" onClick={() => onToggleDone(r)}
-                className={cx('h-10 rounded-lg border', r.done ? 'bg-accent text-slate-900 border-accent' : 'border-line text-transparent')}>✓</button>
+                className={cx('h-10 rounded-lg border', r.done ? 'bg-accent text-accent-fg border-accent' : 'border-line text-transparent')}>✓</button>
             </div>
           </SwipeRow>
         )

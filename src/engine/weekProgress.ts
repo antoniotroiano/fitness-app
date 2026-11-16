@@ -41,6 +41,7 @@ export function weekProgress(
   return {
     exercises: { done: exDone, total: exTotal },
     sets: { done: setDone, total: setTotal },
-    muscles: { done: muscleIds.filter((m) => (doneSets[m] ?? 0) >= (plannedSets[m] ?? 0)).length, total: muscleIds.length },
+    // Anteilig: ein Muskel mit 2 von 4 geplanten Sätzen zählt 0,5 (vorher erst bei 100 % der ganzen Woche, daher meist 0)
+    muscles: { done: muscleIds.reduce((n, m) => n + Math.min(1, (doneSets[m] ?? 0) / (plannedSets[m] || 1)), 0), total: muscleIds.length },
   }
 }
