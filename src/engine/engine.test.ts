@@ -15,10 +15,12 @@ import { weekProgress } from './weekProgress'
 import { MEDIA_MAP, posterSlug } from '../data/media'
 import { TIPS } from '../data/media/tips'
 import manifest from '../data/media/manifest.json'
-import { emptyWeek, isWeekComplete, markSlot } from './weekCycle'
+import { emptyWeek, historyUpTo, isWeekComplete, jumpToWeek, markSlot, maxReachedWeek } from './weekCycle'
 import { average, cardioDaily, exerciseDaily, filterPeriod, groupByMonth, muscleDaily, summary } from './stats'
 import { ALL_EXERCISES, EXERCISES, exerciseById } from '../data/exercises'
-import type { ProgramConfig, Session } from '../types'
+import { recentRecords } from './records'
+import { bodySeries, lastEntries, ratioSeries, weightSeries } from './body'
+import type { MeasureEntry, ProgramConfig, Session, WeightEntry } from '../types'
 
 const range = { min: 6, max: 10 }
 
@@ -521,5 +523,84 @@ describe('Übungs-Tipps', () => {
   })
   it('hat keine Tipps zu unbekannten Übungen', () => {
     for (const id of Object.keys(TIPS)) expect(exerciseById(id), id).toBeTruthy()
+  })
+})
+
+describe('Körperdaten', () => {
+  const weights: WeightEntry[] = [
+    { date: '2026-01-03', kg: 80, bodyFat: 18, source: 'manual' },
+    { date: '2026-01-01', kg: 81, source: 'manual' },
+    { date: '2026-01-02', kg: 80.5, bodyFat: 18.5, source: 'manual' },
+  ]
+  const measures: MeasureEntry[] = [
+    { date: '2026-01-01', values: { waist: 80, hips: 100 } },
+    { date: '2026-01-02', values: { waist: 82 } },
+    { date: '2026-01-03', values: { waist: 81, hips: 90, bicepsL: 36, bicepsR: 38 } },
+  ]
+  it('sortiert Gewicht chronologisch und lässt Einträge ohne Körperfett aus', () => {
+    expect(weightSeries(weights, 'kg').map((p) => p.date)).toEqual(['2026-01-01', '2026-01-02', '2026-01-03'])
+    expect(weightSeries(weights, 'bodyFat').map((p) => p.value)).toEqual([18.5, 18])
+  })
+  it('berechnet Verhältnisse nur, wenn beide Maße vorhanden sind', () => {
+    expect(ratioSeries(measures, 'waist', 'hips')).toEqual([
+      { date: '2026-01-01', value: 0.8 }, { date: '2026-01-03', value: 0.9 },
+    ])
+  })
+  it('bodySeries wählt Quelle nach Schlüssel', () => {
+    expect(bodySeries('weight', weights, measures)).toHaveLength(3)
+    expect(bodySeries('waist', weights, measures)).toHaveLength(3)
+    expect(bodySeries('bicepsSym', weights, measures)[0].value).toBeCloseTo(0.95)
+  })
+  it('lastEntries liefert die letzten n', () => {
+    const pts = weightSeries(weights, 'kg')
+    expect(lastEntries(pts, 2).map((p) => p.date)).toEqual(['2026-01-02', '2026-01-03'])
+    expect(lastEntries(pts, 7)).toHaveLength(3)
+  })
+})
+
+describe('Recent Records', () => {
+  const mk = (date: string, finishedAt: number, exercises: Session['exercises']): Session =>
+    ({ programId: 1, dayIndex: 0, date, finishedAt, week: 0, exercises })
+  const set = (weight: number, reps: number, warmup = false) => ({ weight, reps, warmup, done: true }) as never
+  const lookup = (id: string) => (id === 'run' ? ({ id, cardio: true } as never) : ({ id, cardio: false } as never))
+  const sessions = [
+    mk('2026-01-01', 1, [{ exerciseId: 'a', sets: [set(100, 5)] }]),
+    mk('2026-01-03', 2, [{ exerciseId: 'a', sets: [set(60, 20, true), set(80, 10)] }, { exerciseId: 'run', sets: [set(1, 1)] }, { exerciseId: 'b', sets: [set(50, 8), set(40, 12)] }]),
+  ]
+  it('nimmt je Übung die jüngste Einheit, ohne Cardio und Warm-ups', () => {
+    const rows = recentRecords(sessions, lookup, 'volume')
+    expect(rows.map((r) => r.exerciseId)).toEqual(['a', 'b'])
+    expect(rows[0].value).toBe(800)
+    expect(rows[1].value).toBe(480)
+  })
+  it('liefert Reps und begrenzt auf n', () => {
+    expect(recentRecords(sessions, lookup, 'reps').map((r) => r.value)).toEqual([10, 12])
+    expect(recentRecords(sessions, lookup, 'rm1', 1)).toHaveLength(1)
+  })
+})
+
+describe('Wochensprung', () => {
+  const program = { id: 7, weekSlots: [0, 'rest', 1, 'rest', 2, 'rest', 'rest'] } as never
+  const mk = (week: number, dayIndex: number, date: string): Session =>
+    ({ programId: 7, dayIndex, date, finishedAt: 1, week, exercises: [] })
+  const sessions = [mk(1, 0, '2026-02-02'), mk(1, 1, '2026-02-04'), mk(2, 0, '2026-02-09'), { ...mk(0, 0, '2026-01-01'), programId: 99 }]
+  it('rekonstruiert erledigte Slots der Zielwoche', () => {
+    const w = jumpToWeek(program, sessions, 1)
+    expect(w.week).toBe(1)
+    expect(w.done).toEqual([true, false, true, false, false, false, false])
+    expect(w.markedDates).toEqual(['2026-02-02', '2026-02-04'])
+  })
+  it('liefert leere Woche ohne Einheiten und begrenzt negative Ziele', () => {
+    expect(jumpToWeek(program, sessions, 5).done.every((d) => !d)).toBe(true)
+    expect(jumpToWeek(program, sessions, -3).week).toBe(0)
+  })
+  it('bestimmt höchste erreichte Woche', () => {
+    expect(maxReachedWeek(program, sessions, 1)).toBe(2)
+    expect(maxReachedWeek(program, [], 3)).toBe(3)
+  })
+  it('historyUpTo blendet spätere Wochen des Programms aus', () => {
+    const h = historyUpTo(sessions, 7, 1)
+    expect(h).toHaveLength(3)
+    expect(h.some((s) => s.week === 2)).toBe(false)
   })
 })

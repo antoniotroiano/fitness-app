@@ -259,13 +259,19 @@ export function LibraryPage() {
         <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4" role="group" aria-label="Muskelgruppen filtern">
           {MUSCLES.map((x) => (
             <button key={x.id} onClick={() => setM(m === x.id ? null : x.id)} title={x.label} aria-label={x.label} aria-pressed={m === x.id}
-              className={cx('shrink-0 rounded-2xl p-0.5 border-2', m === x.id ? 'border-accent' : 'border-transparent opacity-80')}>
-              <MuscleThumb primary={[x.id]} secondary={[]} size={46} />
+              className="shrink-0 w-[60px] flex flex-col items-center gap-1">
+              <span className={cx('rounded-2xl p-0.5 border-2', m === x.id ? 'border-accent' : 'border-transparent opacity-80')}>
+                <MuscleThumb primary={[x.id]} secondary={[]} size={46} />
+              </span>
+              <span className={cx('text-[10px] leading-tight w-full text-center truncate', m === x.id ? 'text-fg font-semibold' : 'text-muted')}>{x.label}</span>
             </button>
           ))}
           <button onClick={() => setM(m === 'cardio' ? null : 'cardio')} title="Cardio" aria-label="Cardio" aria-pressed={m === 'cardio'}
-            className={cx('shrink-0 rounded-2xl p-0.5 border-2', m === 'cardio' ? 'border-accent' : 'border-transparent opacity-80')}>
-            <span className="rounded-xl bg-surface border border-line flex items-center justify-center text-2xl" style={{ width: 46, height: 46 }}>🏃</span>
+            className="shrink-0 w-[60px] flex flex-col items-center gap-1">
+            <span className={cx('rounded-2xl p-0.5 border-2', m === 'cardio' ? 'border-accent' : 'border-transparent opacity-80')}>
+              <span className="rounded-xl bg-surface border border-line flex items-center justify-center text-2xl" style={{ width: 46, height: 46 }}>🏃</span>
+            </span>
+            <span className={cx('text-[10px] leading-tight w-full text-center truncate', m === 'cardio' ? 'text-fg font-semibold' : 'text-muted')}>Cardio</span>
           </button>
         </div>
 

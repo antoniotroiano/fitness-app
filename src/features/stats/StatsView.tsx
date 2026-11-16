@@ -12,9 +12,11 @@ export function StatsView<M extends string>({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-        {metrics.map((m) => <Chip key={m.value} active={m.value === metric} onClick={() => onMetric(m.value)}>{m.label}</Chip>)}
-      </div>
+      {metrics.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          {metrics.map((m) => <Chip key={m.value} active={m.value === metric} onClick={() => onMetric(m.value)}>{m.label}</Chip>)}
+        </div>
+      )}
       <TimeSeries daily={daily} bar={bar} fmt={fmt} defaultPeriod="1W" showAveraging={showAveraging}
         stats={(shown) => {
           const sum = summary(shown, bar)

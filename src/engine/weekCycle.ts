@@ -1,4 +1,4 @@
-import type { Program, WeekState } from '../types'
+import type { Program, Session, WeekState } from '../types'
 
 export const emptyWeek = (week = 0): WeekState => ({ week, done: Array(7).fill(false), markedDates: [] })
 
@@ -27,4 +27,36 @@ export function markSlot(state: WeekState, slot: number, date: string): WeekStat
 
 export function unmarkSlot(state: WeekState, slot: number): WeekState {
   return { ...state, done: state.done.map((d, i) => (i === slot ? false : d)) }
+}
+
+/**
+ * Wochenstand für eine beliebige Programmwoche: Erledigt-Markierungen und Daten werden aus den
+ * geloggten Einheiten dieser Woche rekonstruiert (Ruhetage lassen sich daraus nicht ableiten und bleiben offen).
+ */
+export function jumpToWeek(program: Program, sessions: Session[], target: number): WeekState {
+  const state = emptyWeek(Math.max(0, target))
+  const inWeek = sessions.filter((s) => s.programId === program.id && s.week === state.week)
+  const dates: string[] = []
+  program.weekSlots.forEach((slot, i) => {
+    if (slot === 'rest') return
+    const s = inWeek.find((x) => x.dayIndex === slot)
+    if (!s) return
+    state.done[i] = true
+    if (!dates.includes(s.date)) dates.push(s.date)
+  })
+  state.markedDates = dates
+  return state
+}
+
+/** Höchste Programmwoche (0-basiert), in der bisher trainiert wurde bzw. die aktuell läuft. */
+export function maxReachedWeek(program: Program, sessions: Session[], current: number): number {
+  return sessions.reduce((m, s) => (s.programId === program.id ? Math.max(m, s.week) : m), current)
+}
+
+/**
+ * Historie für die Gewichtsberechnung bei einem Wochensprung: Einheiten dieses Programms aus
+ * späteren Wochen zählen nicht (sonst würden beim Zurückspringen Gewichte aus der "Zukunft" vorgeschlagen).
+ */
+export function historyUpTo(sessions: Session[], programId: number | undefined, week: number): Session[] {
+  return sessions.filter((s) => s.programId !== programId || s.week <= week)
 }

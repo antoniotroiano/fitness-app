@@ -9,7 +9,7 @@ import {
 import { plannedDay } from '../../engine/plannedDay'
 import { weekPlan } from '../../engine/periodization'
 import { restSecondsFor } from '../../engine/rest'
-import { markSlot } from '../../engine/weekCycle'
+import { historyUpTo, markSlot } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
 import { displayToKg, displayToKm, kgToDisplay } from '../../utils/units'
 import { todayStr } from '../../utils/dates'
@@ -54,8 +54,8 @@ export default function Logger() {
   )
   const lookup = useCallback((id: string) => all.find((e) => e.id === id), [all])
   const views = useMemo(
-    () => (day ? plannedDay(day, plan, sessions, lookup, settings.warmupsEnabled) : []),
-    [day, plan, sessions, lookup, settings.warmupsEnabled],
+    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, week.week), lookup, settings.warmupsEnabled) : []),
+    [day, plan, sessions, program?.id, week.week, lookup, settings.warmupsEnabled],
   )
 
   useEffect(() => { loadActiveWorkout<ActiveWorkout>().then(setStored) }, [])

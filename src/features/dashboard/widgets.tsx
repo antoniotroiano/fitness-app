@@ -89,6 +89,22 @@ export function StatBox({ title, values, line, total, unit, onClick }: {
   )
 }
 
+/** Kachel für Körperkennzahlen: letzte 7 Einträge als Linie, darunter der zuletzt erfasste Wert. */
+export function MetricBox({ title, values, last, unit, onClick }: {
+  title: string; values: number[]; last: string | null; unit: string; onClick: () => void
+}) {
+  return (
+    <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
+      <div className="text-sm font-semibold truncate">{title}</div>
+      <div className="text-[11px] text-muted mb-1.5">Last 7 entries</div>
+      {values.length ? <MiniLine values={values} /> : <div className="h-9 flex items-center text-xs text-muted">Noch keine Daten</div>}
+      <div className="mt-2 pt-2 border-t border-line text-xs text-muted">
+        <span className="text-fg font-semibold tabular-nums">{last ?? '–'}</span> {last ? unit : ''}
+      </div>
+    </button>
+  )
+}
+
 export function SectionHeader({ title, onAll }: { title: string; onAll?: () => void }) {
   return (
     <div className="flex items-baseline justify-between">
@@ -118,7 +134,7 @@ export function HabitBox({ title, dates, today, color, weekDone, onClick }: {
 }
 
 /** Monatskalender mit Kreisen; Wischen nach links/rechts wechselt den Monat. */
-export function MonthCalendar({ tracked, today, color }: { tracked: Set<string>; today: string; color: string }) {
+export function MonthCalendar({ tracked, today, color, onSelect }: { tracked: Set<string>; today: string; color: string; onSelect?: (date: string) => void }) {
   const [view, setView] = useState(() => monthOf(today))
   const down = useRef<{ x: number; y: number } | null>(null)
   const go = (d: number) => setView((v) => shiftMonth(v.year, v.month0, d))
@@ -148,10 +164,11 @@ export function MonthCalendar({ tracked, today, color }: { tracked: Set<string>;
           const future = d > today
           return (
             <div key={d} className="flex justify-center">
-              <span className={cx('w-9 h-9 rounded-full flex items-center justify-center text-sm tabular-nums', d === today && 'font-bold', future && 'opacity-40')}
+              <button type="button" disabled={!onSelect} onClick={() => onSelect?.(d)} aria-label={d}
+                className={cx('w-9 h-9 rounded-full flex items-center justify-center text-sm tabular-nums', d === today && 'font-bold', future && 'opacity-40', onSelect && 'active:opacity-60')}
                 style={on ? { background: color, color: '#fff' } : { border: `1px solid ${d === today ? 'var(--fg)' : 'var(--line)'}` }}>
                 {Number(d.slice(8))}
-              </span>
+              </button>
             </div>
           )
         })}

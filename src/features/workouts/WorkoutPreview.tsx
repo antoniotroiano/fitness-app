@@ -8,6 +8,7 @@ import { useActiveProgram, useActiveWorkoutParam, useAllExercises, useSessions, 
 import { muscleLabel } from '../../data/muscles'
 import { weekPlan } from '../../engine/periodization'
 import { plannedDay } from '../../engine/plannedDay'
+import { historyUpTo } from '../../engine/weekCycle'
 import { targetMuscles } from '../../engine/targetMuscles'
 
 /** Vorschau eines Workouts: Übungen, Sätze, Rep-Bereiche und Ziel-RIR. Start über den Button unten. */
@@ -31,8 +32,8 @@ export default function WorkoutPreview() {
     [program, week.week],
   )
   const views = useMemo(
-    () => (day ? plannedDay(day, plan, sessions, (id) => all.find((e) => e.id === id), settings.warmupsEnabled) : []),
-    [day, plan, sessions, all, settings.warmupsEnabled],
+    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, week.week), (id) => all.find((e) => e.id === id), settings.warmupsEnabled) : []),
+    [day, plan, sessions, program?.id, week.week, all, settings.warmupsEnabled],
   )
 
   const targets = useMemo(() => targetMuscles(views.map((v) => ({ ex: v.ex, sets: v.sets }))), [views])

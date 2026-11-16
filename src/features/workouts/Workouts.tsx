@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Page, cx } from '../../components/ui'
 import { saveWeekState, useActiveProgram, useActiveWorkoutParam, useSessions, useSettings, useWeekState } from '../../db/db'
 import { formatTime } from '../../utils/units'
-import { markSlot, unmarkSlot } from '../../engine/weekCycle'
+import { jumpToWeek, markSlot, maxReachedWeek, unmarkSlot } from '../../engine/weekCycle'
+import { WeekSheet } from './WeekSheet'
 import { weekPlan } from '../../engine/periodization'
 import { WEEKDAYS, addDays, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
 
@@ -41,6 +42,12 @@ export default function Workouts() {
   const sessions = useSessions()
   const settings = useSettings()
   const running = useActiveWorkoutParam()
+  const [weekSheet, setWeekSheet] = useState(false)
+  const weekCounts = useMemo(() => {
+    const c: Record<number, number> = {}
+    sessions.forEach((x) => { if (x.programId === program?.id) c[x.week] = (c[x.week] ?? 0) + 1 })
+    return c
+  }, [sessions, program?.id])
 
   if (!program) {
     return (
@@ -70,10 +77,16 @@ export default function Workouts() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-semibold">{program.icon} {program.name}</div>
-          <div className="text-xs text-muted">Woche {week.week + 1}{plan?.isDeload ? ' · Deload' : ''}</div>
         </div>
-        <Button variant="ghost" onClick={() => nav('/new')}>Neues Programm</Button>
+        <button onClick={() => setWeekSheet(true)} aria-haspopup="dialog"
+          className="rounded-xl bg-surface2 px-3 py-2 text-sm font-semibold active:opacity-70">
+          Woche {week.week + 1}{plan?.isDeload ? ' · Deload' : ''} <span className="text-muted">▾</span>
+        </button>
       </div>
+
+      <WeekSheet open={weekSheet} onClose={() => setWeekSheet(false)} current={week.week}
+        maxWeek={maxReachedWeek(program, sessions, week.week)} counts={weekCounts}
+        onPick={async (w) => { await saveWeekState(jumpToWeek(program, sessions, w)); setWeekSheet(false) }} />
 
       {running && (
         <Card className="flex items-center justify-between !py-3 border-accent">
