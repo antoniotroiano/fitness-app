@@ -108,6 +108,18 @@ export async function setWeight(date: string, kg: number, source: 'manual' | 'im
   else await db.weights.add({ date, kg, source })
 }
 
+/** Gewicht (und optional Körperfett) für ein Datum speichern; bodyFat `null` entfernt den Wert. */
+export async function saveBodyEntry(date: string, v: { kg: number; bodyFat?: number | null }) {
+  const existing = await db.weights.where('date').equals(date).first()
+  const bodyFat = v.bodyFat === null ? undefined : (v.bodyFat ?? existing?.bodyFat)
+  if (existing?.id) await db.weights.put({ ...existing, kg: v.kg, bodyFat, source: 'manual' })
+  else await db.weights.add({ date, kg: v.kg, bodyFat, source: 'manual' })
+}
+
+export async function deleteBodyEntry(date: string) {
+  await db.weights.where('date').equals(date).delete()
+}
+
 /** Löscht alle lokalen Daten (Programme, Einheiten, Gewicht, Maße, eigene Übungen, Einstellungen, laufendes Workout). */
 export async function resetAllData() {
   await db.transaction('rw', [db.programs, db.sessions, db.weights, db.measures, db.customExercises, db.kv], async () => {

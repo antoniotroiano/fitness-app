@@ -3,7 +3,9 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Page } from '../../components/ui'
 import { exerciseById } from '../../data/exercises'
 import { muscleLabel } from '../../data/muscles'
-import { useAllExercises, useSessions, useSettings } from '../../db/db'
+import { useAllExercises, useMeasures, useSessions, useSettings, useWeights } from '../../db/db'
+import { bodyLabel, bodySeries, type BodyKey } from '../../engine/body'
+import { bodyUnit, formatBody } from '../body/format'
 import {
   cardioDaily, exerciseDaily, isBar, METRIC_UNIT, muscleDaily,
   type CardioMetric, type ExerciseMetric, type MuscleMetric,
@@ -81,6 +83,25 @@ export function MuscleStatsPage() {
     <Page title={muscleLabel(id as MuscleId)} back={() => nav(-1)}>
       <StatsView metrics={[{ value: 'sets', label: 'Sets' }, { value: 'volume', label: 'Volumen' }]}
         metric={metric} onMetric={setMetric} daily={daily} bar showAveraging fmt={fmt} />
+    </Page>
+  )
+}
+
+/** Detailseite für Gewicht, Körperfett, Maße und Verhältnisse (gleicher Aufbau wie die Übungsseiten). */
+export function BodyStatsPage() {
+  const { key = 'weight' } = useParams()
+  const nav = useNavigate()
+  const weights = useWeights()
+  const measures = useMeasures()
+  const settings = useSettings()
+  const k = key as BodyKey
+  const daily = useMemo(() => bodySeries(k, weights, measures), [k, weights, measures])
+  const unit = bodyUnit(k, settings)
+  const fmt = (v: number) => `${formatBody(k, v, settings)}${unit ? ` ${unit}` : ''}`
+  return (
+    <Page title={bodyLabel(k)} back={() => nav('/')}>
+      <StatsView metrics={[{ value: 'v', label: bodyLabel(k) }]} metric="v" onMetric={() => undefined}
+        daily={daily} bar={false} showAveraging={false} fmt={fmt} />
     </Page>
   )
 }

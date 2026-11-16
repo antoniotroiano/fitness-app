@@ -24,6 +24,9 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
   const [width, setWidth] = useState(320)
   const [sel, setSel] = useState<number | null>(null)
   const drag = useRef<{ x: number; base: number; active: boolean } | null>(null)
+  const content = useRef<SVGGElement>(null)
+  const offsetRef = useRef(offset)
+  offsetRef.current = offset
 
   useEffect(() => {
     const el = box.current
@@ -51,7 +54,17 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
   const y = (v: number) => M.top + plotH - ((v - lo) / (hi - lo || 1)) * plotH
   const xTicks = axisTicks(w)
 
-  const down = (e: React.PointerEvent) => { drag.current = { x: e.clientX, base: offset, active: false } }
+  const shift = (px: number, smooth: boolean) => {
+    const g = content.current
+    if (!g) return
+    g.style.transition = smooth ? 'transform 0.15s ease-out' : 'none'
+    g.style.transform = `translateX(${px}px)`
+  }
+  const down = (e: React.PointerEvent) => {
+    // Randbereich links bleibt dem System-Wisch (Zurück) überlassen
+    if (e.clientX < 20) return
+    drag.current = { x: e.clientX, base: offset, active: false }
+  }
   const move = (e: React.PointerEvent) => {
     const d = drag.current
     if (!d || !canPan) return
@@ -62,10 +75,18 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
       e.currentTarget.setPointerCapture(e.pointerId)
       setSel(null)
     }
-    // Der Graph folgt dem Finger: nach rechts wischen = zurück in die Vergangenheit
-    onOffset(clampOffset(d.base + Math.round(dx / dayW), today, firstDate))
+    // Der Graph folgt dem Finger: nach rechts wischen = zurück in die Vergangenheit.
+    // Ganze Tage verschieben das Fenster, der Rest wird als Pixelversatz animiert (kein Ratschen).
+    const days = Math.round(dx / dayW)
+    const next = clampOffset(d.base + days, today, firstDate)
+    const atEdge = next !== d.base + days
+    shift(atEdge ? 0 : dx - days * dayW, false)
+    if (next !== offsetRef.current) { offsetRef.current = next; onOffset(next) }
   }
-  const up = () => { drag.current = null }
+  const up = () => {
+    if (drag.current?.active) shift(0, true)
+    drag.current = null
+  }
 
   const selected = sel !== null ? placed[sel] : null
   const bw = Math.max(2, Math.min(28, dayW * 0.7))
@@ -81,6 +102,8 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
             <text x={M.left + plotW + 6} y={y(t) + 3.5} fontSize={10} fill="var(--muted)">{fmt(t)}</text>
           </g>
         ))}
+        <defs><clipPath id="ts-clip"><rect x={M.left - 2} y={0} width={plotW + 4} height={H} /></clipPath></defs>
+        <g clipPath="url(#ts-clip)"><g ref={content} style={{ willChange: 'transform' }}>
         {xTicks.map((t) => (
           <text key={t.index} x={M.left + (t.index + 0.5) * dayW} y={H - 6} fontSize={10} fill="var(--muted)"
             textAnchor={t.index === w.days - 1 && w.days > 7 ? 'end' : t.index === 0 && w.days > 7 ? 'start' : 'middle'}>{t.label}</text>
@@ -97,6 +120,7 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
         {!bar && placed.map((p, i) => (
           <circle key={p.date} cx={p.cx} cy={y(p.value)} r={sel === i ? 5 : 3.5} fill="var(--chart-line)" onClick={() => setSel(sel === i ? null : i)} />
         ))}
+        </g></g>
         {selected && (() => {
           const label = `${formatDate(selected.date, { weekday: 'short', day: 'numeric', month: 'short' })}: ${fmt(selected.value)}`
           const tw = label.length * 6.2 + 14
@@ -134,8 +158,8 @@ export function TimeSeries({ daily, bar, fmt, defaultPeriod = '1W', showAveragin
   const [sheet, setSheet] = useState(false)
 
   const firstDate = useMemo(() => daily.reduce<string | null>((m, p) => (m === null || p.date < m ? p.date : m), null), [daily])
-  const w = chartWindow(period, today, firstDate, offset)
-  const visible = useMemo(() => inWindow(daily, w), [daily, w.start, w.end]) // eslint-disable-line react-hooks/exhaustive-deps
+  const w = useMemo(() => chartWindow(period, today, firstDate, offset), [period, today, firstDate, offset])
+  const visible = useMemo(() => inWindow(daily, w), [daily, w])
   const shown = useMemo(() => (mode === 'daily' ? visible : average(visible, mode, bar)), [visible, mode, bar])
 
   const pick = (p: Period) => { setPeriod(p); setOffset(0); setHighlight(true) }

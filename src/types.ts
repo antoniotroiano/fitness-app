@@ -117,6 +117,8 @@ export interface WeightEntry {
   id?: number
   date: string
   kg: number
+  /** Körperfett in Prozent (optional) */
+  bodyFat?: number
   source: 'manual' | 'import'
 }
 

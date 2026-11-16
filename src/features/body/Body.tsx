@@ -2,7 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { MeasureSite } from '../../types'
 import { Button, Card, Page, cx, inputCls } from '../../components/ui'
-import { db, parseWeightImport, setWeight, useMeasures, useSettings, useWeights } from '../../db/db'
+import { db, parseWeightImport, saveBodyEntry, setWeight, useMeasures, useSettings, useWeights } from '../../db/db'
+import { EntrySheet } from './EntrySheet'
 import { cmToDisplay, displayToCm, displayToKg, kgToDisplay } from '../../utils/units'
 import { formatDate, todayStr } from '../../utils/dates'
 import { streakDays } from '../../engine/habits'
@@ -16,6 +17,7 @@ export function WeightPage() {
   const [date, setDate] = useState(todayStr())
   const [value, setValue] = useState('')
   const [msg, setMsg] = useState('')
+  const [sheetDate, setSheetDate] = useState<string | null>(null)
   const file = useRef<HTMLInputElement>(null)
   const u = settings.weightUnit
 
@@ -27,7 +29,7 @@ export function WeightPage() {
   const save = async () => {
     const n = Number(value.replace(',', '.'))
     if (!n || n <= 0) return
-    await setWeight(date, Math.round(displayToKg(n, u) * 10) / 10)
+    await saveBodyEntry(date, { kg: Math.round(displayToKg(n, u) * 10) / 10 })
     setValue('')
   }
 
@@ -54,7 +56,8 @@ export function WeightPage() {
         {latest && <div className="text-xs text-muted">Zuletzt: {kgToDisplay(latest.kg, u)} {u} am {formatDate(latest.date)}</div>}
       </Card>
 
-      <Card><MonthCalendar tracked={dates} today={todayStr()} color="var(--habit-weight)" /><CalendarLegend color="var(--habit-weight)" /></Card>
+      <Card><MonthCalendar tracked={dates} today={todayStr()} color="var(--habit-weight)" onSelect={setSheetDate} /><CalendarLegend color="var(--habit-weight)" /></Card>
+      <EntrySheet date={sheetDate} today={todayStr()} entry={weights.find((w) => w.date === sheetDate)} unit={u} onClose={() => setSheetDate(null)} />
 
       <Card className="space-y-3">
         <TimeSeries daily={points} bar={false} fmt={(v) => `${kgToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
@@ -79,7 +82,7 @@ export function WeightPage() {
               <li key={w.id} className="flex justify-between items-center py-2 text-sm">
                 <span>{formatDate(w.date, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                 <span className="flex items-center gap-3">
-                  <b>{kgToDisplay(w.kg, u)} {u}</b>
+                  <b>{kgToDisplay(w.kg, u)} {u}{w.bodyFat != null && <span className="text-muted font-normal"> · {w.bodyFat} %</span>}</b>
                   <button className="text-red-500 text-xs" onClick={() => w.id && db.weights.delete(w.id)}>Löschen</button>
                 </span>
               </li>

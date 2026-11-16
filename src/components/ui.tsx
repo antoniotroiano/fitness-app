@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -80,12 +80,32 @@ export function Page({ title, children, back, right }: { title: string; children
 const CLOSE_DRAG = 100
 
 /** Bottom-Sheet: schließt per Wischen nach unten (Griff/Titelzeile), ✕ oder Tipp auf den Hintergrund. */
-export function BottomSheet({ open, onClose, children, title, tall }: { open: boolean; onClose: () => void; children: ReactNode; title?: string; tall?: boolean }) {
+export function BottomSheet({ open, onClose, children, title, tall, height, header }: {
+  open: boolean; onClose: () => void; children: ReactNode; title?: string; tall?: boolean
+  /** Feste Höhe, z. B. '75%' des Bildschirms */
+  height?: string
+  /** Eigene Kopfzeile statt Griff + Titel + ✕ (Griff bleibt als Wisch-Fläche) */
+  header?: ReactNode
+}) {
   const [dy, setDy] = useState(0)
   const [dragging, setDragging] = useState(false)
+  const [mounted, setMounted] = useState(open)
+  const [shown, setShown] = useState(false)
   const start = useRef<number | null>(null)
   const dyRef = useRef(0)
-  if (!open) return null
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      const t = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
+      return () => cancelAnimationFrame(t)
+    }
+    setShown(false)
+    const t = setTimeout(() => setMounted(false), 280)
+    return () => clearTimeout(t)
+  }, [open])
+
+  if (!mounted) return null
 
   const down = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
@@ -111,19 +131,25 @@ export function BottomSheet({ open, onClose, children, title, tall }: { open: bo
 
   return (
     <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute inset-0 bg-black/50 transition-opacity duration-300" style={{ opacity: shown ? 1 : 0 }} />
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}
-        style={{ ...(tall ? { height: maxH } : { maxHeight: maxH }), transform: `translateY(${dy}px)`, transition: dragging ? 'none' : 'transform 0.2s ease-out' }}
+        style={{
+          ...(height ? { height, maxHeight: maxH } : tall ? { height: maxH } : { maxHeight: maxH }),
+          transform: shown ? `translateY(${dy}px)` : 'translateY(100%)',
+          transition: dragging ? 'none' : 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
         className={cx('relative w-full max-w-2xl mx-auto bg-surface rounded-t-3xl border-t border-line px-5 safe-bottom flex flex-col')}>
         <div onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end}
           className="shrink-0 pt-3 pb-2 -mx-5 px-5 cursor-grab" style={{ touchAction: 'none' }}>
           <div className="w-10 h-1 bg-line rounded-full mx-auto mb-3" />
-          <div className="flex items-center gap-3 min-h-8">
-            {title && <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{title}</h2>}
-            {!title && <span className="flex-1" />}
-            <button type="button" onClick={onClose} aria-label="Schließen"
-              className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
-          </div>
+          {header ?? (
+            <div className="flex items-center gap-3 min-h-8">
+              {title && <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{title}</h2>}
+              {!title && <span className="flex-1" />}
+              <button type="button" onClick={onClose} aria-label="Schließen"
+                className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
+            </div>
+          )}
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto pb-5 overscroll-contain">{children}</div>
       </div>

@@ -10,7 +10,7 @@ import Logger from './features/workouts/Logger'
 import Wizard from './features/wizard/Wizard'
 import ManualBuilder from './features/wizard/ManualBuilder'
 import { WeightPage, MeasuresPage } from './features/body/Body'
-import { ExerciseStatsPage, MuscleStatsPage } from './features/stats/StatsPages'
+import { BodyStatsPage, ExerciseStatsPage, MuscleStatsPage } from './features/stats/StatsPages'
 import More, { UnitsPage, RestSettingsPage, WarmupSettingsPage, WorkoutSettingsPage, ProfilePage, LibraryPage, AboutPage, HelpPage, DataPage } from './features/more/More'
 
 function useTheme() {
@@ -26,7 +26,7 @@ function useTheme() {
 
 function Tab({ to, label, icon }: { to: string; label: string; icon: IconName }) {
   return (
-    <NavLink to={to} end={to === '/'}
+    <NavLink to={to} end={to === '/'} replace
       className={({ isActive }) => cx('flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px]', isActive ? 'text-accent' : 'text-muted')}>
       <Icon name={icon} size={24} />{label}
     </NavLink>
@@ -61,6 +61,7 @@ function Shell() {
         <Route path="/measures" element={<MeasuresPage />} />
         <Route path="/stats/exercise/:id" element={<ExerciseStatsPage />} />
         <Route path="/stats/muscle/:id" element={<MuscleStatsPage />} />
+        <Route path="/stats/body/:key" element={<BodyStatsPage />} />
         <Route path="/more" element={<More />} />
         <Route path="/more/workouts" element={<WorkoutSettingsPage />} />
         <Route path="/more/workouts/rest" element={<RestSettingsPage />} />
