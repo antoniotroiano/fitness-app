@@ -6,12 +6,14 @@ import { DEFAULT_SETTINGS, exportAll, importAll, parseWeightImport, resetAllData
 import { EQUIPMENT_LABEL } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
-import { ExerciseInfoSheet } from '../workouts/ExerciseInfoSheet'
+import { ExerciseDetail } from './ExerciseDetail'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/library'
 import { DEFAULT_REST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
+
+export { WarmupSettingsPage } from './WarmupSettings'
 
 export const APP_VERSION = '0.1.0'
 
@@ -153,15 +155,29 @@ function Stepper({ label, value, onChange }: { label: string; value: number; onC
   )
 }
 
-/** Feature Settings → Workouts: Untermenü */
+/** Einstellungen › Workouts: General (Pause, Aufwärmen) und Display (Keep Alive). */
 export function WorkoutSettingsPage() {
   const nav = useNavigate()
+  const { s, update } = useSettingsForm()
   return (
     <Page title="Workouts" back={() => nav('/more')}>
-      <Card className="divide-y divide-line !py-1">
+      <Section title="General">
         <Row icon="timer" label="Pause" desc="Rest-Timer je Übungstyp" to="/more/workouts/rest" />
-        <Row icon="warmup" label="Aufwärmen" desc="Aufwärmsätze vorschlagen" to="/more/workouts/warmup" />
-      </Card>
+        <Row icon="warmup" label="Aufwärmen" desc="Smart-Aufwärmen und Schemata" to="/more/workouts/warmup" />
+      </Section>
+      <Section title="Display">
+        <div className="flex items-center gap-3 py-3.5">
+          <Icon name="phone" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-medium">Keep Alive</span>
+            <span className="block text-xs text-muted">Keep your phone alive during active workout sessions.</span>
+          </span>
+          <button role="switch" aria-checked={s.keepAlive} aria-label="Keep Alive" onClick={() => update({ keepAlive: !s.keepAlive })}
+            className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', s.keepAlive ? 'bg-accent' : 'bg-line')}>
+            <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', s.keepAlive ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
+          </button>
+        </div>
+      </Section>
     </Page>
   )
 }
@@ -179,20 +195,6 @@ export function RestSettingsPage() {
         <Stepper label="Nach Aufwärmsatz (sonst)" value={s.warmupRestOther} onChange={(v) => update({ warmupRestOther: v })} />
         <p className="text-xs text-muted">Richtwerte aus der Studienlage: Verbundübungen 2-3 min, Isolation 1-2 min. Längere Pausen halten bei schweren Übungen Leistung und Volumen.</p>
         <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45 })}>Standard wiederherstellen</Button>
-      </Card>
-    </Page>
-  )
-}
-
-export function WarmupSettingsPage() {
-  const nav = useNavigate()
-  const { s, update } = useSettingsForm()
-  return (
-    <Page title="Aufwärmen" back={() => nav('/more/workouts')}>
-      <Card className="space-y-2">
-        <Segmented value={s.warmupsEnabled ? 'on' : 'off'} onChange={(v) => update({ warmupsEnabled: v === 'on' })}
-          options={[{ value: 'on', label: 'Vorschlagen' }, { value: 'off', label: 'Aus' }]} />
-        <p className="text-xs text-muted">Aufwärmsätze werden aus dem Arbeitsgewicht berechnet: bei der ersten Verbundübung einer Muskelgruppe 3 Sätze, sonst weniger oder keine. Das ist eine praxisnahe Heuristik, die Studienlage zur Satzzahl ist dünn.</p>
       </Card>
     </Page>
   )
@@ -321,7 +323,7 @@ export function LibraryPage() {
             onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
-      <ExerciseInfoSheet ex={info} open={info !== null} onClose={() => setInfo(null)} />
+      <ExerciseDetail ex={info} onClose={() => setInfo(null)} />
     </Page>
   )
 }

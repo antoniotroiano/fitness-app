@@ -117,7 +117,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-full pb-28">
       {/* Oberer Bereich: randlos weiß, geht in die Notch über (Farbe über --notch) */}
-      <div className="bg-surface safe-top">
+      {/* Extra Abstand unter der Notch: der System-Blur am oberen Rand reicht sonst in den Titel */}
+      <div className="bg-surface" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
         <h1 className="px-4 h-14 flex items-center font-bold text-lg max-w-2xl mx-auto">Dashboard</h1>
         <div ref={pager} onScroll={onPagerScroll}
           className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar max-w-2xl mx-auto" style={{ scrollbarWidth: 'none' }}>

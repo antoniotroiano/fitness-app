@@ -94,3 +94,17 @@ export function previousSets(sessions: Session[], exerciseId: string): { warmups
   const sets = last?.exercises.find((e) => e.exerciseId === exerciseId)?.sets ?? []
   return { warmups: sets.filter((s) => s.warmup), work: sets.filter((s) => !s.warmup) }
 }
+
+/**
+ * Gewicht für den nächsten Satz, abgeleitet aus dem gerade abgeschlossenen Satz (geschätztes 1RM
+ * mit tatsächlichem RIR). Sprung auf ±10 % begrenzt. null = keine sinnvolle Berechnung.
+ */
+export function adaptWeight(
+  done: { weight: number; reps: number; rir: number }, next: { reps: number; rir: number }, equipment: Equipment,
+): number | null {
+  if (done.weight <= 0 || done.reps <= 0 || next.reps <= 0) return null
+  const inc = INCREMENT[equipment] || 1
+  const raw = weightForReps(e1rm(done.weight, done.reps, done.rir), next.reps, next.rir)
+  const capped = Math.min(done.weight * (1 + MAX_JUMP), Math.max(done.weight * (1 - MAX_JUMP), raw))
+  return Math.max(inc, roundTo(capped, inc))
+}

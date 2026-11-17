@@ -18,6 +18,22 @@ const PATHS = {
   more: <><circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" /></>,
   program: <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V3h6v1M9 11h6M9 15h4" /></>,
   warmup: <><path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z" /></>,
+  guide: <><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13C17 4 14 4.5 12 6z" /><path d="M12 6v13" /></>,
+  note: <><path d="M5 4h10l4 4v12H5z" /><path d="M15 4v4h4M8 12h8M8 16h5" /></>,
+  menu: <><circle cx="12" cy="5" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="12" cy="19" r="1.3" /></>,
+  pause: <><path d="M8 5v14M16 5v14" /></>,
+  play: <><path d="M7 4.5v15l12-7.5z" /></>,
+  minimize: <><path d="M6 9l6 6 6-6M5 20h14" /></>,
+  flag: <><path d="M5 21V4M5 4h12l-2 4 2 4H5" /></>,
+  trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></>,
+  check: <><path d="M5 12.5l4.5 4.5L19 7" /></>,
+  chevron: <><path d="M9 6l6 6-6 6" /></>,
+  blocks: <><rect x="9.5" y="2.5" width="5" height="5" rx="1" /><rect x="2.5" y="16.5" width="5" height="5" rx="1" /><rect x="9.5" y="16.5" width="5" height="5" rx="1" /><rect x="16.5" y="16.5" width="5" height="5" rx="1" /><path d="M12 7.5V12M5 16.5V12h14v4.5M12 12v4.5" /></>,
+  automation: <><path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3" /><path d="M18 3v4h-4M6 21v-4h4" /></>,
+  sparkles: <><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></>,
+  sliders: <><path d="M4 7h9M19 7h1M4 17h1M11 17h9" /><circle cx="16" cy="7" r="2.2" /><circle cx="8" cy="17" r="2.2" /></>,
+  ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
+  phone: <><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></>,
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof PATHS

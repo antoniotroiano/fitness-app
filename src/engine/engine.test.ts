@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { e1rm, isStalled, previousSets, sessionE1rm, suggestNext, weightForReps } from './progression'
-import { isFirstForMuscle, warmupSets } from './warmup'
+import { adaptWeight, e1rm, isStalled, previousSets, sessionE1rm, suggestNext, weightForReps } from './progression'
+import {
+  DEFAULT_WARMUP_SCHEMES, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
+  type WarmupContext,
+} from './warmup'
+import { volumeFactor, exerciseValue } from './stats'
 import { migrateExercise, migrateFocus, migrateMuscles } from '../data/muscleMigration'
 import { groupExercises, libraryGroup } from './library'
 import { axisTicks, bucketSpan, chartWindow, clampOffset, formatRange, niceTicks } from './chartWindow'
@@ -206,37 +210,81 @@ describe('stats', () => {
 })
 
 describe('warmup', () => {
-  const base = { equipment: 'barbell' as const, compound: true, pattern: 'horizontalPush' as const, firstForMuscle: true }
-  it('schwere Verbundübung als erste: Rampe mit 3 Sätzen, aufsteigend und gerundet', () => {
-    const w = warmupSets({ ...base, workWeight: 100 })
-    expect(w.map((x) => x.weight)).toEqual([50, 70, 85])
-    expect(w.map((x) => x.reps)).toEqual([8, 5, 3])
+  const ctx = (o: Partial<WarmupContext> = {}): WarmupContext =>
+    ({ equipment: 'barbell', compound: true, isCore: false, freshness: 'fresh', intensity: intensityOf(5, 2), ...o })
+  it('Smart: schwerer = mehr Sätze', () => {
+    const heavy = smartSteps(ctx({ intensity: intensityOf(3, 2) })).length
+    const mid = smartSteps(ctx({ intensity: intensityOf(6, 2) })).length
+    const light = smartSteps(ctx({ intensity: intensityOf(12, 2) })).length
+    expect(heavy).toBe(3)
+    expect(mid).toBe(3)
+    expect(light).toBe(2)
   })
-  it('weitere Verbundübung: 1 Satz', () => {
-    expect(warmupSets({ ...base, workWeight: 100, firstForMuscle: false })).toHaveLength(1)
+  it('Smart: bereits belasteter Muskel = weniger Sätze', () => {
+    expect(smartSteps(ctx({ freshness: 'partial' })).length).toBe(smartSteps(ctx()).length - 1)
+    expect(smartSteps(ctx({ freshness: 'primed', intensity: intensityOf(10, 2) }))).toEqual([])
+    expect(smartSteps(ctx({ freshness: 'primed', intensity: intensityOf(3, 2) }))).toHaveLength(1)
   })
-  it('Isolation: 1 Satz nur als erste Übung, sonst keiner', () => {
-    const iso = { ...base, equipment: 'cable' as const, compound: false, pattern: 'isolation' as const }
-    expect(warmupSets({ ...iso, workWeight: 30 })).toHaveLength(1)
-    expect(warmupSets({ ...iso, workWeight: 30, firstForMuscle: false })).toEqual([])
+  it('Smart: Core, Bodyweight: keine Sätze; Isolation: 1-2', () => {
+    expect(smartSteps(ctx({ isCore: true }))).toEqual([])
+    expect(smartSteps(ctx({ equipment: 'bodyweight' }))).toEqual([])
+    expect(smartSteps(ctx({ compound: false, equipment: 'cable', intensity: intensityOf(12, 1) }))).toHaveLength(2)
+    expect(smartSteps(ctx({ intensity: 0.95 })).length).toBeLessThanOrEqual(3)
   })
-  it('Core, Bodyweight und Cardio: keine Aufwärmsätze', () => {
-    expect(warmupSets({ ...base, workWeight: 20, pattern: 'core' })).toEqual([])
-    expect(warmupSets({ ...base, workWeight: 20, equipment: 'bodyweight' })).toEqual([])
+  it('Schema: Prozent vom Arbeitsgewicht, gerundet und aufsteigend', () => {
+    const w = stepsToSets(DEFAULT_WARMUP_SCHEMES.compoundUpper, 100, 'barbell')
+    expect(w.map((x) => x.weight)).toEqual([40, 60, 80])
+    expect(w.map((x) => x.reps)).toEqual([5, 5, 3])
+  })
+  it('Stange als Untergrenze, keine Doppelten, nie über Arbeitsgewicht', () => {
+    const w = stepsToSets(DEFAULT_WARMUP_SCHEMES.compoundLower, 30, 'barbell')
+    expect(new Set(w.map((x) => x.weight)).size).toBe(w.length)
+    expect(w.every((x) => (x.weight ?? 0) >= 20 && (x.weight ?? 0) < 30)).toBe(true)
+    expect(stepsToSets(DEFAULT_WARMUP_SCHEMES.compoundUpper, 20, 'barbell')).toEqual([])
   })
   it('ohne Arbeitsgewicht: Platzhalter ohne Gewicht', () => {
-    expect(warmupSets({ ...base, workWeight: null }).every((x) => x.weight === null)).toBe(true)
+    const w = resolveWarmup({ mode: 'scheme', scheme: DEFAULT_WARMUP_SCHEMES.compoundUpper, ctx: ctx(), workWeight: null })
+    expect(w).toHaveLength(3)
+    expect(w.every((x) => x.weight === null)).toBe(true)
   })
-  it('sehr leichte Last: keine doppelten oder zu schweren Sätze', () => {
-    const w = warmupSets({ ...base, workWeight: 5 })
-    expect(new Set(w.map((x) => x.weight)).size).toBe(w.length)
-    expect(w.every((x) => (x.weight ?? 0) < 5)).toBe(true)
+  it('Modus-Auflösung: Überschreibung vor App-Einstellung', () => {
+    expect(effectiveMode(undefined, 'smart')).toBe('smart')
+    expect(effectiveMode('default', 'scheme')).toBe('scheme')
+    expect(effectiveMode('none', 'smart')).toBe('none')
+    expect(effectiveMode('smart', 'off')).toBe('smart')
+    expect(effectiveMode(undefined, 'off')).toBe('none')
   })
-  it('isFirstForMuscle', () => {
-    const ids = ['bb-bench', 'db-incline', 'db-lateral']
+  it('Frische und isFirstForMuscle', () => {
+    const ids = ['bb-bench', 'db-incline', 'db-lateral', 'cable-pushdown']
+    expect(freshnessFor(ids, 0, exerciseById)).toBe('fresh')
+    expect(freshnessFor(ids, 1, exerciseById)).toBe('primed')
     expect(isFirstForMuscle(ids, 0, exerciseById)).toBe(true)
     expect(isFirstForMuscle(ids, 1, exerciseById)).toBe(false)
     expect(isFirstForMuscle(ids, 2, exerciseById)).toBe(true)
+  })
+})
+
+describe('Kurzhantel-Volumen und Rep-Rollen', () => {
+  it('Kurzhantel zählt doppelt, Langhantel und Hantel-Pullover einfach', () => {
+    expect(volumeFactor(exerciseById('db-bench'))).toBe(2)
+    expect(volumeFactor(exerciseById('bb-bench'))).toBe(1)
+    expect(volumeFactor(exerciseById('db-pullover'))).toBe(1)
+    const sets = [{ weight: 20, reps: 10 }]
+    expect(exerciseValue(sets, 'totalVolume', 2)).toBe(400)
+    expect(exerciseValue(sets, 'bestSetVolume')).toBe(200)
+    expect(exerciseValue(sets, 'heaviest', 2)).toBe(20)
+  })
+  it('Rep-Bereiche je Rolle: Kraft/Beides haben schwere Haupt- und leichte Isolationsübungen', () => {
+    for (const g of ['strength', 'both'] as const) {
+      expect(baseRepRange(g, true, 'main').max).toBeLessThan(baseRepRange(g, false, 'isolation').min)
+    }
+  })
+  it('Generator: Verbundübungen mit mind. 3 Sätzen, bei "Beides" verschiedene Rep-Bereiche', () => {
+    const { program } = generate(cfg({ goal: 'both', experience: 'beginner' }), ALL_EXERCISES)
+    const ex = program.days.flatMap((d) => d.exercises)
+    expect(ex.filter((e) => exerciseById(e.exerciseId)!.compound).every((e) => e.sets >= 3)).toBe(true)
+    expect(ex.every((e) => e.sets >= 2)).toBe(true)
+    expect(new Set(ex.map((e) => e.repMin)).size).toBeGreaterThan(1)
   })
 })
 
@@ -602,5 +650,18 @@ describe('Wochensprung', () => {
     const h = historyUpTo(sessions, 7, 1)
     expect(h).toHaveLength(3)
     expect(h.some((s) => s.week === 2)).toBe(false)
+  })
+})
+
+describe('adaptWeight', () => {
+  it('weniger Reserve als geplant → Folgesätze leichter, mehr Reserve → schwerer', () => {
+    const planned = adaptWeight({ weight: 100, reps: 6, rir: 2 }, { reps: 6, rir: 2 }, 'barbell')
+    expect(planned).toBe(100)
+    expect(adaptWeight({ weight: 100, reps: 6, rir: 0 }, { reps: 6, rir: 2 }, 'barbell')!).toBeLessThan(100)
+    expect(adaptWeight({ weight: 100, reps: 6, rir: 4 }, { reps: 6, rir: 2 }, 'barbell')!).toBeGreaterThan(100)
+  })
+  it('Sprung auf 10 % begrenzt, ungültige Eingaben ergeben null', () => {
+    expect(adaptWeight({ weight: 100, reps: 12, rir: 0 }, { reps: 3, rir: 3 }, 'barbell')).toBe(110)
+    expect(adaptWeight({ weight: 0, reps: 6, rir: 2 }, { reps: 6, rir: 2 }, 'barbell')).toBeNull()
   })
 })

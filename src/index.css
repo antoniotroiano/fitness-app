@@ -51,3 +51,8 @@ body::before {
 /* Dashboard: Ringe und Gewohnheiten */
 :root { --ring-sets: #14b8a6; --ring-muscles: #8b5cf6; --ring-ex: #ec4899; --habit-weight: #22c55e; --habit-workout: #f97316; }
 .dark { --ring-sets: #2dd4bf; --ring-muscles: #a78bfa; --ring-ex: #f472b6; --habit-weight: #4ade80; --habit-workout: #fb923c; }
+
+/* Konfetti im Abschluss-Sheet */
+.confetti i { position: absolute; top: -12px; border-radius: 2px; opacity: 0; animation-name: confetti-fall; animation-timing-function: ease-in; animation-iteration-count: 1; animation-fill-mode: forwards; }
+@keyframes confetti-fall { 0% { opacity: 1; translate: 0 0; } 100% { opacity: 0; translate: 24px 420px; } }
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }

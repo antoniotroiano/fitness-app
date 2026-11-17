@@ -7,7 +7,7 @@ import { useAllExercises, useMeasures, useSessions, useSettings, useWeights } fr
 import { bodyLabel, bodySeries, type BodyKey } from '../../engine/body'
 import { bodyUnit, formatBody } from '../body/format'
 import {
-  cardioDaily, exerciseDaily, isBar, METRIC_UNIT, muscleDaily,
+  cardioDaily, exerciseDaily, isBar, METRIC_UNIT, muscleDaily, volumeFactor,
   type CardioMetric, type ExerciseMetric, type MuscleMetric,
 } from '../../engine/stats'
 import type { MuscleId } from '../../types'
@@ -49,7 +49,7 @@ export function ExerciseStatsPage() {
   const settings = useSettings()
   const [metric, setMetric] = useState<ExerciseMetric>('rm1')
   const ex = exerciseById(id, all)
-  const daily = useMemo(() => exerciseDaily(sessions, id, metric), [sessions, id, metric])
+  const daily = useMemo(() => exerciseDaily(sessions, id, metric, volumeFactor(exerciseById(id, all))), [sessions, id, metric, all])
   const unit = METRIC_UNIT[metric]
   const fmt = (v: number) =>
     unit === 'weight' ? `${Math.round(kgToDisplay(v, settings.weightUnit) * 10) / 10} ${settings.weightUnit}`

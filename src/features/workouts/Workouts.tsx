@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Page, cx } from '../../components/ui'
-import { saveWeekState, useActiveProgram, useActiveWorkoutParam, useSessions, useSettings, useWeekState } from '../../db/db'
+import { activateProgram, deleteProgram, saveWeekState, useActiveProgram, useActiveWorkoutParam, usePrograms, useSessions, useSettings, useWeekState } from '../../db/db'
+import { sessionDates } from '../../engine/habits'
 import { formatTime } from '../../utils/units'
 import { jumpToWeek, markSlot, maxReachedWeek, unmarkSlot } from '../../engine/weekCycle'
 import { WeekSheet } from './WeekSheet'
 import { weekPlan } from '../../engine/periodization'
 import { WEEKDAYS, addDays, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
 
-function WeekStrip({ marked }: { marked: string[] }) {
+function WeekStrip({ marked }: { marked: Set<string> }) {
   const ref = useRef<HTMLDivElement>(null)
   const today = todayStr()
   const start = addDays(weekStart(today), -14)
@@ -20,13 +21,13 @@ function WeekStrip({ marked }: { marked: string[] }) {
   return (
     <div ref={ref} className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory">
       {days.map((d) => {
-        const isMarked = marked.includes(d)
+        const isMarked = marked.has(d)
         return (
           <div key={d} style={{ flex: '0 0 calc((100% - 0px) / 7)' }} className="snap-start flex flex-col items-center gap-1 py-1">
             <span className="text-[11px] text-muted">{WEEKDAYS[weekdayIndex(d)]}</span>
             <span className={cx(
               'w-9 h-9 rounded-full flex items-center justify-center text-sm border',
-              isMarked ? 'bg-accent text-accent-fg border-accent font-bold' : d === today ? 'border-accent text-accent' : 'border-line',
+              isMarked ? 'border-2 border-accent font-bold' : d === today ? 'border-line bg-surface2 font-semibold' : 'border-line text-muted',
             )}>{Number(d.slice(8))}</span>
           </div>
         )
@@ -43,6 +44,11 @@ export default function Workouts() {
   const settings = useSettings()
   const running = useActiveWorkoutParam()
   const [weekSheet, setWeekSheet] = useState(false)
+  const programs = usePrograms()
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({})
+  const [confirmDel, setConfirmDel] = useState<number | null>(null)
+  // Nur absolvierte Workouts füllen den Kalender (Ruhetage nicht)
+  const workoutDays = useMemo(() => sessionDates(sessions), [sessions])
   const weekCounts = useMemo(() => {
     const c: Record<number, number> = {}
     sessions.forEach((x) => { if (x.programId === program?.id) c[x.week] = (c[x.week] ?? 0) + 1 })
@@ -62,20 +68,23 @@ export default function Workouts() {
     )
   }
 
+  const others = programs.filter((p) => p.id !== program.id)
+  const allOpen = others.length > 0 && others.every((p) => expanded[p.id as number])
   const plan = program.config ? weekPlan(program.config, week.week) : null
   const scheduled = new Set(program.weekSlots.filter((s): s is number => s !== 'rest'))
   const extra = program.days.map((d, i) => ({ d, i })).filter(({ i }) => !scheduled.has(i))
   const cycleSessions = sessions.filter((s) => s.programId === program.id && s.week === week.week)
 
   const toggleRest = (slot: number) =>
-    saveWeekState(week.done[slot] ? unmarkSlot(week, slot) : markSlot(week, slot, todayStr()))
+    saveWeekState(week.done[slot] ? unmarkSlot(week, slot) : markSlot(week, slot, null))
 
   return (
     <Page title="Workouts">
-      <Card className="!px-4 !py-3"><WeekStrip marked={week.markedDates} /></Card>
+      <Card className="!px-4 !py-3"><WeekStrip marked={workoutDays} /></Card>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-end justify-between">
         <div>
+          <div className="text-xs uppercase tracking-wide text-muted">Active Program</div>
           <div className="font-semibold">{program.icon} {program.name}</div>
         </div>
         <button onClick={() => setWeekSheet(true)} aria-haspopup="dialog"
@@ -144,6 +153,71 @@ export default function Workouts() {
             </Card>
           ))}
         </div>
+      )}
+      {others.length > 0 && (
+        <section className="space-y-2 pt-2" aria-label="Workouts Library">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Workouts Library</h2>
+            <button className="text-sm text-accent font-medium"
+              onClick={() => setExpanded(allOpen ? {} : Object.fromEntries(others.map((p) => [p.id as number, true])))}>
+              {allOpen ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+          {others.map((p) => {
+            const id = p.id as number
+            const open = !!expanded[id]
+            return (
+              <Card key={id} className="!p-0 overflow-hidden">
+                <button className="w-full flex items-center gap-3 px-4 py-3 text-left" aria-expanded={open}
+                  onClick={() => setExpanded((x) => ({ ...x, [id]: !open }))}>
+                  <span className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-lg"
+                    style={{ background: `${p.color}33`, border: `2px solid ${p.color}` }}>{p.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium truncate">{p.name}</span>
+                    <span className="block text-xs text-muted">{p.days.length} Workouts · {formatDate(new Date(p.createdAt).toISOString().slice(0, 10))}</span>
+                  </span>
+                  <span className={cx('text-muted transition-transform', open && 'rotate-90')}>›</span>
+                </button>
+                {open && (
+                  <div className="border-t border-line px-4 py-3 space-y-3">
+                    <div className="space-y-2">
+                      {p.weekSlots.map((slot, i) => {
+                        if (slot === 'rest') {
+                          return (
+                            <div key={i} className="rounded-xl bg-surface2/60 px-4 py-3">
+                              <div className="text-sm font-medium">Rest Day</div><div className="text-xs text-muted">Tag {i + 1}</div>
+                            </div>
+                          )
+                        }
+                        const d = p.days[slot]
+                        const go = () => nav(`/workout-preview/p${id}-s${i}`)
+                        return (
+                          <button key={i} onClick={go} className="w-full text-left rounded-xl bg-surface2/60 px-4 py-3 active:opacity-70">
+                            <div className="text-sm font-medium truncate">{d.name}</div>
+                            <div className="text-xs text-muted">{d.exercises.length} Übungen · Tag {i + 1}</div>
+                          </button>
+                        )
+                      })}
+                      {p.days.map((d, i) => ({ d, i })).filter(({ i }) => !p.weekSlots.includes(i)).map(({ d, i }) => (
+                        <button key={d.id} onClick={() => nav(`/workout-preview/p${id}-d${i}`)} className="w-full text-left rounded-xl bg-surface2/60 px-4 py-3 active:opacity-70">
+                          <div className="text-sm font-medium truncate">{d.name}</div>
+                          <div className="text-xs text-muted">{d.exercises.length} Übungen · Zusätzlich</div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button className="flex-1" onClick={() => void activateProgram(id)}>Als aktiv setzen</Button>
+                      <Button variant="danger" className="flex-1"
+                        onClick={() => (confirmDel === id ? (setConfirmDel(null), void deleteProgram(id)) : setConfirmDel(id))}>
+                        {confirmDel === id ? 'Wirklich löschen?' : 'Löschen'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )
+          })}
+        </section>
       )}
     </Page>
   )

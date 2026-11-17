@@ -3,6 +3,7 @@ import type { LoggedSet, Settings } from '../../types'
 import { cx } from '../../components/ui'
 import { rirColor } from '../../components/rir'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
+import { isPerSide } from '../../engine/stats'
 import { SwipeRow } from './SwipeRow'
 import type { Row } from './state'
 
@@ -33,6 +34,7 @@ const COLS = 'grid-cols-[2.75rem_1fr_4.5rem_4.5rem_2.75rem]'
 /** Satztabelle: Set | Previous | kg | Reps | Haken */
 export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDone, onToggleAll, onAdd, onDelete, onType, onPad }: Props) {
   const cardio = !!view.ex.cardio
+  const side = !cardio && isPerSide(view.ex)
   const doneN = rows.filter((r) => r.done).length
   const allDone = rows.length > 0 && doneN === rows.length
   let warmIdx = -1
@@ -40,10 +42,11 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
   const cell = 'h-10 rounded-lg bg-surface2 text-center text-sm tabular-nums flex items-center justify-center'
 
   return (
-    <div className="rounded-2xl border border-line overflow-hidden bg-surface">
-      <div className={cx('grid gap-2 px-2 py-2 text-xs text-muted text-center border-b border-line', COLS)}>
+    <div className="-mx-1">
+      <div className={cx('grid gap-2 px-1 pb-2 text-[11px] text-muted text-center border-b border-line', COLS)}>
         <span>Set</span><span>Previous</span>
-        <span>{cardio ? 'min' : settings.weightUnit}</span><span>{cardio ? settings.distanceUnit : 'Reps'}</span>
+        <span>{cardio ? 'min' : side ? `${settings.weightUnit}/side` : settings.weightUnit}</span>
+        <span>{cardio ? settings.distanceUnit : side ? 'reps/side' : 'Reps'}</span>
         <button onClick={onToggleAll} disabled={rows.length === 0} role="checkbox" aria-checked={allDone ? true : doneN > 0 ? 'mixed' : false}
           aria-label="Alle Sätze abhaken"
           className={cx('h-7 rounded-md border text-sm leading-none', allDone ? 'bg-accent text-accent-fg border-accent' : doneN > 0 ? 'border-accent text-accent' : 'border-line text-transparent')}>
@@ -58,7 +61,7 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
         const padOn = (f: PadField) => activePad?.rowId === r.id && activePad.field === f
         return (
           <SwipeRow key={r.id} onDelete={() => onDelete(r.id)}>
-            <div className={cx('grid gap-2 px-2 py-1.5 items-center', COLS, r.done && 'bg-accent/10')}>
+            <div className={cx('grid gap-2 px-1 py-1.5 items-center border-b border-line/60', COLS, r.done && 'bg-accent/10')}>
               <button onClick={() => onType(r.id)} aria-label="Satztyp ändern"
                 className={cx('h-10 rounded-lg text-sm font-semibold', warm ? 'text-amber-500' : 'text-fg')}>
                 {warm ? 'W' : workIdx + 1}
@@ -88,10 +91,9 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
           </SwipeRow>
         )
       })}
-      <div className={cx('grid gap-2 px-2 py-1.5 items-center', COLS)}>
-        <button onClick={onAdd} aria-label="Satz hinzufügen" className="h-10 rounded-lg bg-surface2 text-accent text-xl">+</button>
-        <span className="text-xs text-muted col-span-4">Satz hinzufügen</span>
-      </div>
+      <button onClick={onAdd} className="w-full flex items-center gap-2 px-2 py-3 text-sm text-accent font-medium active:opacity-60">
+        <span className="text-lg leading-none">+</span> Satz hinzufügen
+      </button>
     </div>
   )
 }

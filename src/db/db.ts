@@ -1,10 +1,11 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type {
-  Exercise, MeasureEntry, Program, Session, Settings, WeekState, WeightEntry,
+  Exercise, ExerciseOverride, MeasureEntry, Program, Session, Settings, WeekState, WeightEntry,
 } from '../types'
 import { ALL_EXERCISES } from '../data/exercises'
-import { emptyWeek } from '../engine/weekCycle'
+import { emptyWeek, jumpToWeek, maxReachedWeek } from '../engine/weekCycle'
+import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
 import { DEFAULT_REST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
 
@@ -41,7 +42,8 @@ export const db = new LiftDB()
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system', weightUnit: 'kg', lengthUnit: 'cm', distanceUnit: 'km', clock: '24h', language: 'de',
   name: '', birthday: '', sex: '', heightCm: null,
-  restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45, warmupsEnabled: true,
+  restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45,
+  keepAlive: false, warmupMode: 'smart', warmupSchemes: DEFAULT_WARMUP_SCHEMES,
 }
 
 async function getKV<T>(key: string, fallback: T): Promise<T> {
@@ -51,8 +53,12 @@ async function getKV<T>(key: string, fallback: T): Promise<T> {
 export const ACTIVE_WORKOUT_KEY = 'activeWorkout'
 const setKV = (key: string, value: unknown) => db.kv.put({ key, value })
 
-export const getSettings = () => getKV<Settings>('settings', DEFAULT_SETTINGS).then((s) => ({
-  ...DEFAULT_SETTINGS, ...s, restSeconds: { ...DEFAULT_SETTINGS.restSeconds, ...s.restSeconds },
+export const getSettings = () => getKV<Settings & { warmupsEnabled?: boolean }>('settings', DEFAULT_SETTINGS).then((s) => ({
+  ...DEFAULT_SETTINGS, ...s,
+  restSeconds: { ...DEFAULT_SETTINGS.restSeconds, ...s.restSeconds },
+  warmupSchemes: { ...cloneSchemes(DEFAULT_SETTINGS.warmupSchemes), ...s.warmupSchemes },
+  // Alte Einstellung "Aufwärmen aus" in den neuen Modus übernehmen
+  warmupMode: s.warmupMode ?? (s.warmupsEnabled === false ? 'off' : 'smart'),
 }))
 export const saveSettings = (s: Settings) => setKV('settings', s)
 export const getWeekState = () => getKV<WeekState>('weekState', emptyWeek())
@@ -69,11 +75,21 @@ export function useActiveWorkoutParam(): string | null {
 export function useSettings(): Settings {
   return useLiveQuery(getSettings, [], DEFAULT_SETTINGS) ?? DEFAULT_SETTINGS
 }
+/** Wie useSettings, aber `undefined` solange noch geladen wird (für Logik, die nicht mit Defaults starten darf). */
+export function useSettingsLoaded(): Settings | undefined {
+  return useLiveQuery(getSettings, [])
+}
 export function useWeekState(): WeekState {
   return useLiveQuery(getWeekState, [], emptyWeek()) ?? emptyWeek()
 }
 export function useActiveProgram(): Program | undefined {
   return useLiveQuery(() => db.programs.filter((p) => p.active).first(), [])
+}
+/** Programm zum Route-Parameter: `p<id>-…` = bestimmtes Programm (Bibliothek), sonst das aktive. */
+export function useProgramByParam(param: string): Program | undefined {
+  const programs = useLiveQuery(() => db.programs.toArray(), [])
+  const m = /^p(\d+)-/.exec(param)
+  return m ? programs?.find((p) => p.id === Number(m[1])) : programs?.find((p) => p.active)
 }
 export function usePrograms(): Program[] {
   return useLiveQuery(() => db.programs.toArray(), [], []) ?? []
@@ -175,4 +191,65 @@ export function parseWeightImport(text: string): { date: string; kg: number }[] 
     }
   }
   return [...out.entries()].map(([date, kg]) => ({ date, kg: Math.round(kg * 10) / 10 }))
+}
+
+
+// ---- Übungs-Überschreibungen und Notizen (kv, Teil des Backups) ----
+const OVERRIDES_KEY = 'exerciseOverrides'
+const PROGRAM_NOTES_KEY = 'programNotes'
+
+/** `undefined` solange noch geladen wird */
+export function useExerciseOverridesLoaded(): Record<string, ExerciseOverride> | undefined {
+  return useLiveQuery(() => getKV<Record<string, ExerciseOverride>>(OVERRIDES_KEY, {}), [])
+}
+export function useExerciseOverrides(): Record<string, ExerciseOverride> {
+  return useExerciseOverridesLoaded() ?? {}
+}
+
+/** Überschreibung zusammenführen; `null` löscht sie, leere Felder (undefined) werden entfernt. */
+export async function saveExerciseOverride(id: string, patch: ExerciseOverride | null) {
+  const all = await getKV<Record<string, ExerciseOverride>>(OVERRIDES_KEY, {})
+  const merged = patch === null ? undefined : { ...all[id], ...patch }
+  const next = { ...all }
+  const clean = merged && Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined && v !== '')) as ExerciseOverride
+  if (clean && Object.keys(clean).length) next[id] = clean
+  else delete next[id]
+  await setKV(OVERRIDES_KEY, next)
+}
+
+export const programNoteKey = (programId: number | null | undefined, exerciseId: string) => `${programId ?? 'x'}:${exerciseId}`
+
+export function useProgramNotes(): Record<string, string> {
+  return useLiveQuery(() => getKV<Record<string, string>>(PROGRAM_NOTES_KEY, {}), [], {}) ?? {}
+}
+
+export async function saveProgramNote(programId: number | null | undefined, exerciseId: string, text: string) {
+  const all = await getKV<Record<string, string>>(PROGRAM_NOTES_KEY, {})
+  const key = programNoteKey(programId, exerciseId)
+  const next = { ...all }
+  if (text.trim()) next[key] = text; else delete next[key]
+  await setKV(PROGRAM_NOTES_KEY, next)
+}
+
+/** Programm aktivieren; der Wochenstand wird aus den geloggten Einheiten rekonstruiert. */
+export async function activateProgram(id: number) {
+  await db.transaction('rw', db.programs, db.sessions, db.kv, async () => {
+    const program = await db.programs.get(id)
+    if (!program) return
+    const sessions = await db.sessions.toArray()
+    await db.programs.toCollection().modify((p) => { p.active = p.id === id })
+    await saveWeekState(jumpToWeek(program, sessions, maxReachedWeek(program, sessions, 0)))
+  })
+}
+
+export async function deleteProgram(id: number) {
+  await db.transaction('rw', db.programs, db.kv, async () => {
+    const program = await db.programs.get(id)
+    await db.programs.delete(id)
+    if (program?.active) {
+      const next = await db.programs.orderBy('id').last()
+      if (next?.id !== undefined) await db.programs.update(next.id, { active: true })
+      await saveWeekState(emptyWeek())
+    }
+  })
 }

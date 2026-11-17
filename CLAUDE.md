@@ -32,6 +32,9 @@ Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Paramete
 - Datumsangaben sind lokale Strings `yyyy-mm-dd` (`utils/dates.ts`), keine UTC-ISO-Strings.
 - Neue Logik gehört in `engine/` (rein, mit Test in `engine.test.ts`), nicht in Komponenten.
 - Muskel-Sets/Volumen: primäre Muskeln voll, sekundäre mit `SECONDARY_WEIGHT` (0,5). Cardio zählt nie mit.
+- **Kurzhantel-Übungen** (`isPerSide`, `engine/stats.ts`): Gewicht/Wdh. werden je Seite gespeichert, Volumen zählt × 2 (`volumeFactor`); 1RM/Heaviest bleiben je Hantel. Ausnahme: `db-pullover`.
+- **Warm-up**: `engine/warmup.ts`. Modus Smart (Schwere + Frische des Muskels), Scheme (5 Kategorie-Schemata in `Settings.warmupSchemes`) oder aus; pro Übung überschreibbar über `kv['exerciseOverrides']` (`warmupMode`, `warmupScheme`, `note`). Programm-Notizen in `kv['programNotes']`, Session-Notizen in `Session.notes`.
+- **Mehrere Programme**: `activateProgram` rekonstruiert den Wochenstand aus den Sessions. Der Wochenkalender zeigt nur Tage mit geloggten Workouts.
 - **Aufwärmsätze** (`LoggedSet.warmup`) zählen nie in Volumen, Sets, e1RM, Progression oder Wochenfortschritt (Filter in `stats.ts` `work()`, `suggestNext`, `sessionE1rm`, `weekProgress`). Sie werden zur Laufzeit aus dem Arbeitsgewicht berechnet, nicht im Plan gespeichert.
 - Das laufende Workout liegt in `kv['activeWorkout']` (Reload-fest, nicht im Backup). Timer ist zeitstempelbasiert (`workoutClock.ts`).
 - Pausen-Defaults und Warm-up-/RIR-Regeln sind Heuristiken (Quellen im Code-Kommentar), Pausen in Einstellungen änderbar.

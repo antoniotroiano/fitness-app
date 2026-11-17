@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { HashRouter, NavLink, Route, Routes, useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { HashRouter, NavLink, Route, Routes, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { useSettings } from './db/db'
 import { BottomSheet, cx } from './components/ui'
 import { Icon, type IconName } from './components/icons'
@@ -38,6 +38,26 @@ function Shell() {
   const nav = useNavigate()
   const loc = useLocation()
   const [sheet, setSheet] = useState(false)
+  const scroller = useRef<HTMLDivElement>(null)
+  const positions = useRef<Record<string, number>>({})
+  const pathRef = useRef(loc.pathname)
+  const navType = useNavigationType()
+  // Scrollposition pro Seite merken; beim Zurück (Wischgeste/Back) wiederherstellen, sonst nach oben
+  useLayoutEffect(() => {
+    pathRef.current = loc.pathname
+    const el = scroller.current
+    if (!el) return
+    const target = navType === 'POP' ? positions.current[loc.pathname] ?? 0 : 0
+    el.scrollTop = target
+    if (target === 0) return
+    // Inhalt lädt teils asynchron (Datenbank): bis zu 1 s nachziehen, bis die Seite hoch genug ist
+    let frames = 0
+    let raf = requestAnimationFrame(function tick() {
+      el.scrollTop = target
+      if (Math.abs(el.scrollTop - target) > 1 && frames++ < 60) raf = requestAnimationFrame(tick)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [loc.pathname, navType])
   const go = (to: string) => { setSheet(false); nav(to) }
   const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/workout-preview/') || loc.pathname.startsWith('/new')
 
@@ -49,7 +69,8 @@ function Shell() {
   ]
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div ref={scroller} className="h-full overflow-y-auto"
+      onScroll={(e) => { positions.current[pathRef.current] = e.currentTarget.scrollTop }}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/workouts" element={<Workouts />} />
