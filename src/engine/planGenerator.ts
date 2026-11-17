@@ -2,7 +2,7 @@ import type {
   Exercise, Experience, MuscleId, PlannedExercise, Program, ProgramConfig, Split, TimeBudget, WorkoutDay,
 } from '../types'
 import { SECONDARY_WEIGHT } from '../data/muscles'
-import { baseRepRange, baseRir } from './periodization'
+import { baseRepRange, baseRir, type ExerciseRole } from './periodization'
 
 type DayType = 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full'
 
@@ -135,6 +135,7 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
     const planned: PlannedExercise[] = []
     const muscles = [...dayMuscles(type)].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
     let remainingCap = cap
+    let mains = 0
 
     for (const m of muscles) {
       if (remainingCap <= 0) break
@@ -142,13 +143,18 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
       const perDay = (weeklyTarget(config, m) * scale) / (freq[m] ?? 1)
       const needed = Math.round(perDay - (credit[m] ?? 0))
       if (needed <= 0) continue
-      const sets = Math.min(Math.max(needed, 2), remainingCap)
+      // Mindestens 3 Sätze für Verbundübungen, 2 für Isolation; ab 5 Sätzen zwei Übungen
+      const lead = pickExercises(pool, m, 1, used, di)[0]
+      const sets = Math.min(Math.max(needed, lead?.compound ? 3 : 2), remainingCap)
       const count = sets >= 5 ? 2 : 1
       const chosen = pickExercises(pool, m, count, used, di)
       if (!chosen.length) continue
       const split = chosen.length === 2 ? [Math.ceil(sets / 2), Math.floor(sets / 2)] : [sets]
       chosen.forEach((ex, i) => {
-        const range = baseRepRange(config.goal, ex.compound)
+        // Bis zu zwei Hauptübungen pro Tag; weitere Verbundübungen mittlere, Isolation hohe Wiederholungen
+        const role: ExerciseRole = !ex.compound ? 'isolation' : mains < 2 ? 'main' : 'secondary'
+        if (role === 'main') mains += 1
+        const range = baseRepRange(config.goal, ex.compound, role)
         planned.push({
           exerciseId: ex.id, sets: split[i], repMin: range.min, repMax: range.max, rir: baseRir(config.experience),
         })

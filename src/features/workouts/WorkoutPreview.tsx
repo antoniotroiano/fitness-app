@@ -4,36 +4,39 @@ import { Button, Card, Page, cx } from '../../components/ui'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { rirColor } from '../../components/rir'
-import { useActiveProgram, useActiveWorkoutParam, useAllExercises, useSessions, useSettings, useWeekState } from '../../db/db'
+import { useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState } from '../../db/db'
 import { muscleLabel } from '../../data/muscles'
 import { weekPlan } from '../../engine/periodization'
 import { plannedDay } from '../../engine/plannedDay'
-import { historyUpTo } from '../../engine/weekCycle'
+import { historyUpTo, maxReachedWeek } from '../../engine/weekCycle'
 import { targetMuscles } from '../../engine/targetMuscles'
 
 /** Vorschau eines Workouts: Übungen, Sätze, Rep-Bereiche und Ziel-RIR. Start über den Button unten. */
 export default function WorkoutPreview() {
   const { slot: param = 's0' } = useParams()
   const nav = useNavigate()
-  const program = useActiveProgram()
+  const program = useProgramByParam(param)
   const week = useWeekState()
   const sessions = useSessions()
   const settings = useSettings()
   const all = useAllExercises()
   const running = useActiveWorkoutParam()
+  const overrides = useExerciseOverrides()
   const [focus, setFocus] = useState<string | null>(null)
 
-  const slotIdx = param.startsWith('s') ? Number(param.slice(1)) : null
+  const local = param.replace(/^p\d+-/, '')
+  const slotIdx = local.startsWith('s') ? Number(local.slice(1)) : null
   const dayIdx = !program ? -1 : slotIdx !== null
-    ? (program.weekSlots[slotIdx] === 'rest' ? -1 : (program.weekSlots[slotIdx] as number)) : Number(param.slice(1))
+    ? (program.weekSlots[slotIdx] === 'rest' ? -1 : (program.weekSlots[slotIdx] as number)) : Number(local.slice(1))
+  const curWeek = program && !program.active ? maxReachedWeek(program, sessions, 0) : week.week
   const day = program?.days[dayIdx]
   const plan = useMemo(
-    () => (program?.config ? weekPlan(program.config, week.week) : { isDeload: false, repShift: 0, rirDelta: 0, setsFactor: 1 }),
-    [program, week.week],
+    () => (program?.config ? weekPlan(program.config, curWeek) : { isDeload: false, repShift: 0, rirDelta: 0, setsFactor: 1 }),
+    [program, curWeek],
   )
   const views = useMemo(
-    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, week.week), (id) => all.find((e) => e.id === id), settings.warmupsEnabled) : []),
-    [day, plan, sessions, program?.id, week.week, all, settings.warmupsEnabled],
+    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, curWeek), (id) => all.find((e) => e.id === id), settings, overrides) : []),
+    [day, plan, sessions, program?.id, curWeek, all, settings, overrides],
   )
 
   const targets = useMemo(() => targetMuscles(views.map((v) => ({ ex: v.ex, sets: v.sets }))), [views])

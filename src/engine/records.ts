@@ -1,5 +1,5 @@
 import type { Exercise, Session } from '../types'
-import { exerciseValue, type ExerciseMetric } from './stats'
+import { exerciseValue, volumeFactor, type ExerciseMetric } from './stats'
 
 export type RecordMetric = 'volume' | 'reps' | 'rm1'
 
@@ -21,7 +21,7 @@ export function recentRecords(
   for (const s of ordered) {
     for (const e of s.exercises) {
       if (seen.has(e.exerciseId) || lookup(e.exerciseId)?.cardio) continue
-      const value = exerciseValue(e.sets, METRIC[metric])
+      const value = exerciseValue(e.sets, METRIC[metric], volumeFactor(lookup(e.exerciseId)))
       if (value <= 0) continue
       seen.add(e.exerciseId)
       rows.push({ exerciseId: e.exerciseId, value, date: s.date })

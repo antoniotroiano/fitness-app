@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { elapsedMs, formatClock, type ClockState } from '../../engine/workoutClock'
-import { Button } from '../../components/ui'
+import { Icon } from '../../components/icons'
 
-/** Kopfzeile: Zurück, Timer (HH:MM:SS), Pause/Fortsetzen, Beenden. */
-export function WorkoutHeader({ clock, onBack, onTogglePause, onFinish }: {
-  clock: ClockState; onBack: () => void; onTogglePause: () => void; onFinish: () => void
-}) {
+/** Kopfzeile: Zurück, kleiner Timer (HH:MM:SS), Menü (Pause, Minimieren, Beenden, Verwerfen). */
+export function WorkoutHeader({ clock, onBack, onMenu }: { clock: ClockState; onBack: () => void; onMenu: () => void }) {
   const [now, setNow] = useState(Date.now())
   const paused = clock.pausedAt != null
   useEffect(() => {
@@ -16,16 +14,14 @@ export function WorkoutHeader({ clock, onBack, onTogglePause, onFinish }: {
   const sec = elapsedMs(clock, paused ? (clock.pausedAt as number) : now) / 1000
 
   return (
-    <div className="flex items-center justify-between gap-2">
-      <button onClick={onBack} aria-label="Zurück" className="text-2xl text-muted w-9">‹</button>
+    <div className="flex items-center justify-between gap-2 h-9">
+      <button onClick={onBack} aria-label="Zurück" className="text-2xl text-muted w-9 text-left">‹</button>
       <div className="text-center">
-        <div role="timer" aria-label="Workout-Dauer" className="text-3xl font-bold tabular-nums leading-none">{formatClock(sec)}</div>
-        {paused && <div className="text-xs text-amber-500 mt-1">Pausiert</div>}
+        <div role="timer" aria-label="Workout-Dauer" className="text-base font-semibold tabular-nums leading-none">{formatClock(sec)}</div>
+        {paused && <div className="text-[10px] text-amber-500 mt-0.5">Pausiert</div>}
       </div>
-      <div className="flex gap-1.5">
-        <Button variant="ghost" className="!px-3 !py-2" onClick={onTogglePause} aria-label={paused ? 'Fortsetzen' : 'Pausieren'}>{paused ? '▶' : '⏸'}</Button>
-        <Button className="!px-3 !py-2" onClick={onFinish}>Beenden</Button>
-      </div>
+      <button onClick={onMenu} aria-label="Workout-Menü" aria-haspopup="dialog"
+        className="w-9 h-9 rounded-full bg-surface2 flex items-center justify-center text-fg active:opacity-70"><Icon name="menu" size={20} /></button>
     </div>
   )
 }

@@ -39,10 +39,18 @@ export function shiftRange(base: RepRange, shift: number, floor = 3): RepRange {
   return { min, max }
 }
 
-export function baseRepRange(goal: Goal, compound: boolean): RepRange {
-  if (goal === 'strength') return compound ? { min: 3, max: 6 } : { min: 8, max: 12 }
-  if (goal === 'both') return compound ? { min: 5, max: 8 } : { min: 8, max: 12 }
-  return compound ? { min: 6, max: 10 } : { min: 10, max: 15 }
+/**
+ * Rolle einer Übung im Tag: Hauptübung (schwere Verbundübung), weitere Verbundübung oder Isolation.
+ * Bei Kraft und "Beides" bekommen Hauptübungen wenige Wiederholungen mit hohem Gewicht,
+ * Isolationsübungen viele Wiederholungen mit weniger Gewicht.
+ */
+export type ExerciseRole = 'main' | 'secondary' | 'isolation'
+
+export function baseRepRange(goal: Goal, compound: boolean, role?: ExerciseRole): RepRange {
+  const r: ExerciseRole = role ?? (compound ? 'main' : 'isolation')
+  if (goal === 'strength') return { main: { min: 3, max: 6 }, secondary: { min: 5, max: 8 }, isolation: { min: 8, max: 12 } }[r]
+  if (goal === 'both') return { main: { min: 4, max: 6 }, secondary: { min: 6, max: 10 }, isolation: { min: 10, max: 15 } }[r]
+  return { main: { min: 6, max: 10 }, secondary: { min: 8, max: 12 }, isolation: { min: 10, max: 15 } }[r]
 }
 
 export function baseRir(exp: Experience): number {

@@ -22,6 +22,13 @@ export const METRIC_UNIT: Record<ExerciseMetric, 'weight' | 'reps' | 'sets'> = {
   bestSetVolume: 'weight', totalReps: 'reps', bestSetReps: 'reps', totalSets: 'sets',
 }
 
+/** Übungen, bei denen eine Hantel pro Seite gehalten wird (Gewicht und Wdh. werden je Seite eingetragen). */
+const SINGLE_IMPLEMENT = new Set(['db-pullover'])
+export const isPerSide = (ex?: Pick<Exercise, 'id' | 'equipment'>) =>
+  !!ex && ex.equipment === 'dumbbell' && !SINGLE_IMPLEMENT.has(ex.id)
+/** Volumen-Faktor: bei Kurzhantelübungen zählen beide Seiten (eingetragenes Gewicht × 2). */
+export const volumeFactor = (ex?: Pick<Exercise, 'id' | 'equipment'>) => (isPerSide(ex) ? 2 : 1)
+
 const work = (sets: LoggedSet[]) => sets.filter((s) => !s.warmup && s.weight > 0 && s.reps > 0)
 
 /** Höchstes Gewicht, das nach Schätzung für n Wiederholungen reicht (bester Satz). */
@@ -29,7 +36,8 @@ export function rmN(sets: LoggedSet[], n: number): number {
   return Math.max(0, ...work(sets).map((s) => e1rm(s.weight, s.reps, s.rir ?? 0) / (1 + n / 30)))
 }
 
-export function exerciseValue(sets: LoggedSet[], metric: ExerciseMetric): number {
+/** `factor`: Volumen-Faktor (siehe volumeFactor), wirkt nur auf Volumen-Metriken. */
+export function exerciseValue(sets: LoggedSet[], metric: ExerciseMetric, factor = 1): number {
   const w = work(sets)
   if (!w.length) return 0
   switch (metric) {
@@ -37,8 +45,8 @@ export function exerciseValue(sets: LoggedSet[], metric: ExerciseMetric): number
     case 'rm3': return rmN(w, 3)
     case 'rm10': return rmN(w, 10)
     case 'heaviest': return Math.max(...w.map((s) => s.weight))
-    case 'totalVolume': return w.reduce((a, s) => a + s.weight * s.reps, 0)
-    case 'bestSetVolume': return Math.max(...w.map((s) => s.weight * s.reps))
+    case 'totalVolume': return w.reduce((a, s) => a + s.weight * s.reps * factor, 0)
+    case 'bestSetVolume': return Math.max(...w.map((s) => s.weight * s.reps * factor))
     case 'totalReps': return w.reduce((a, s) => a + s.reps, 0)
     case 'bestSetReps': return Math.max(...w.map((s) => s.reps))
     case 'totalSets': return w.length
@@ -46,7 +54,7 @@ export function exerciseValue(sets: LoggedSet[], metric: ExerciseMetric): number
 }
 
 /** Tageswerte einer Übung über alle Sessions (mehrere Sessions am Tag werden zusammengelegt). */
-export function exerciseDaily(sessions: Session[], exerciseId: string, metric: ExerciseMetric): Point[] {
+export function exerciseDaily(sessions: Session[], exerciseId: string, metric: ExerciseMetric, factor = 1): Point[] {
   const byDate = new Map<string, LoggedSet[]>()
   for (const s of sessions) {
     for (const ex of s.exercises) {
@@ -55,7 +63,7 @@ export function exerciseDaily(sessions: Session[], exerciseId: string, metric: E
     }
   }
   return [...byDate.entries()]
-    .map(([date, sets]) => ({ date, value: exerciseValue(sets, metric) }))
+    .map(([date, sets]) => ({ date, value: exerciseValue(sets, metric, factor) }))
     .filter((p) => p.value > 0)
     .sort((a, b) => a.date.localeCompare(b.date))
 }
@@ -93,7 +101,7 @@ export function muscleDaily(
       const w = def.primary.includes(muscle) ? 1 : def.secondary.includes(muscle) ? SECONDARY_WEIGHT : 0
       if (!w) continue
       const sets = work(ex.sets)
-      const amount = metric === 'sets' ? sets.length : sets.reduce((a, x) => a + x.weight * x.reps, 0)
+      const amount = metric === 'sets' ? sets.length : sets.reduce((a, x) => a + x.weight * x.reps * volumeFactor(def), 0)
       if (amount > 0) byDate.set(s.date, (byDate.get(s.date) ?? 0) + amount * w)
     }
   }

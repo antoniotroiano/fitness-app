@@ -1,55 +1,120 @@
-import type { Equipment, Exercise, Pattern } from '../types'
+import type { Equipment, Exercise, RestCategory, WarmupOverrideMode, WarmupStep } from '../types'
 import { INCREMENT, roundTo } from './progression'
 
 /**
- * Aufwärmsätze (Heuristik): Spezifisches Aufwärmen mit leichteren Sätzen derselben Übung
- * verbessert die Leistung leicht bis neutral (u. a. Ribeiro 2020, Silva 2018). Zur Satzzahl gibt es
- * keine harte Evidenz, daher die übliche Rampe: 50 % x 8, 70 % x 5, 85 % x 3, nie bis zur Ermüdung.
- * - Schwere Verbundübung, erste Übung der Muskelgruppe: 3 Sätze
- * - weitere Verbundübung (Muskeln schon warm): 1 Satz
- * - Isolation: 1 Satz nur als erste Übung der Muskelgruppe, sonst keiner
- * - Core, Bodyweight, Band und Cardio: keine
+ * Aufwärmsätze (Heuristik). Studienlage: Ein spezifisches Aufwärmen (leichtere Sätze derselben Übung)
+ * verbessert Maximalkraft und Wiederholungszahl teils leicht, teils gar nicht; Effekte zeigen sich vor allem
+ * bei Lasten nahe am Maximum (Systematic Review Ribeiro et al., Motricidade 2021). Zu Satzzahl und Prozenten
+ * gibt es keinen Konsens oder keine Formel. Die Regeln unten sind daher Praxis-Heuristiken:
+ * - schwerer (hohe %1RM) = mehr Rampensätze, leicht = weniger
+ * - Muskel schon durch frühere Übungen belastet = weniger oder keine Sätze
+ * - die Stange allein (z. B. 20 kg) ist bereits Aufwärmen, Sätze darunter entfallen
  */
 export interface WarmupSet { weight: number | null; reps: number }
 
-const RAMP: { pct: number; reps: number }[] = [
-  { pct: 0.5, reps: 8 },
-  { pct: 0.7, reps: 5 },
-  { pct: 0.85, reps: 3 },
-]
-
-const NO_WARMUP: Equipment[] = ['bodyweight', 'band', 'cardio']
-
-export interface WarmupInput {
-  workWeight: number | null
-  equipment: Equipment
-  compound: boolean
-  pattern: Pattern
-  /** Erste Übung des Tages für ihren Hauptmuskel */
-  firstForMuscle: boolean
+const DEFAULT_RAMP: WarmupStep[] = [{ pct: 40, reps: 5 }, { pct: 60, reps: 5 }, { pct: 80, reps: 3 }]
+export const DEFAULT_WARMUP_SCHEMES: Record<RestCategory, WarmupStep[]> = {
+  compoundUpper: DEFAULT_RAMP.map((x) => ({ ...x })),
+  compoundLower: DEFAULT_RAMP.map((x) => ({ ...x })),
+  isoUpper: DEFAULT_RAMP.map((x) => ({ ...x })),
+  isoLower: DEFAULT_RAMP.map((x) => ({ ...x })),
+  core: DEFAULT_RAMP.map((x) => ({ ...x })),
 }
 
-export function warmupSets({ workWeight, equipment, compound, pattern, firstForMuscle }: WarmupInput): WarmupSet[] {
-  if (NO_WARMUP.includes(equipment) || pattern === 'core' || pattern === 'cardio') return []
+export const cloneSchemes = (s: Record<RestCategory, WarmupStep[]>): Record<RestCategory, WarmupStep[]> =>
+  ({ compoundUpper: [...s.compoundUpper], compoundLower: [...s.compoundLower], isoUpper: [...s.isoUpper], isoLower: [...s.isoLower], core: [...s.core] })
 
-  let steps: { pct: number; reps: number }[]
-  if (compound) steps = firstForMuscle ? RAMP : [RAMP[1]]
-  else steps = firstForMuscle ? [{ pct: 0.6, reps: 8 }] : []
-  if (steps.length === 0) return []
+const NO_WARMUP: Equipment[] = ['bodyweight', 'band', 'cardio']
+/** Leergewicht der Stange bzw. kleinste sinnvolle Last */
+const MIN_LOAD: Partial<Record<Equipment, number>> = { barbell: 20, smith: 15 }
 
-  // Ohne bekanntes Arbeitsgewicht nur Platzhalter-Zeilen
+export type Freshness = 'fresh' | 'partial' | 'primed'
+
+export interface WarmupContext {
+  equipment: Equipment
+  compound: boolean
+  isCore: boolean
+  freshness: Freshness
+  /** Anteil am 1RM des Arbeitssatzes (0-1), aus Ziel-Wdh. und RIR */
+  intensity: number
+}
+
+/** Anteil am 1RM für `reps` Wiederholungen bei `rir` Reserve (Epley, umgekehrt). */
+export const intensityOf = (reps: number, rir: number) => 1 / (1 + (Math.max(1, reps) + Math.max(0, rir)) / 30)
+
+// Smart nutzt höchstens 3 Aufwärmsätze; Prozente und Wiederholungen wachsen mit der Schwere
+const RAMP_COMPOUND: Record<number, WarmupStep[]> = {
+  1: [{ pct: 60, reps: 5 }],
+  2: [{ pct: 50, reps: 8 }, { pct: 75, reps: 4 }],
+  3: [{ pct: 40, reps: 8 }, { pct: 60, reps: 5 }, { pct: 80, reps: 3 }],
+}
+const RAMP_ISO: Record<number, WarmupStep[]> = {
+  1: [{ pct: 60, reps: 8 }],
+  2: [{ pct: 50, reps: 10 }, { pct: 75, reps: 5 }],
+}
+
+/** Smart: Satzzahl (max. 3) aus Schwere (Intensität) und Frische des Muskels. Isolation: 2 Sätze. */
+export function smartSteps(c: WarmupContext): WarmupStep[] {
+  if (c.isCore || NO_WARMUP.includes(c.equipment)) return []
+  let n = c.compound ? (c.intensity >= 0.78 ? 3 : 2) : 2
+  if (c.freshness === 'partial') n -= 1
+  if (c.freshness === 'primed') n = c.compound ? Math.max(n - 2, c.intensity >= 0.85 ? 1 : 0) : 0
+  if (n <= 0) return []
+  return (c.compound ? RAMP_COMPOUND : RAMP_ISO)[Math.min(n, c.compound ? 3 : 2)] ?? []
+}
+
+/** Schritte in Gewichte umrechnen (gerundet, Stange als Untergrenze, ohne Doppelte). */
+export function stepsToSets(steps: WarmupStep[], workWeight: number | null, equipment: Equipment): WarmupSet[] {
+  if (steps.length === 0 || NO_WARMUP.includes(equipment)) return []
   if (workWeight == null || workWeight <= 0) return steps.map((s) => ({ weight: null, reps: s.reps }))
-
-  const inc = INCREMENT[equipment]
+  const inc = INCREMENT[equipment] || 1
+  const floor = MIN_LOAD[equipment] ?? inc
   const out: WarmupSet[] = []
   for (const s of steps) {
-    const weight = Math.max(inc, roundTo(workWeight * s.pct, inc))
-    // Zu leichte Sätze, die fast dem Arbeitsgewicht entsprechen oder sich doppeln, entfallen
+    const weight = Math.max(floor, roundTo((workWeight * s.pct) / 100, inc))
     if (weight >= workWeight) continue
     if (out.some((o) => o.weight === weight)) continue
     out.push({ weight, reps: s.reps })
   }
   return out
+}
+
+export interface ResolveInput {
+  /** Effektiver Modus nach Überschreibung ('default' bereits aufgelöst) */
+  mode: 'smart' | 'scheme' | 'none'
+  scheme: WarmupStep[]
+  ctx: WarmupContext
+  workWeight: number | null
+}
+
+export function resolveWarmupSteps({ mode, scheme, ctx }: Pick<ResolveInput, 'mode' | 'scheme' | 'ctx'>): WarmupStep[] {
+  if (mode === 'none') return []
+  return mode === 'smart' ? smartSteps(ctx) : scheme
+}
+
+export function resolveWarmup(i: ResolveInput): WarmupSet[] {
+  return stepsToSets(resolveWarmupSteps(i), i.workWeight, i.ctx.equipment)
+}
+
+/** Modus der Übung: eigene Überschreibung, sonst App-Einstellung. */
+export function effectiveMode(
+  override: WarmupOverrideMode | undefined, appMode: 'smart' | 'scheme' | 'off',
+): 'smart' | 'scheme' | 'none' {
+  if (override === 'none') return 'none'
+  if (override === 'smart' || override === 'scheme') return override
+  return appMode === 'off' ? 'none' : appMode
+}
+
+/** Frische des Hauptmuskels: schon von früheren Übungen des Tages belastet? */
+export function freshnessFor(
+  dayExerciseIds: string[], index: number, lookup: (id: string) => Exercise | undefined,
+): Freshness {
+  const ex = lookup(dayExerciseIds[index])
+  if (!ex) return 'fresh'
+  const earlier = dayExerciseIds.slice(0, index).map(lookup).filter((e): e is Exercise => !!e && !e.cardio)
+  if (earlier.some((o) => o.primary.some((m) => ex.primary.includes(m)))) return 'primed'
+  if (earlier.some((o) => o.secondary.some((m) => ex.primary.includes(m)) || o.primary.some((m) => ex.secondary.includes(m)))) return 'partial'
+  return 'fresh'
 }
 
 /** Ist die Übung an Index `index` die erste des Tages mit diesem Hauptmuskel? */
@@ -63,4 +128,9 @@ export function isFirstForMuscle(
     const o = lookup(id)
     return !o?.cardio && o?.primary[0] === muscle
   })
+}
+
+/** Prozentwerte eines fertigen Aufwärmsatzes relativ zum Arbeitsgewicht (für die Anzeige) */
+export function stepsFromSets(sets: WarmupSet[], workWeight: number | null): WarmupStep[] {
+  return sets.map((s) => ({ pct: workWeight && s.weight ? Math.round((s.weight / workWeight) * 100) : 0, reps: s.reps }))
 }

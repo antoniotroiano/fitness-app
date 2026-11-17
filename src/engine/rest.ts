@@ -34,8 +34,9 @@ export function restCategory(ex: Exercise): RestCategory {
 
 type RestSettings = Pick<Settings, 'restSeconds' | 'warmupRestCompound' | 'warmupRestOther'>
 
-export function restSecondsFor(ex: Exercise, settings: RestSettings, afterWarmup: boolean): number {
+export function restSecondsFor(ex: Exercise, settings: RestSettings, afterWarmup: boolean, override?: number): number {
   if (afterWarmup) return ex.compound ? settings.warmupRestCompound : settings.warmupRestOther
+  if (override && override > 0) return override
   return settings.restSeconds[restCategory(ex)] ?? DEFAULT_REST[restCategory(ex)]
 }
 

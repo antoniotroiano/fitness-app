@@ -111,6 +111,8 @@ export interface Session {
   /** Programmwoche (0-basiert), für Rep-Schema und Deload */
   week: number
   exercises: LoggedExercise[]
+  /** Notizen dieser Einheit je Übungs-ID */
+  notes?: Record<string, string>
 }
 
 export interface WeightEntry {
@@ -153,8 +155,27 @@ export interface Settings {
   /** Pause nach Aufwärmsatz: Verbundübung / sonstige */
   warmupRestCompound: number
   warmupRestOther: number
-  /** Aufwärmsätze automatisch vorschlagen */
-  warmupsEnabled: boolean
+  /** Aufwärm-Automatik: Smart (Frische + Gewicht), feste Schemata oder aus */
+  /** Display aktiv halten, solange ein Workout läuft */
+  keepAlive: boolean
+  warmupMode: 'smart' | 'scheme' | 'off'
+  /** Standard-Aufwärmschemata je Übungskategorie */
+  warmupSchemes: Record<RestCategory, WarmupStep[]>
+}
+
+/** Ein Aufwärmsatz im Schema: Prozent des Arbeitsgewichts und Wiederholungen */
+export interface WarmupStep { pct: number; reps: number }
+
+export type WarmupOverrideMode = 'default' | 'smart' | 'scheme' | 'none'
+
+/** Übungsspezifische Überschreibungen (global je Übung) */
+export interface ExerciseOverride {
+  warmupMode?: WarmupOverrideMode
+  warmupScheme?: WarmupStep[]
+  /** Dauerhafte Notiz zur Übung (max. 300 Zeichen) */
+  note?: string
+  /** Eigene Pause nach Arbeitssätzen in Sekunden */
+  restSeconds?: number
 }
 
 export interface WeekState {

@@ -9,6 +9,8 @@ export interface Row {
   done: boolean
   minutes: string
   km: string
+  /** Gewicht von Hand geändert: wird von der RIR-Anpassung nicht überschrieben */
+  manual?: boolean
 }
 
 /** Laufendes Workout, wird in der DB zwischengespeichert (übersteht Reload). */
@@ -19,6 +21,8 @@ export interface ActiveWorkout {
   clock: ClockState
   rows: Record<string, Row[]>
   current: string
+  /** Notizen dieser Einheit je Übungs-ID */
+  notes?: Record<string, string>
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)

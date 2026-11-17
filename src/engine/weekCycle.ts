@@ -17,10 +17,10 @@ export function nextWorkoutSlot(program: Program, state: WeekState): number | nu
  * Slot als erledigt markieren. Sind danach alle 7 erledigt, startet automatisch
  * die nächste Programmwoche mit leeren Markierungen (Workout A, neue Wochenziele).
  */
-export function markSlot(state: WeekState, slot: number, date: string): WeekState {
+export function markSlot(state: WeekState, slot: number, date: string | null): WeekState {
   if (slot < 0 || slot >= state.done.length) return state
   const done = state.done.map((d, i) => (i === slot ? true : d))
-  const markedDates = state.markedDates.includes(date) ? state.markedDates : [...state.markedDates, date]
+  const markedDates = date === null || state.markedDates.includes(date) ? state.markedDates : [...state.markedDates, date]
   const next: WeekState = { ...state, done, markedDates }
   return isWeekComplete(next) ? emptyWeek(state.week + 1) : next
 }
