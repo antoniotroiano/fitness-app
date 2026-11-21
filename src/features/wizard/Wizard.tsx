@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type {
-  Equipment, Exercise, Experience, Goal, MuscleId, Priority, ProgramConfig, RepScheme, Split, TimeBudget, Program,
+  Equipment, Exercise, ExerciseOverride, Experience, Goal, MuscleId, Priority, ProgramConfig, RepScheme, Split, TimeBudget, Program,
 } from '../../types'
 import type { ReactNode } from 'react'
 import { BottomBar, Button, Card, Page, Segmented, cx } from '../../components/ui'
@@ -15,9 +15,9 @@ import { LevelIcon, SplitPicto, TimeIcon } from './pictos'
 import { MUSCLES } from '../../data/muscles'
 import { EQUIPMENT_LABEL, exerciseById } from '../../data/exercises'
 import { generate } from '../../engine/planGenerator'
-import { alternatives, swapPlanned } from '../../engine/swap'
+import { alternatives, recommendable, swapPlanned } from '../../engine/swap'
 import { linksOf, normalizeSupersets, toggleSupersetLink } from '../../engine/superset'
-import { saveProgram, useAllExercises, useSettings } from '../../db/db'
+import { saveProgram, useAllExercises, useExerciseOverridesLoaded, useSettings } from '../../db/db'
 import { ExercisePicker, IdentityFields, SupersetLinkRow } from './shared'
 import { BottomSheet } from '../../components/ui'
 import { muscleLabel } from '../../data/muscles'
@@ -277,8 +277,16 @@ export default function Wizard() {
   )
 }
 
-function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<typeof useAllExercises>; onSaved: () => void }) {
-  const generated = useMemo(() => generate(cfg, all).program, [cfg, all])
+type PreviewProps = { cfg: ProgramConfig; all: ReturnType<typeof useAllExercises>; onSaved: () => void }
+
+/** Wartet auf die Übungs-Einstellungen („Nie empfehlen“), bevor der Plan einmalig erzeugt wird */
+function Preview(props: PreviewProps) {
+  const overrides = useExerciseOverridesLoaded()
+  return overrides ? <PreviewInner {...props} overrides={overrides} /> : null
+}
+
+function PreviewInner({ cfg, all, onSaved, overrides }: PreviewProps & { overrides: Record<string, ExerciseOverride> }) {
+  const generated = useMemo(() => generate(cfg, recommendable(all, overrides)).program, [cfg, all, overrides])
   const hardFirst = useSettings().hardSetFirst
   const [days, setDays] = useState(generated.days)
   const [swap, setSwap] = useState<{ d: number; i: number } | null>(null)
@@ -291,7 +299,7 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
   const editWeek = editPe && editEx && weekEdit ? weeklyOverview(editPe, cfg, editEx, weekEdit.i)[weekEdit.week] : undefined
 
   const cur = swap ? exerciseById(days[swap.d].exercises[swap.i].exerciseId, all) : undefined
-  const alts = cur ? alternatives(cur, all, days[swap!.d].exercises.map((e) => e.exerciseId), cfg.equipment) : []
+  const alts = cur ? alternatives(cur, recommendable(all, overrides), days[swap!.d].exercises.map((e) => e.exerciseId), cfg.equipment) : []
 
   const replace = (exId: string) => {
     if (!swap) return

@@ -35,7 +35,10 @@ export function bodyLoadOf(ex: Pick<Exercise, 'bodyweight' | 'assisted' | 'metri
 /** Sätze mit Gesamtlast statt Zusatzgewicht (nur wenn `bodyLoad` > 0, Aufwärmsätze bleiben unverändert). */
 export function withBodyLoad(sets: LoggedSet[], bodyLoad: number): LoggedSet[] {
   if (bodyLoad <= 0) return sets
-  return sets.map((s) => (s.warmup || s.reps <= 0 ? s : { ...s, weight: s.weight + bodyLoad }))
+  return sets.map((s) => (s.warmup || s.reps <= 0 ? s : {
+    ...s, weight: s.weight + bodyLoad,
+    ...(s.sides ? { sides: { l: { ...s.sides.l, weight: s.sides.l.weight + bodyLoad }, r: { ...s.sides.r, weight: s.sides.r.weight + bodyLoad } } } : {}),
+  }))
 }
 
 /**

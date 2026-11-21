@@ -38,6 +38,8 @@ export interface Exercise {
    * Last für 1RM/Volumen/Progression = Anteil × Körpergewicht + Zusatzgewicht (engine/bodyweight.ts).
    */
   bodyweight?: number
+  /** Einseitige Übung (eine Seite nach der anderen): Sätze werden standardmäßig links/rechts getrennt erfasst */
+  unilateral?: boolean
 }
 
 export type Goal = 'hypertrophy' | 'strength' | 'both'
@@ -135,7 +137,15 @@ export interface LoggedSet {
   /** Cardio: Minuten und Kilometer */
   minutes?: number
   km?: number
+  /**
+   * Links/rechts getrennt erfasst: Werte je Seite. `weight`/`reps`/`rir` oben sind dann die der schwächeren Seite
+   * (engine/sides.ts `mergeSides`), Volumen zählt beide Seiten.
+   */
+  sides?: { l: SideSet; r: SideSet }
 }
+
+/** Werte einer Seite eines Satzes */
+export interface SideSet { weight: number; reps: number; rir?: number; partial?: number }
 
 export interface LoggedExercise {
   exerciseId: string
@@ -216,6 +226,10 @@ export interface Settings {
   hardSetFirst: boolean
   /** Logger: abgehakte Aufwärmsätze zu einer Sammelzeile einklappen */
   hideDoneWarmups: boolean
+  /** Pause zwischen linker und rechter Seite eines Satzes, Sekunden (0 = kein Timer) */
+  sideRest: number
+  /** Logger-Vorbelegung der Arbeitssätze: Progressionsvorschlag oder Werte der letzten Einheit */
+  prefillMode: 'suggestion' | 'last'
 }
 
 /** Ein Aufwärmsatz im Schema: Prozent des Arbeitsgewichts und Wiederholungen */
@@ -233,6 +247,10 @@ export interface ExerciseOverride {
   restSeconds?: number
   /** Verfügbare Gewichte des Geräts (kg). Ohne Eintrag: Standard-Schrittweite des Equipments. */
   weightScale?: WeightScale
+  /** Links/rechts getrennt erfassen (fehlt: Standard der Übung, `Exercise.unilateral`) */
+  sides?: boolean
+  /** Nie empfehlen: Plan-Generator und Übungstausch schlagen die Übung nicht vor (manuell weiter wählbar) */
+  neverRecommend?: boolean
 }
 
 /** Verfügbare Gewichte: gleichmäßiges Raster oder Einzelwerte (alles in kg). */
@@ -247,4 +265,6 @@ export interface WeekState {
   done: boolean[]
   /** yyyy-mm-dd der Tage mit Workout/Ruhetag in dieser Woche */
   markedDates: string[]
+  /** Übersprungene Slots (zählen als erledigt, ohne Einheit) */
+  skipped?: boolean[]
 }

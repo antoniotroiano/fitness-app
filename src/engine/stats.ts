@@ -31,6 +31,10 @@ export const isPerSide = (ex?: Pick<Exercise, 'equipment' | 'load'>) =>
 /** Volumen-Faktor: bei Übungen je Seite zählen beide Seiten (eingetragenes Gewicht × 2). */
 export const volumeFactor = (ex?: Pick<Exercise, 'equipment' | 'load'>) => (isPerSide(ex) ? 2 : 1)
 
+/** Volumen eines Satzes: Gewicht × Wdh. × Faktor, links/rechts getrennt erfasst die Summe beider Seiten. */
+export const setVolume = (s: Pick<LoggedSet, 'weight' | 'reps' | 'sides'>, factor = 1) =>
+  factor * (s.sides ? s.sides.l.weight * s.sides.l.reps + s.sides.r.weight * s.sides.r.reps : s.weight * s.reps)
+
 /** Übungen ohne 1RM-/Gewichts-/Volumenwerte: assistiert (Gewicht = Unterstützung) und Zeitübungen (Wdh. = Sekunden). */
 export const noLoadStats = (ex?: Pick<Exercise, 'assisted' | 'metric'>) => !!ex && (!!ex.assisted || ex.metric === 'time')
 
@@ -64,8 +68,8 @@ export function exerciseValue(sets: LoggedSet[], metric: ExerciseMetric, factor 
     case 'rm3': return rmN(lm, 3)
     case 'rm10': return rmN(lm, 10)
     case 'heaviest': return top(lm.map((s) => s.weight))
-    case 'totalVolume': return l.reduce((a, s) => a + s.weight * s.reps * factor, 0)
-    case 'bestSetVolume': return top(lm.map((s) => s.weight * s.reps * factor))
+    case 'totalVolume': return l.reduce((a, s) => a + setVolume(s, factor), 0)
+    case 'bestSetVolume': return top(lm.map((s) => setVolume(s, factor)))
     case 'totalReps': return w.reduce((a, s) => a + s.reps, 0)
     case 'bestSetReps': return top(m.map((s) => s.reps))
     case 'totalSets': return m.length
@@ -122,7 +126,7 @@ export function muscleDaily(
       const w = def.primary.includes(muscle) ? 1 : def.secondary.includes(muscle) ? SECONDARY_WEIGHT : 0
       if (!w) continue
       const sets = metric === 'sets' ? mainSets(ex.sets) : noLoadStats(def) ? [] : loaded(ex.sets)
-      const amount = metric === 'sets' ? sets.length : sets.reduce((a, x) => a + x.weight * x.reps * volumeFactor(def), 0)
+      const amount = metric === 'sets' ? sets.length : sets.reduce((a, x) => a + setVolume(x, volumeFactor(def)), 0)
       if (amount > 0) byDate.set(s.date, (byDate.get(s.date) ?? 0) + amount * w)
     }
   }

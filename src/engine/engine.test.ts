@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { mergeSides, splitsSides, weakerSide } from './sides'
+import { prefillSets } from './prefill'
 import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, sessionE1rm, suggestNext, weightForReps } from './progression'
 import {
   DEFAULT_WARMUP_SCHEMES, collapsedWarmups, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
@@ -6,7 +8,7 @@ import {
 } from './warmup'
 import { effectiveStep, floorToScale, snapToScale, stepDown, stepUp } from './weightScale'
 import type { WeightScale } from '../types'
-import { volumeFactor, exerciseValue, noLoadStats } from './stats'
+import { volumeFactor, exerciseValue, noLoadStats, setVolume } from './stats'
 import { migrateExercise, migrateFocus, migrateMuscles } from '../data/muscleMigration'
 import { groupExercises, libraryGroup } from './library'
 import { axisTicks, bucketSpan, chartWindow, clampOffset, formatRange, niceTicks } from './chartWindow'
@@ -15,20 +17,20 @@ import { elapsedMs, formatClock, pauseClock, resumeClock, startClock } from './w
 import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
 import { baseRepRange, effectiveSets, exerciseTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
-import { alternatives, swapPlanned } from './swap'
+import { alternatives, recommendable, swapPlanned } from './swap'
 import { targetMuscles } from './targetMuscles'
 import { weekProgress } from './weekProgress'
 import { deloadSessionOf, plannedDay } from './plannedDay'
 import { MEDIA_MAP, posterSlug } from '../data/media'
 import { TIPS } from '../data/media/tips'
 import manifest from '../data/media/manifest.json'
-import { emptyWeek, historyUpTo, isWeekComplete, jumpToWeek, markSlot, maxReachedWeek, weekLabel, weekOptions } from './weekCycle'
+import { emptyWeek, historyUpTo, isWeekComplete, jumpToWeek, isSlotSkipped, markSlot, maxReachedWeek, skipSlot, unmarkSlot, weekLabel, weekOptions } from './weekCycle'
 import { average, cardioDaily, exerciseDaily, filterPeriod, groupByMonth, muscleDaily, summary } from './stats'
 import { ALL_EXERCISES, EXERCISES, exerciseById, TIME_BASED } from '../data/exercises'
 import { recentRecords } from './records'
 import { linksOf, nextInSuperset, normalizeSupersets, setSupersetLink, supersetMembers, toggleSupersetLink, withLinks } from './superset'
 import { DROP_FACTOR, nextSegment } from './setTypes'
-import { applyBodyweight, bodyLoadOf, bodyweightAt } from './bodyweight'
+import { applyBodyweight, bodyLoadOf, bodyweightAt, withBodyLoad } from './bodyweight'
 import { BODYWEIGHT_SHARE } from '../data/exercises'
 import { buildImportSessions, parseTrainingCsv, suggestMapping } from './trainingImport'
 import { IMPORT_ALIASES } from '../data/importAliases'
@@ -1717,5 +1719,83 @@ describe('Abgehakte Aufwärmsätze ausblenden', () => {
     const r = collapsedWarmups(rows, true, 'a')
     expect([...r.hidden]).toEqual([2])
     expect(r.summaryAt).toBe(2)
+  })
+})
+
+describe('Links/rechts getrennt', () => {
+  const byId = (id: string) => ALL_EXERCISES.find((e) => e.id === id)!
+  it('einseitige Übungen standardmäßig getrennt, überschreibbar, Cardio nie', () => {
+    expect(splitsSides(byId('bulgarian'))).toBe(true)
+    expect(splitsSides(byId('bulgarian'), false)).toBe(false)
+    expect(splitsSides(byId('bb-bench'))).toBe(false)
+    expect(splitsSides(byId('bb-bench'), true)).toBe(true)
+    expect(splitsSides(byId('c-run'), true)).toBe(false)
+  })
+  it('schwächere Seite nach e1RM, bei Gleichstand weniger Wdh.', () => {
+    expect(weakerSide({ weight: 20, reps: 10, rir: 2 }, { weight: 20, reps: 8, rir: 2 })).toBe('r')
+    expect(weakerSide({ weight: 22, reps: 6, rir: 2 }, { weight: 20, reps: 10, rir: 2 })).toBe('l')
+    expect(weakerSide({ weight: 20, reps: 8, rir: 3 }, { weight: 20, reps: 9, rir: 2 })).toBe('l')
+    expect(weakerSide({ weight: 0, reps: 40 }, { weight: 0, reps: 35 }, true)).toBe('r')
+  })
+  it('Satz trägt die Werte der schwächeren Seite, Volumen beider Seiten', () => {
+    const s = mergeSides({ weight: 20, reps: 10, rir: 2 }, { weight: 20, reps: 8, rir: 1, partial: 2 }, { failure: true })
+    expect(s).toMatchObject({ weight: 20, reps: 8, rir: 1, partial: 2, failure: true })
+    expect(setVolume(s)).toBe(360)
+    expect(setVolume(s, 2)).toBe(720)
+    expect(setVolume({ weight: 20, reps: 8 }, 2)).toBe(320)
+  })
+  it('Körperlast zählt für beide Seiten', () => {
+    const [s] = withBodyLoad([mergeSides({ weight: 0, reps: 10 }, { weight: 0, reps: 9 })], 50)
+    expect(s.weight).toBe(50)
+    expect(s.sides).toEqual({ l: { weight: 50, reps: 10 }, r: { weight: 50, reps: 9 } })
+  })
+})
+
+describe('Vorbelegung mit letzten Werten', () => {
+  const sug = { weight: 52.5, reps: 8 }
+  const prev = [{ weight: 50, reps: 10 }, { weight: 50, reps: 9, sides: { l: { weight: 50, reps: 10 }, r: { weight: 50, reps: 9 } } }]
+  it('Vorschlag: alle Sätze gleich', () => {
+    expect(prefillSets('suggestion', sug, 2, prev)).toEqual([sug, sug])
+  })
+  it('Letzte Werte je Satz, zusätzliche Sätze wiederholen den letzten', () => {
+    const r = prefillSets('last', sug, 3, prev)
+    expect(r.map((x) => [x.weight, x.reps])).toEqual([[50, 10], [50, 9], [50, 9]])
+    expect(r[1].sides?.l.reps).toBe(10)
+  })
+  it('Ohne Verlauf: Vorschlag', () => {
+    expect(prefillSets('last', sug, 1, [])).toEqual([sug])
+  })
+})
+
+describe('Nie empfehlen', () => {
+  it('Generator und Tausch lassen ausgeschlossene Übungen weg', () => {
+    const rec = recommendable(ALL_EXERCISES, { 'bb-bench': { neverRecommend: true } })
+    expect(rec.some((e) => e.id === 'bb-bench')).toBe(false)
+    expect(rec.length).toBe(ALL_EXERCISES.length - 1)
+    const plan = generate(cfg({ equipment: ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight'] }), rec).program
+    expect(plan.days.flatMap((d) => d.exercises).some((e) => e.exerciseId === 'bb-bench')).toBe(false)
+    const bench = ALL_EXERCISES.find((e) => e.id === 'db-bench')!
+    expect(alternatives(bench, rec).some((e) => e.id === 'bb-bench')).toBe(false)
+  })
+})
+
+describe('Workout überspringen', () => {
+  const base = { week: 2, done: [false, false, true, false, false, false, false], markedDates: [] }
+  it('Slot erledigt und als übersprungen markiert, rückgängig machbar', () => {
+    const s = skipSlot(base, 1)
+    expect(s.done[1]).toBe(true)
+    expect(isSlotSkipped(s, 1)).toBe(true)
+    expect(isSlotSkipped(s, 2)).toBe(false)
+    const u = unmarkSlot(s, 1)
+    expect(u.done[1]).toBe(false)
+    expect(isSlotSkipped(u, 1)).toBe(false)
+  })
+  it('letzter offener Slot: nächste Woche beginnt', () => {
+    const s = skipSlot({ ...base, done: [true, true, true, true, true, true, false] }, 6)
+    expect(s.week).toBe(3)
+    expect(s.done.every((d) => !d)).toBe(true)
+  })
+  it('bereits erledigter Slot bleibt unverändert', () => {
+    expect(skipSlot(base, 2)).toBe(base)
   })
 })

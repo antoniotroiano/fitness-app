@@ -27,8 +27,23 @@ export function markSlot(state: WeekState, slot: number, date: string | null): W
 }
 
 export function unmarkSlot(state: WeekState, slot: number): WeekState {
-  return { ...state, done: state.done.map((d, i) => (i === slot ? false : d)) }
+  const next: WeekState = { ...state, done: state.done.map((d, i) => (i === slot ? false : d)) }
+  if (state.skipped) next.skipped = state.skipped.map((d, i) => (i === slot ? false : d))
+  return next
 }
+
+/**
+ * Workout überspringen: Slot gilt als erledigt (die Woche kann weiterlaufen), es entsteht keine Einheit, Progression
+ * und Statistik bleiben unberührt. Letzter offener Slot: wie `markSlot` beginnt die nächste Woche.
+ */
+export function skipSlot(state: WeekState, slot: number): WeekState {
+  if (slot < 0 || slot >= state.done.length || state.done[slot]) return state
+  const next = markSlot(state, slot, null)
+  if (next.week !== state.week) return next
+  return { ...next, skipped: state.done.map((_, i) => i === slot || !!state.skipped?.[i]) }
+}
+
+export const isSlotSkipped = (state: WeekState, slot: number) => !!state.skipped?.[slot] && !!state.done[slot]
 
 /**
  * Wochenstand für eine beliebige Programmwoche: Erledigt-Markierungen und Daten werden aus den

@@ -5,7 +5,7 @@ import { ProgramBadge } from '../../components/icons'
 import { activateProgram, deleteProgram, saveWeekState, useActiveProgram, useActiveWorkoutParam, usePrograms, useSessions, useSettings, useWeekState } from '../../db/db'
 import { sessionDates } from '../../engine/habits'
 import { formatTime } from '../../utils/units'
-import { jumpToWeek, markSlot, unmarkSlot, weekLabel, weekOptions } from '../../engine/weekCycle'
+import { isSlotSkipped, jumpToWeek, markSlot, unmarkSlot, weekLabel, weekOptions } from '../../engine/weekCycle'
 import { WeekSheet } from './WeekSheet'
 import { WEEKDAYS, addDays, fmt, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
 import { de } from '../../i18n/de'
@@ -127,11 +127,11 @@ export default function Workouts() {
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{day.name}</div>
                   <div className="text-xs text-muted">
-                    {done ? `Geloggt${s ? ` · ${formatDate(s.date)} · ${formatTime(new Date(s.finishedAt), settings.clock)}` : ''}` : `${day.exercises.length} Übungen · Tag ${i + 1}`}
+                    {isSlotSkipped(week, i) ? 'Übersprungen' : done ? `Geloggt${s ? ` · ${formatDate(s.date)} · ${formatTime(new Date(s.finishedAt), settings.clock)}` : ''}` : `${day.exercises.length} Übungen · Tag ${i + 1}`}
                   </div>
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); open() }} aria-label={`${day.name} öffnen`}
-                  className={cx('w-8 h-8 shrink-0 rounded-full border flex items-center justify-center', done ? 'bg-accent border-accent text-accent-fg' : 'border-line text-transparent')}>✓</button>
+                  className={cx('w-8 h-8 shrink-0 rounded-full border flex items-center justify-center', isSlotSkipped(week, i) ? 'border-line text-muted' : done ? 'bg-accent border-accent text-accent-fg' : 'border-line text-transparent')}>{isSlotSkipped(week, i) ? '–' : '✓'}</button>
               </div>
             </Card>
           )

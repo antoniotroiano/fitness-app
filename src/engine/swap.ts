@@ -1,4 +1,4 @@
-import type { Equipment, Exercise, PlannedExercise, ProgramConfig } from '../types'
+import type { Equipment, Exercise, ExerciseOverride, PlannedExercise, ProgramConfig } from '../types'
 import { baseRepRange, TIME_RANGE } from './periodization'
 
 /** Alternativen für dieselbe Hauptmuskelgruppe, bevorzugt gleiches Bewegungsmuster. */
@@ -43,4 +43,9 @@ export function swapPlanned(
   const rest: PlannedExercise = { ...pe }
   delete rest.weeks
   return { ...rest, exerciseId: to.id, repMin: range.min, repMax: range.max, sets: Math.max(pe.sets, minSets) }
+}
+
+/** Übungen, die empfohlen werden dürfen: ohne „Nie empfehlen“ (für Generator und Tauschvorschläge, nicht für die freie Auswahl). */
+export function recommendable(all: Exercise[], overrides: Record<string, ExerciseOverride>): Exercise[] {
+  return all.filter((e) => !overrides[e.id]?.neverRecommend)
 }
