@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { PlannedView } from '../../engine/plannedDay'
 import type { LoggedSet, Settings } from '../../types'
 import { LinkButton, cx } from '../../components/ui'
@@ -5,6 +6,7 @@ import { Icon } from '../../components/icons'
 import { rirColor } from '../../components/rir'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
 import { isPerSide } from '../../engine/stats'
+import { collapsedWarmups } from '../../engine/warmup'
 import { SwipeRow } from './SwipeRow'
 import { isSegment, type Row } from './state'
 import { SET_BADGE } from './SetTypeSheet'
@@ -50,6 +52,10 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
   const side = !cardio && isPerSide(view.ex)
   const doneN = rows.filter((r) => r.done).length
   const allDone = rows.length > 0 && doneN === rows.length
+  // Abgehakte Aufwärmsätze einklappen (Einstellung), Sammelzeile klappt sie für diese Übung wieder auf
+  const [openFor, setOpenFor] = useState<string | null>(null)
+  const exId = view.pe.exerciseId
+  const { hidden, summaryAt } = collapsedWarmups(rows, settings.hideDoneWarmups && openFor !== exId, activePad?.rowId)
   let warmIdx = -1
   let workIdx = -1
   const cell = 'h-9 rounded-md bg-surface2 text-center text-sm tabular-nums flex items-center justify-center'
@@ -66,10 +72,22 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
           <Check state={allDone ? true : doneN > 0 ? 'mixed' : false} />
         </button>
       </div>
-      {rows.map((r) => {
+      {rows.map((r, i) => {
         const warm = r.type === 'warmup'
         const seg = isSegment(r)
         if (warm) warmIdx++; else if (!seg) workIdx++
+        if (hidden.has(i)) {
+          if (i !== summaryAt) return null
+          const n = hidden.size
+          return (
+            <button key={`warm-sum-${r.id}`} onClick={() => setOpenFor(exId)} aria-label={`${n} erledigte Aufwärmsätze anzeigen`}
+              className={cx('grid gap-1.5 px-1 py-1.5 w-full items-center border-b border-line/60 bg-surface2/60 text-left active:opacity-70', COLS)}>
+              <span className="justify-self-center w-7 h-7 rounded-full text-xs font-semibold flex items-center justify-center bg-warn/15 text-warn opacity-40">{SET_BADGE.warmup}</span>
+              <span className="col-span-3 text-xs text-muted">{n} {n === 1 ? 'Aufwärmsatz' : 'Aufwärmsätze'} erledigt · anzeigen</span>
+              <span className="flex items-center justify-center"><Check state={true} /></span>
+            </button>
+          )
+        }
         const prev = warm ? view.previous.warmups[warmIdx] : seg ? undefined : view.previous.work[workIdx]
         const badge = warm ? SET_BADGE.warmup : seg ? SET_BADGE[r.type as 'drop' | 'myo'] : r.failure ? SET_BADGE.failure : workIdx + 1
         const partial = Number(r.partial) || 0
@@ -105,7 +123,7 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
                   </button>
                 </>
               )}
-              <button role="checkbox" aria-checked={r.done} aria-label="Satz abhaken" onClick={() => onToggleDone(r)}
+              <button role="checkbox" aria-checked={r.done} aria-label="Satz abhaken" onClick={() => { if (warm && !r.done) setOpenFor(null); onToggleDone(r) }}
                 className="h-9 flex items-center justify-center active:opacity-70">
                 <Check state={r.done} />
               </button>

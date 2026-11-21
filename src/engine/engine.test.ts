@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, sessionE1rm, suggestNext, weightForReps } from './progression'
 import {
-  DEFAULT_WARMUP_SCHEMES, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
+  DEFAULT_WARMUP_SCHEMES, collapsedWarmups, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
   type WarmupContext,
 } from './warmup'
 import { effectiveStep, floorToScale, snapToScale, stepDown, stepUp } from './weightScale'
@@ -1697,5 +1697,25 @@ describe('Harter Satz zuerst', () => {
     expect(hard.failureIdx).toBe(0)
     expect(hard.setRirs[0]).toBe(0)
     expect(hard.setRirs.slice(1).every((r) => r > 0)).toBe(true)
+  })
+})
+
+describe('Abgehakte Aufwärmsätze ausblenden', () => {
+  const rows = [
+    { id: 'a', type: 'warmup', done: true }, { id: 'b', type: 'warmup', done: false },
+    { id: 'c', type: 'warmup', done: true }, { id: 'd', type: 'work', done: true },
+  ]
+  it('blendet nur abgehakte Aufwärmsätze aus, Sammelzeile an der ersten Stelle', () => {
+    const r = collapsedWarmups(rows, true)
+    expect([...r.hidden]).toEqual([0, 2])
+    expect(r.summaryAt).toBe(0)
+  })
+  it('aus: nichts ausgeblendet', () => {
+    expect(collapsedWarmups(rows, false)).toEqual({ hidden: new Set(), summaryAt: -1 })
+  })
+  it('Zeile mit offenem Numpad bleibt sichtbar', () => {
+    const r = collapsedWarmups(rows, true, 'a')
+    expect([...r.hidden]).toEqual([2])
+    expect(r.summaryAt).toBe(2)
   })
 })
