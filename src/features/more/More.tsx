@@ -94,7 +94,7 @@ export default function More() {
       </Section>
 
       <Section title={de.more.features}>
-        <Row icon="workouts" label="Workouts" desc="Pause, Aufwärmen" to="/more/workouts" />
+        <Row icon="workouts" label="Workouts" desc="Pause, Aufwärmen, Progression" to="/more/workouts" />
         <Row icon="library" label="Übungen" desc="Übungsbibliothek durchsuchen" to="/more/library" />
       </Section>
 
@@ -157,6 +157,22 @@ function Stepper({ label, value, onChange }: { label: string; value: number; onC
   )
 }
 
+function SwitchRow({ icon, label, desc, checked, onChange }: { icon: IconName; label: string; desc: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-3 py-3.5">
+      <Icon name={icon} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="block text-xs text-muted">{desc}</span>
+      </span>
+      <button role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)}
+        className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', checked ? 'bg-accent' : 'bg-line')}>
+        <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', checked ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
+      </button>
+    </div>
+  )
+}
+
 /** Einstellungen › Workouts: General (Pause, Aufwärmen) und Display (Display aktiv halten). */
 export function WorkoutSettingsPage() {
   const nav = useNavigate()
@@ -167,18 +183,32 @@ export function WorkoutSettingsPage() {
         <Row icon="timer" label="Pause" desc="Rest-Timer je Übungstyp" to="/more/workouts/rest" />
         <Row icon="warmup" label="Aufwärmen" desc="Smart-Aufwärmen und Schemata" to="/more/workouts/warmup" />
       </Section>
-      <Section title={de.common.display}>
-        <div className="flex items-center gap-3 py-3.5">
-          <Icon name="phone" />
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-medium">{de.more.keepAlive}</span>
-            <span className="block text-xs text-muted">{de.more.keepAliveDesc}</span>
+      <Section title="Progression">
+        <div className="py-3.5 space-y-2">
+          <span className="block text-sm font-medium">Zielwert nach einer Steigerung</span>
+          <div role="radiogroup" aria-label="Zielwert" className="grid grid-cols-2 gap-1 rounded-xl bg-surface2 p-1">
+            {([['mid', 'Mitte des Bereichs'], ['min', 'Untergrenze']] as const).map(([v, label]) => (
+              <button key={v} role="radio" aria-checked={s.progressionTarget === v} onClick={() => update({ progressionTarget: v })}
+                className={cx('rounded-lg py-2 text-sm font-medium', s.progressionTarget === v ? 'bg-surface shadow text-fg' : 'text-muted')}>{label}</button>
+            ))}
+          </div>
+          <span className="block text-xs text-muted">
+            {s.progressionTarget === 'mid'
+              ? 'Gewicht und Wdh. werden so gewählt, dass du nach einer Steigerung um die Mitte des Bereichs landest (bei 6–10 um 8). Kleinere Sprünge.'
+              : 'Klassische Double Progression: Wdh. bis zur Obergrenze, dann mehr Gewicht und zurück an die Untergrenze.'}
           </span>
-          <button role="switch" aria-checked={s.keepAlive} aria-label={de.more.keepAlive} onClick={() => update({ keepAlive: !s.keepAlive })}
-            className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', s.keepAlive ? 'bg-accent' : 'bg-line')}>
-            <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', s.keepAlive ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
-          </button>
         </div>
+        {s.progressionTarget === 'mid' && (
+          <SwitchRow icon="dumbbell" label="Weight Match" desc="Gewicht halten, solange die Wdh. damit im Bereich bleiben. Aus: das Gewicht passt sich öfter an, die Wdh. bleiben nahe der Mitte."
+            checked={s.weightMatch} onChange={(v) => update({ weightMatch: v })} />
+        )}
+        <SwitchRow icon="target" label="Harter Satz zuerst" desc="Der erste Arbeitssatz geht 1 RIR näher ans Versagen und dient als Anker fürs RIR-Gefühl, die übrigen Sätze mit Ziel-RIR. In der letzten Blockwoche geht der erste Satz bis zum Versagen."
+          checked={s.hardSetFirst} onChange={(v) => update({ hardSetFirst: v })} />
+        <SwitchRow icon="repLinear" label="Bereich erweitern" desc="Ist die nächste Gewichtsstufe zu groß, steigen erst die Wdh. über die Obergrenze, statt mit zu wenig Wdh. zu springen."
+          checked={s.expandRange} onChange={(v) => update({ expandRange: v })} />
+      </Section>
+      <Section title={de.common.display}>
+        <SwitchRow icon="phone" label={de.more.keepAlive} desc={de.more.keepAliveDesc} checked={s.keepAlive} onChange={(v) => update({ keepAlive: v })} />
       </Section>
     </Page>
   )

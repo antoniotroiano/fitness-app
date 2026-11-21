@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type {
   Equipment, Exercise, Experience, Goal, MuscleId, Priority, ProgramConfig, RepScheme, Split, TimeBudget, Program,
@@ -9,14 +9,16 @@ import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { de } from '../../i18n/de'
-import { BLOCK_WEEK_OPTIONS, blockWeeksOf, recommendedRepScheme, weeklyOverview } from '../../engine/periodization'
+import { BLOCK_WEEK_OPTIONS, blockWeeksOf, recommendedRepScheme, setWeekTarget, weeklyOverview } from '../../engine/periodization'
+import { WeekTargetSheet } from '../workouts/WeekTargetSheet'
 import { LevelIcon, SplitPicto, TimeIcon } from './pictos'
 import { MUSCLES } from '../../data/muscles'
 import { EQUIPMENT_LABEL, exerciseById } from '../../data/exercises'
 import { generate } from '../../engine/planGenerator'
 import { alternatives, swapPlanned } from '../../engine/swap'
-import { saveProgram, useAllExercises } from '../../db/db'
-import { ExercisePicker, IdentityFields } from './shared'
+import { linksOf, normalizeSupersets, toggleSupersetLink } from '../../engine/superset'
+import { saveProgram, useAllExercises, useSettings } from '../../db/db'
+import { ExercisePicker, IdentityFields, SupersetLinkRow } from './shared'
 import { BottomSheet } from '../../components/ui'
 import { muscleLabel } from '../../data/muscles'
 
@@ -205,13 +207,23 @@ export default function Wizard() {
       {id === 'deload' && (
         <div className="space-y-3">
           <div>
-            <div className="text-sm font-medium mb-2">Trainingswochen pro Block</div>
+            <div className="text-sm font-medium mb-2">Trainingswochen pro Block: {blockWeeksOf(cfg)}</div>
             <Segmented value={String(blockWeeksOf(cfg))} onChange={(v) => set({ blockWeeks: Number(v) })}
-              options={BLOCK_WEEK_OPTIONS.map((n) => ({ value: String(n), label: `${n} Wochen` }))} />
+              options={BLOCK_WEEK_OPTIONS.map((n) => ({ value: String(n), label: `${n}` }))} />
             <p className="text-xs text-muted mt-2">Über den Block steigt die Intensität (weniger Reserve, mehr Sätze). Länger lohnt sich vor allem mit Trainingserfahrung.</p>
           </div>
-          <Option active={cfg.deload} icon="shield" title="Ja, mit Deload" desc={`Nach ${blockWeeksOf(cfg)} Trainingswochen folgt eine Woche mit halbem Volumen und mehr Reserve.`} onClick={() => set({ deload: true })} />
+          <Option active={cfg.deload} icon="shield" title="Ja, mit Deload" desc={cfg.deloadFirst
+            ? `Der Block beginnt mit einer Woche mit halbem Volumen und mehr Reserve, danach ${blockWeeksOf(cfg)} Trainingswochen.`
+            : `Nach ${blockWeeksOf(cfg)} Trainingswochen folgt eine Woche mit halbem Volumen und mehr Reserve.`} onClick={() => set({ deload: true })} />
           <Option active={!cfg.deload} icon="ban" title="Nein" desc={`Durchgehend ohne Entlastungswoche, der Verlauf wiederholt sich alle ${blockWeeksOf(cfg)} Wochen.`} onClick={() => set({ deload: false })} />
+          {cfg.deload && (
+            <div>
+              <div className="text-sm font-medium mb-2">Deload-Woche</div>
+              <Segmented value={cfg.deloadFirst ? 'start' : 'end'} onChange={(v) => set({ deloadFirst: v === 'start' })}
+                options={[{ value: 'end', label: 'Am Ende des Blocks' }, { value: 'start', label: 'Am Anfang' }]} />
+              <p className="text-xs text-muted mt-2">Am Anfang passt nach einer Trainingspause oder zum Einstieg in ein neues Programm.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -267,10 +279,16 @@ export default function Wizard() {
 
 function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<typeof useAllExercises>; onSaved: () => void }) {
   const generated = useMemo(() => generate(cfg, all).program, [cfg, all])
+  const hardFirst = useSettings().hardSetFirst
   const [days, setDays] = useState(generated.days)
   const [swap, setSwap] = useState<{ d: number; i: number } | null>(null)
   const [add, setAdd] = useState<number | null>(null)
   const [searchAll, setSearchAll] = useState(false)
+  /** Wochenkarte in Bearbeitung: Tag, Übung, Position im Block */
+  const [weekEdit, setWeekEdit] = useState<{ d: number; i: number; week: number } | null>(null)
+  const editPe = weekEdit ? days[weekEdit.d]?.exercises[weekEdit.i] : undefined
+  const editEx = editPe ? exerciseById(editPe.exerciseId, all) : undefined
+  const editWeek = editPe && editEx && weekEdit ? weeklyOverview(editPe, cfg, editEx, weekEdit.i)[weekEdit.week] : undefined
 
   const cur = swap ? exerciseById(days[swap.d].exercises[swap.i].exerciseId, all) : undefined
   const alts = cur ? alternatives(cur, all, days[swap!.d].exercises.map((e) => e.exerciseId), cfg.equipment) : []
@@ -291,7 +309,8 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
   }
 
   const save = async () => {
-    const program: Omit<Program, 'id' | 'createdAt' | 'active'> = { ...generated, days }
+    // IDs der Supersätze frisch setzen (nach Tausch kann die ID noch die alte erste Übung nennen)
+    const program: Omit<Program, 'id' | 'createdAt' | 'active'> = { ...generated, days: days.map((d) => ({ ...d, exercises: normalizeSupersets(d.exercises) })) }
     await saveProgram(program)
     onSaved()
   }
@@ -304,8 +323,11 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
           <ul className="divide-y divide-line">
             {d.exercises.map((e, ei) => {
               const ex = exerciseById(e.exerciseId, all)
+              const links = linksOf(d.exercises)
               return (
-                <li key={e.exerciseId} className="py-3 space-y-2">
+                <Fragment key={e.exerciseId}>
+                {ei > 0 && <SupersetLinkRow linked={links[ei - 1]} onToggle={() => setDays((ds) => ds.map((x, i) => (i === di ? { ...x, exercises: toggleSupersetLink(x.exercises, ei - 1) } : x)))} />}
+                <li className="py-3 space-y-2">
                   <div className="flex items-center gap-3">
                     {ex && <ExercisePhoto ex={ex} size={56} />}
                     <div className="min-w-0 flex-1">
@@ -317,16 +339,25 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
                   {ex && !ex.cardio && (
                     <div className="flex gap-2 overflow-x-auto snap-x no-scrollbar -mx-1 px-1">
                       {weeklyOverview(e, cfg, ex, ei).map((w) => (
-                        <div key={w.week} className={cx('snap-start shrink-0 w-28 rounded-xl border p-2 text-xs', w.isDeload ? 'border-dashed border-line' : 'border-transparent bg-surface2')}>
-                          <div className="font-semibold mb-1">{w.isDeload ? de.wizard.deload : de.wizard.week(w.week + 1)}</div>
-                          <div className="text-muted">{w.sets} Sätze</div>
-                          <div className="text-muted">{w.repMin}–{w.repMax} {ex.metric === 'time' ? 'Sek' : 'Wdh'}</div>
-                          <div className="text-muted">RIR {w.rir}{w.failure ? ' · letzter bis Versagen' : ''}</div>
-                        </div>
+                        <button key={w.week} onClick={() => setWeekEdit({ d: di, i: ei, week: w.week })} aria-label={`${ex.name}, ${w.isDeload ? de.wizard.deload : de.wizard.week(w.week + 1 - (cfg.deload && cfg.deloadFirst ? 1 : 0))} bearbeiten`}
+                          className={cx('snap-start shrink-0 w-28 rounded-xl border p-2 text-xs text-left active:opacity-70', w.isDeload ? 'border-dashed border-line' : 'bg-surface2', w.edited ? 'border-accent' : !w.isDeload && 'border-transparent')}>
+                          <div className="font-semibold mb-1 flex items-center justify-between gap-1">
+                            <span>{w.isDeload ? de.wizard.deload : de.wizard.week(w.week + 1 - (cfg.deload && cfg.deloadFirst ? 1 : 0))}</span>
+                            {w.edited && <span className="text-accent text-2xs">eigen</span>}
+                          </div>
+                          {w.skipped ? <div className="text-muted italic">ausgelassen</div> : (
+                            <>
+                              <div className="text-muted">{w.sets} Sätze</div>
+                              <div className="text-muted">{w.repMin}–{w.repMax} {ex.metric === 'time' ? 'Sek' : 'Wdh'}</div>
+                              <div className="text-muted">RIR {w.rir}{w.failure ? ` · ${hardFirst ? 'erster' : 'letzter'} bis Versagen` : ''}</div>
+                            </>
+                          )}
+                        </button>
                       ))}
                     </div>
                   )}
                 </li>
+                </Fragment>
               )
             })}
           </ul>
@@ -363,6 +394,15 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
             ...d, exercises: [...d.exercises, { exerciseId: e.id, sets: 3, repMin: e.compound ? 6 : 10, repMax: e.compound ? 10 : 15, rir: 2 }],
           }))
         }} />
+
+      <WeekTargetSheet open={!!editWeek} onClose={() => setWeekEdit(null)} unit={editEx?.metric === 'time' ? 'Sek' : 'Wdh'}
+        title={editEx && editWeek ? `${editEx.name} · ${editWeek.isDeload ? de.wizard.deload : de.wizard.week(editWeek.week + 1 - (cfg.deload && cfg.deloadFirst ? 1 : 0))}` : ''}
+        computed={editWeek && editPe ? weeklyOverview({ ...editPe, weeks: undefined }, cfg, editEx!, weekEdit!.i)[weekEdit!.week] : { sets: 0, repMin: 0, repMax: 0, rir: 0 }}
+        scopes={weekEdit ? [{ key: `b${weekEdit.week}`, label: 'Jeden Block' }] : []}
+        current={(key) => editPe?.weeks?.[key]}
+        onSave={(key, t) => weekEdit && setDays((ds) => ds.map((d, di) => di !== weekEdit.d ? d : {
+          ...d, exercises: d.exercises.map((x, xi) => (xi === weekEdit.i ? setWeekTarget(x, key, t) : x)),
+        }))} />
 
       <BottomBar><Button className="w-full" onClick={save}>Plan speichern</Button></BottomBar>
     </div>

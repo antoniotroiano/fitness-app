@@ -1,12 +1,12 @@
-import type { Experience, Goal, PlannedExercise, ProgramConfig, RepScheme } from '../types'
+import type { Experience, Goal, PlannedExercise, ProgramConfig, RepScheme, WeekTarget } from '../types'
 import type { RepRange } from './progression'
 
 /** Arbeitswochen pro Block (Standard), danach (optional) eine Deload-Woche */
 export const BLOCK_WORKING_WEEKS = 4
-/** Wählbare Blocklängen im Wizard (übliche Mesozyklen: 3–6 Arbeitswochen vor einer Entlastung) */
-export const BLOCK_WEEK_OPTIONS = [4, 5, 6] as const
+/** Wählbare Blocklängen im Wizard (übliche Mesozyklen: 3–6 Arbeitswochen vor einer Entlastung, länger bei Bedarf) */
+export const BLOCK_WEEK_OPTIONS = [3, 4, 5, 6, 7, 8] as const
 
-type BlockConfig = Pick<ProgramConfig, 'repScheme' | 'deload'> & Partial<Pick<ProgramConfig, 'blockWeeks'>>
+type BlockConfig = Pick<ProgramConfig, 'repScheme' | 'deload'> & Partial<Pick<ProgramConfig, 'blockWeeks' | 'deloadFirst'>>
 
 /** Arbeitswochen pro Block des Programms (ältere Programme ohne Angabe: 4). */
 export function blockWeeksOf(config: Partial<Pick<ProgramConfig, 'blockWeeks'>>): number {
@@ -27,16 +27,30 @@ export interface WeekPlan {
   rotate?: boolean
   /** Letzte Arbeitswoche: letzter Arbeitssatz jeder Übung bis zum Versagen (misst die Leistung neu) */
   failureLastSet?: boolean
+  /** Programmwoche (0-basiert): Schlüssel für einmalige Wochenziele (`w<n>`) */
+  week?: number
+  /** Position im Block inkl. Deload (0-basiert): Schlüssel für Wochenziele je Block (`b<n>`) */
+  blockPos?: number
 }
 
 /** Woche ohne Periodisierung (eigene Programme ohne Konfiguration) */
 export const NEUTRAL_WEEK: WeekPlan = { isDeload: false, repShift: 0, rirDelta: 0, setsFactor: 1 }
+/** Woche ohne Periodisierung mit Programmwoche (für einmalige Wochenziele) */
+export const neutralWeek = (week: number): WeekPlan => ({ ...NEUTRAL_WEEK, week })
 
 /** Satzfaktor der Spitzenwochen (zweite Blockhälfte); der Generator plant das Zeitbudget darauf hin. */
 export const PEAK_SETS_FACTOR = 1.25
 
-export function weekInBlock(week: number, deload: boolean, blockWeeks = BLOCK_WORKING_WEEKS): number {
-  return week % (deload ? blockWeeks + 1 : blockWeeks)
+/** Wochen eines Blocks inkl. Deload */
+export const blockLength = (config: BlockConfig) => blockWeeksOf(config) + (config.deload ? 1 : 0)
+
+/** Position im Block (0-basiert, inkl. Deload) */
+export const blockPosOf = (config: BlockConfig, week: number) => ((week % blockLength(config)) + blockLength(config)) % blockLength(config)
+
+/** Arbeitswoche im Block (0-basiert); die Deload-Woche selbst ergibt bei Deload am Anfang −1 bzw. sonst die Blocklänge */
+export function weekInBlock(week: number, config: BlockConfig): number {
+  const pos = blockPosOf(config, week)
+  return config.deload && config.deloadFirst ? pos - 1 : pos
 }
 
 /**
@@ -45,9 +59,10 @@ export function weekInBlock(week: number, deload: boolean, blockWeeks = BLOCK_WO
  */
 export function weekPlan(config: BlockConfig, week: number): WeekPlan {
   const n = blockWeeksOf(config)
-  const w = weekInBlock(week, config.deload, n)
-  if (config.deload && w === n) {
-    return { isDeload: true, repShift: 0, rirDelta: 3, setsFactor: 0.5, weekInBlock: w, ...(config.repScheme === 'rotating' ? { rotate: true } : {}) }
+  const blockPos = blockPosOf(config, week)
+  const w = weekInBlock(week, config)
+  if (config.deload && blockPos === (config.deloadFirst ? 0 : n)) {
+    return { isDeload: true, repShift: 0, rirDelta: 3, setsFactor: 0.5, weekInBlock: Math.max(0, w), week, blockPos, ...(config.repScheme === 'rotating' ? { rotate: true } : {}) }
   }
   const scheme: RepScheme = config.repScheme
   let repShift = 0
@@ -59,7 +74,7 @@ export function weekPlan(config: BlockConfig, week: number): WeekPlan {
   const rirDelta = -Math.min(2, Math.floor((w * 2) / Math.max(1, n - 2))) || 0
   const setsFactor = w >= n / 2 ? PEAK_SETS_FACTOR : 1
   return {
-    isDeload: false, repShift, rirDelta, setsFactor, weekInBlock: w,
+    isDeload: false, repShift, rirDelta, setsFactor, weekInBlock: w, week, blockPos,
     ...(scheme === 'rotating' ? { rotate: true } : {}),
     ...(w === n - 1 ? { failureLastSet: true } : {}),
   }
@@ -108,7 +123,48 @@ const ROTATION_COMPOUND_MIN_RIR = 1
  * Zeitübungen behalten ihre Sekunden-Range, im Deload gilt die mittlere Zone.
  */
 export function exerciseTargets(
-  pe: Pick<PlannedExercise, 'repMin' | 'repMax' | 'rir'>, plan: WeekPlan, index: number, time: boolean, compound = false,
+  pe: Pick<PlannedExercise, 'repMin' | 'repMax' | 'rir'> & Partial<Pick<PlannedExercise, 'weeks'>>, plan: WeekPlan, index: number, time: boolean, compound = false,
+): { range: RepRange; rir: number } {
+  const t = computedTargets(pe, plan, index, time, compound)
+  const o = weekOverride(pe, plan)
+  if (!o) return t
+  const min = o.repMin ?? t.range.min
+  return { range: { min, max: Math.max(min, o.repMax ?? t.range.max) }, rir: o.rir ?? t.rir }
+}
+
+/**
+ * Eigene Wochenziele einer Übung für diese Woche: Block-Ziel (`b<Position>`) und einmaliges Ziel (`w<Woche>`)
+ * zusammengeführt, das einmalige hat je Feld Vorrang. undefined = keine eigenen Ziele.
+ */
+export function weekOverride(pe: Partial<Pick<PlannedExercise, 'weeks'>>, plan: WeekPlan): WeekTarget | undefined {
+  if (!pe.weeks) return undefined
+  const b = plan.blockPos != null ? pe.weeks[`b${plan.blockPos}`] : undefined
+  const w = plan.week != null ? pe.weeks[`w${plan.week}`] : undefined
+  return b || w ? { ...b, ...w } : undefined
+}
+
+/** Sätze einer Übung in einer Woche (eigenes Wochenziel oder aus dem Wochenplan) */
+export function plannedSets(pe: Pick<PlannedExercise, 'sets'> & Partial<Pick<PlannedExercise, 'weeks'>>, plan: WeekPlan): number {
+  return weekOverride(pe, plan)?.sets ?? effectiveSets(pe.sets, plan)
+}
+
+/** Übung wird in dieser Woche ausgelassen */
+export const isSkipped = (pe: Partial<Pick<PlannedExercise, 'weeks'>>, plan: WeekPlan) => !!weekOverride(pe, plan)?.skip
+
+/** Wochenziel setzen/entfernen (`target` undefined oder leer = Eintrag löschen) */
+export function setWeekTarget(pe: PlannedExercise, key: string, target: WeekTarget | undefined): PlannedExercise {
+  const weeks = { ...pe.weeks }
+  const clean = target && Object.fromEntries(Object.entries(target).filter(([, v]) => v !== undefined && v !== false))
+  if (clean && Object.keys(clean).length) weeks[key] = clean
+  else delete weeks[key]
+  const out: PlannedExercise = { ...pe }
+  if (Object.keys(weeks).length) out.weeks = weeks
+  else delete out.weeks
+  return out
+}
+
+function computedTargets(
+  pe: Pick<PlannedExercise, 'repMin' | 'repMax' | 'rir'>, plan: WeekPlan, index: number, time: boolean, compound: boolean,
 ): { range: RepRange; rir: number } {
   const base = { min: pe.repMin, max: pe.repMax }
   if (time) return { range: base, rir: effectiveRir(pe.rir, plan) }
@@ -152,15 +208,25 @@ export function effectiveRir(base: number, plan: WeekPlan): number {
 
 /**
  * Ziel-RIR pro Satz (Heuristik, Hypertrophie nahe am Muskelversagen, aber mit Reserve bei Verbund).
- * Verbund: erster Satz Basis+1. Isolation: letzter Satz Basis-1 (min. 0). Sonst Basis.
+ * Verbund: erster Satz Basis+1. Isolation: letzter Satz Basis-1 (min. 0). Sonst Basis. `hardFirst`: siehe unten.
  * Grundlage: Hypertrophie profitiert von Nähe zum Muskelversagen, Kraft kaum (Meta-Regression Robinson et al. 2024);
  * Verbundübungen behalten deshalb mehr Reserve. Die RIR-Schätzung ist ungenau (Halperin et al. 2022: im Mittel
  * ≈ 1 Wdh. zu niedrig, große Streuung), daher gelten Abweichungen von ±1 RIR nicht als Signal (`ADAPT_DEAD_ZONE`).
  */
-export function setRir(base: number, index: number, total: number, compound: boolean): number {
+export function setRir(base: number, index: number, total: number, compound: boolean, hardFirst = false): number {
+  if (hardFirst) {
+    // Harter Satz zuerst: der erste Arbeitssatz 1 RIR unter dem Ziel als Anker fürs RIR-Gefühl, danach das Ziel.
+    // Verbundübungen nicht unter RIR 1 (außer das Ziel ist schon 0). Kein messbarer Unterschied zur Reihenfolge
+    // (gleicher Aufwand), dient der besseren RIR-Schätzung und damit der Progression.
+    if (index !== 0 || total <= 1) return base
+    return Math.max(compound ? Math.min(base, 1) : 0, base - 1)
+  }
   if (compound) return index === 0 && total > 1 ? base + 1 : base
   return index === total - 1 && total > 1 ? Math.max(0, base - 1) : base
 }
+
+/** Index des Satzes bis zum Versagen (letzte Arbeitswoche): bei „harter Satz zuerst“ der erste, sonst der letzte */
+export const failureSetIndex = (total: number, hardFirst = false) => (hardFirst ? 0 : total - 1)
 
 export interface WeekOverview {
   /** Programmwoche (0-basiert, wie `weekPlan`) */
@@ -172,23 +238,27 @@ export interface WeekOverview {
   rir: number
   /** Letzter Satz bis zum Versagen */
   failure: boolean
+  /** Übung in dieser Woche ausgelassen */
+  skipped: boolean
+  /** Eigene Wochenziele gesetzt */
+  edited: boolean
 }
 
 /** Alle Wochen eines Blocks (Arbeitswochen, ggf. + Deload) für eine Übung: Sätze, Rep-Range und RIR je Woche. */
 export function weeklyOverview(
-  pe: Pick<PlannedExercise, 'sets' | 'repMin' | 'repMax' | 'rir'>,
+  pe: Pick<PlannedExercise, 'sets' | 'repMin' | 'repMax' | 'rir'> & Partial<Pick<PlannedExercise, 'weeks'>>,
   config: BlockConfig,
   ex: { metric?: string; cardio?: boolean; compound?: boolean },
   /** Position der Übung im Tag (Schema "rotating") */
   index = 0,
 ): WeekOverview[] {
-  const weeks = blockWeeksOf(config) + (config.deload ? 1 : 0)
-  return Array.from({ length: weeks }, (_, week) => {
+  return Array.from({ length: blockLength(config) }, (_, week) => {
     const plan = weekPlan(config, week)
     const { range, rir } = exerciseTargets(pe, plan, index, ex.metric === 'time', !!ex.compound)
     return {
-      week, isDeload: plan.isDeload, sets: ex.cardio ? 1 : effectiveSets(pe.sets, plan),
+      week, isDeload: plan.isDeload, sets: ex.cardio ? 1 : plannedSets(pe, plan),
       repMin: range.min, repMax: range.max, rir, failure: !!plan.failureLastSet && !ex.cardio && ex.metric !== 'time',
+      skipped: isSkipped(pe, plan), edited: !!pe.weeks?.[`b${week}`],
     }
   })
 }

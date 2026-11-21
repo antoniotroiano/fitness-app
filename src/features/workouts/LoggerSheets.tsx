@@ -98,3 +98,20 @@ export function CompleteSheet({ open, onClose, primary, secondary, stats, onSave
     </BottomSheet>
   )
 }
+
+/** Supersatz: aktuelle Übung mit der vorherigen oder nächsten verbinden oder lösen. Gilt auch für das Programm. */
+export function SupersetSheet({ open, onClose, prev, next, inSuperset, onPick }: {
+  open: boolean; onClose: () => void; prev?: string; next?: string; inSuperset: boolean
+  onPick: (action: 'prev' | 'next' | 'none') => void
+}) {
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Supersatz">
+      <div className="space-y-2">
+        <p className="text-xs text-muted px-1">Die Übungen wechseln sich Satz für Satz ab, die Pause startet erst nach der Runde. Gilt auch für künftige Einheiten dieses Trainingstags.</p>
+        {prev && <MenuItem icon="link" label={`Mit vorheriger verbinden: ${prev}`} onClick={() => onPick('prev')} />}
+        {next && <MenuItem icon="link" label={`Mit nächster verbinden: ${next}`} onClick={() => onPick('next')} />}
+        {inSuperset && <MenuItem icon="ban" label="Aus Supersatz lösen" onClick={() => onPick('none')} />}
+      </div>
+    </BottomSheet>
+  )
+}

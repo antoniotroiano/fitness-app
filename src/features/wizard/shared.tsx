@@ -95,3 +95,18 @@ export function ExercisePicker({
     </BottomSheet>
   )
 }
+
+/** Schalter zwischen zwei Übungen: als Supersatz verbinden oder lösen (Listen-Eintrag zwischen den Übungen). */
+export function SupersetLinkRow({ linked, onToggle }: { linked: boolean; onToggle: () => void }) {
+  return (
+    <li className="!border-0 -my-1 flex items-center gap-2 py-0.5" aria-hidden={false}>
+      <span className={`flex-1 h-px ${linked ? 'bg-accent' : 'bg-line'}`} />
+      <button type="button" onClick={onToggle} aria-pressed={linked}
+        aria-label={linked ? 'Supersatz lösen' : 'Mit der nächsten Übung als Supersatz verbinden'}
+        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-2xs font-medium border ${linked ? 'border-accent text-accent bg-accent/10' : 'border-line text-muted'}`}>
+        <Icon name="link" size={12} />{linked ? 'Supersatz' : 'Verbinden'}
+      </button>
+      <span className={`flex-1 h-px ${linked ? 'bg-accent' : 'bg-line'}`} />
+    </li>
+  )
+}

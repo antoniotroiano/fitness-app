@@ -1,6 +1,6 @@
 import type { Exercise, Program, Session, WorkoutDay, PlannedExercise } from '../types'
 import { isStalled, previousSets, sessionPerformance, suggestNext, type RepRange, type Suggestion } from './progression'
-import { effectiveSets, exerciseTargets, setRir, weekPlan, type WeekPlan } from './periodization'
+import { exerciseTargets, failureSetIndex, isSkipped, plannedSets, setRir, weekPlan, type WeekPlan } from './periodization'
 import { effectiveMode, freshnessFor, intensityOf, resolveWarmup, type WarmupContext, type WarmupSet } from './warmup'
 import { restCategory } from './rest'
 import type { ExerciseOverride, Settings, WeightEntry } from '../types'
@@ -16,8 +16,10 @@ export interface PlannedView {
   sets: number
   /** Ziel-RIR pro Arbeitssatz */
   setRirs: number[]
-  /** Letzter Arbeitssatz bis zum Versagen (letzte Arbeitswoche des Blocks) */
+  /** Ein Arbeitssatz bis zum Versagen (letzte Arbeitswoche des Blocks), siehe `failureIdx` */
   failureLast: boolean
+  /** Index des Satzes bis zum Versagen (−1: keiner); bei „harter Satz zuerst“ der erste, sonst der letzte */
+  failureIdx: number
   sug: Suggestion
   warmups: WarmupSet[]
   /** Kontext für die Aufwärm-Berechnung (Smart) */
@@ -27,6 +29,8 @@ export interface PlannedView {
   previous: ReturnType<typeof previousSets>
   /** Körperlast heute (Anteil × Körpergewicht, kg), 0 ohne Anteil oder ohne Gewichtseintrag. Gewichte im Plan sind Zusatzgewichte. */
   bodyLoad: number
+  /** In dieser Woche ausgelassen (eigenes Wochenziel): Vorschau zeigt sie gedimmt, der Logger blendet sie aus */
+  skipped: boolean
 }
 
 /** Erkennt Einheiten dieses Programms, die in einer Deload-Woche trainiert wurden. */
@@ -38,7 +42,7 @@ export function deloadSessionOf(program?: Pick<Program, 'id' | 'config'>): (s: S
 export function plannedDay(
   day: WorkoutDay, plan: WeekPlan, sessions: Session[],
   lookup: (id: string) => Exercise | undefined,
-  warmup: Pick<Settings, 'warmupMode' | 'warmupSchemes'> & Partial<Pick<Settings, 'weightUnit'>>, overrides: Record<string, ExerciseOverride> = {},
+  warmup: Pick<Settings, 'warmupMode' | 'warmupSchemes'> & Partial<Pick<Settings, 'weightUnit' | 'progressionTarget' | 'weightMatch' | 'expandRange' | 'hardSetFirst'>>, overrides: Record<string, ExerciseOverride> = {},
   /** Deload-Einheiten zählen nicht für die Plateau-Erkennung */
   isDeloadSession: (s: Session) => boolean = () => false,
   /** Heutiges Datum (yyyy-mm-dd): lange Trainingspausen senken den Vorschlag */
@@ -64,10 +68,11 @@ export function plannedDay(
     const { range, rir } = exerciseTargets(pe, plan, index, time, ex.compound)
     const lastDate = sessions.filter((s) => s.exercises.some((e) => e.exerciseId === pe.exerciseId)).reduce((d, s) => (s.date > d ? s.date : d), '')
     const daysSince = today && lastDate ? daysBetween(lastDate, today) : undefined
-    const sets = ex.cardio ? 1 : effectiveSets(pe.sets, plan)
+    const sets = ex.cardio ? 1 : plannedSets(pe, plan)
     const ov = overrides[pe.exerciseId]
     const sug: Suggestion = ex.cardio ? { weight: null, reps: 0 } : suggestNext({
       range, targetRir: rir, equipment: ex.equipment, last: previous.work, bodyLoad, lastBodyLoad: bodyLoad > 0 ? loadOn(lastDate) : undefined, stalled: !ex.assisted && !time && isStalled(e1rms), assisted: ex.assisted, metric: ex.metric, unit: warmup.weightUnit, scale: ov?.weightScale, daysSince,
+      target: warmup.progressionTarget, weightMatch: warmup.weightMatch, expandRange: warmup.expandRange,
     })
     const warmupMode = ex.cardio || time ? 'none' : effectiveMode(ov?.warmupMode, warmup.warmupMode)
     const warmupCtx: WarmupContext = {
@@ -78,8 +83,10 @@ export function plannedDay(
     const warmups = resolveWarmup({ mode: warmupMode, scheme, ctx: warmupCtx, workWeight: sug.weight, unit: warmup.weightUnit, scale: ov?.weightScale })
     // Letzte Arbeitswoche: der letzte Satz geht bis zum Versagen (RIR 0) und misst die Leistung für den nächsten Block
     const failureLast = !!plan.failureLastSet && !ex.cardio && !time
-    const setRirs = Array.from({ length: sets }, (_, i) => (failureLast && i === sets - 1 ? 0 : setRir(rir, i, sets, ex.compound)))
-    out.push({ pe, ex, range, rir, sets, setRirs, failureLast, sug, warmups, warmupCtx, warmupMode, previous, bodyLoad })
+    const hardFirst = !!warmup.hardSetFirst
+    const failureIdx = failureLast ? failureSetIndex(sets, hardFirst) : -1
+    const setRirs = Array.from({ length: sets }, (_, i) => (i === failureIdx ? 0 : setRir(rir, i, sets, ex.compound, hardFirst)))
+    out.push({ pe, ex, range, rir, sets, setRirs, failureLast, failureIdx, sug, warmups, warmupCtx, warmupMode, previous, bodyLoad, skipped: isSkipped(pe, plan) })
   })
   return out
 }

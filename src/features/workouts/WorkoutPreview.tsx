@@ -3,11 +3,15 @@ import { todayStr } from '../../utils/dates'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BottomBar, Button, Card, Page, cx } from '../../components/ui'
 import { MuscleThumb } from '../../components/MuscleFigure'
+import { Icon } from '../../components/icons'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { rirColor } from '../../components/rir'
-import { useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useWeights } from '../../db/db'
+import { progressionNote } from './progressionNote'
+import { db, useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useWeights } from '../../db/db'
 import { muscleLabel } from '../../data/muscles'
-import { NEUTRAL_WEEK, weekPlan } from '../../engine/periodization'
+import { exerciseTargets, neutralWeek, plannedSets, setWeekTarget, weekPlan } from '../../engine/periodization'
+import { WeekTargetSheet } from './WeekTargetSheet'
+import { weekLabel } from '../../engine/weekCycle'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
 import { historyUpTo, maxReachedWeek } from '../../engine/weekCycle'
 import { targetMuscles } from '../../engine/targetMuscles'
@@ -26,6 +30,8 @@ export default function WorkoutPreview() {
   const running = useActiveWorkoutParam()
   const overrides = useExerciseOverrides()
   const [focus, setFocus] = useState<string | null>(null)
+  /** Index der Übung im Trainingstag, deren Wochenziele bearbeitet werden */
+  const [editIdx, setEditIdx] = useState<number | null>(null)
 
   const local = param.replace(/^p\d+-/, '')
   const slotIdx = local.startsWith('s') ? Number(local.slice(1)) : null
@@ -34,7 +40,7 @@ export default function WorkoutPreview() {
   const curWeek = program && !program.active ? maxReachedWeek(program, sessions, 0) : week.week
   const day = program?.days[dayIdx]
   const plan = useMemo(
-    () => (program?.config ? weekPlan(program.config, curWeek) : NEUTRAL_WEEK),
+    () => (program?.config ? weekPlan(program.config, curWeek) : neutralWeek(curWeek)),
     [program, curWeek],
   )
   const views = useMemo(
@@ -42,7 +48,15 @@ export default function WorkoutPreview() {
     [day, plan, sessions, program, curWeek, all, settings, overrides, bodyweights],
   )
 
-  const targets = useMemo(() => targetMuscles(views.map((v) => ({ ex: v.ex, sets: v.sets }))), [views])
+  const active = useMemo(() => views.filter((v) => !v.skipped), [views])
+  const targets = useMemo(() => targetMuscles(active.map((v) => ({ ex: v.ex, sets: v.sets }))), [active])
+  const editPe = editIdx !== null ? day?.exercises[editIdx] : undefined
+  const editView = editPe ? views.find((v) => v.pe === editPe) : undefined
+  const saveWeek = (key: string, t: Parameters<typeof setWeekTarget>[2]) => {
+    if (!program?.id || editIdx === null) return
+    const days = program.days.map((d, di) => (di !== dayIdx ? d : { ...d, exercises: d.exercises.map((x, xi) => (xi === editIdx ? setWeekTarget(x, key, t) : x)) }))
+    void db.programs.update(program.id, { days })
+  }
 
   if (!program || !day) {
     return <Page title="Workout" back={() => nav('/workouts')}><Card>Workout nicht gefunden.</Card></Page>
@@ -71,34 +85,59 @@ export default function WorkoutPreview() {
         </section>
       )}
 
-      <div className="text-sm text-muted">{views.length} Übungen</div>
+      <div className="text-sm text-muted">{active.length} {active.length === 1 ? 'Übung' : 'Übungen'}{views.length > active.length ? ` · ${views.length - active.length} diese Woche ausgelassen` : ''}</div>
 
       {views.map((v) => {
         const lines = v.ex.cardio ? 1 : v.sets
-        const dim = focus !== null && !v.ex.primary.some((m) => m === focus)
+        const dim = v.skipped || (focus !== null && !v.ex.primary.some((m) => m === focus))
+        const idx = day.exercises.indexOf(v.pe)
+        // Supersatz nur mit Übungen, die diese Woche trainiert werden
+        const ai = active.indexOf(v)
+        const ss = v.skipped ? undefined : v.pe.superset
+        const ssStart = !!ss && active[ai - 1]?.pe.superset !== ss && active[ai + 1]?.pe.superset === ss
+        const ssLinked = !!ss && (active[ai - 1]?.pe.superset === ss || active[ai + 1]?.pe.superset === ss)
         return (
-          <Card key={v.pe.exerciseId} className={cx('!p-3 transition-opacity', dim && 'opacity-40 grayscale')}>
+          <div key={v.pe.exerciseId}>
+          {ssStart && <div className="text-xs font-semibold text-accent flex items-center gap-1 mb-1 px-1"><Icon name="link" size={13} />Supersatz</div>}
+          <Card className={cx('!p-3 transition-opacity', ssLinked && 'border-l-4 border-l-accent', dim && 'opacity-40 grayscale')}>
             <div className="grid grid-cols-[64px_1fr_auto] gap-x-3 gap-y-1 items-center">
-              <div style={{ gridRow: `1 / span ${lines + 2}` }} className="self-start"><ExercisePhoto ex={v.ex} size={64} /></div>
+              <div style={{ gridRow: `1 / span ${lines + 2 + (progressionNote(v.sug, v.range, settings.weightUnit, v.bodyLoad) ? 1 : 0)}` }} className="self-start"><ExercisePhoto ex={v.ex} size={64} /></div>
               <div className="font-semibold leading-tight">{v.ex.name}</div>
               <div className="text-2xs uppercase tracking-wide text-muted text-right">{v.ex.cardio ? '' : 'RIR'}</div>
               {Array.from({ length: lines }, (_, i) => (
                 <div key={i} className="contents">
                   <div className="text-sm text-muted">
-                    {v.ex.cardio ? 'Cardio' : v.failureLast && i === v.sets - 1 ? `Satz ${i + 1} · ${v.range.min}+ Wdh, bis zum Versagen` : `Satz ${i + 1} · ${v.range.min}–${v.range.max} ${v.ex.metric === 'time' ? 'Sek' : 'Wdh'}`}
+                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? `Satz ${i + 1} · ${v.range.min}+ Wdh, bis zum Versagen` : `Satz ${i + 1} · ${v.range.min}–${v.range.max} ${v.ex.metric === 'time' ? 'Sek' : 'Wdh'}`}
                   </div>
                   <div className="text-sm font-bold text-right tabular-nums" style={v.ex.cardio ? undefined : { color: rirColor(v.setRirs[i]) }}>
                     {v.ex.cardio ? '' : v.setRirs[i]}
                   </div>
                 </div>
               ))}
-              <div className="text-xs text-muted col-span-2">
-                {v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? ` · ${v.warmups.length} Aufwärmsätze` : ''}
+              {progressionNote(v.sug, v.range, settings.weightUnit, v.bodyLoad) && (
+                <div className="text-xs text-warn col-span-2">{progressionNote(v.sug, v.range, settings.weightUnit, v.bodyLoad)}</div>
+              )}
+              <div className="text-xs text-muted col-span-2 flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate">{v.skipped ? 'Diese Woche ausgelassen' : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? ` · ${v.warmups.length} Aufwärmsätze` : ''}</>}</span>
+                {!v.ex.cardio && idx >= 0 && <button className="text-accent shrink-0 pointer-events-auto" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? 'Ziele · eigen' : 'Ziele'}</button>}
               </div>
             </div>
           </Card>
+          </div>
         )
       })}
+
+      <WeekTargetSheet open={!!editView} onClose={() => setEditIdx(null)} unit={editView?.ex.metric === 'time' ? 'Sek' : 'Wdh'}
+        title={editView ? `${editView.ex.name} · ${weekLabel(program, curWeek)}` : ''}
+        computed={(() => {
+          if (!editView || editIdx === null) return { sets: 0, repMin: 0, repMax: 0, rir: 0 }
+          const base = { ...editView.pe, weeks: undefined }
+          const t = exerciseTargets(base, plan, editIdx, editView.ex.metric === 'time', editView.ex.compound)
+          return { sets: plannedSets(base, plan), repMin: t.range.min, repMax: t.range.max, rir: t.rir }
+        })()}
+        scopes={[{ key: `w${curWeek}`, label: 'Nur diese Woche' }, ...(program.config && plan.blockPos != null ? [{ key: `b${plan.blockPos}`, label: 'In jedem Block' }] : [])]}
+        current={(key) => editPe?.weeks?.[key]}
+        onSave={saveWeek} />
 
       <BottomBar>
           <Button className="w-full" onClick={() => nav(`/workout/${param}`)}>

@@ -6,7 +6,8 @@ import { rirColor } from '../../components/rir'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
 import { isPerSide } from '../../engine/stats'
 import { SwipeRow } from './SwipeRow'
-import type { Row } from './state'
+import { isSegment, type Row } from './state'
+import { SET_BADGE } from './SetTypeSheet'
 import { de } from '../../i18n/de'
 
 export type PadField = 'weight' | 'reps'
@@ -28,7 +29,7 @@ interface Props {
 function previousText(s: LoggedSet | undefined, cardio: boolean, settings: Settings): string {
   if (!s) return '–'
   if (cardio) return `${s.minutes ?? 0} min${s.km ? ` · ${kmToDisplay(s.km, settings.distanceUnit)} ${settings.distanceUnit}` : ''}`
-  return `${kgToDisplay(s.weight, settings.weightUnit)} ${settings.weightUnit} × ${s.reps}`
+  return `${kgToDisplay(s.weight, settings.weightUnit)} ${settings.weightUnit} × ${s.reps}${s.partial ? ` +${s.partial}T` : ''}`
 }
 
 const COLS = 'grid-cols-[2rem_1fr_3.5rem_3.5rem_2rem]'
@@ -67,19 +68,23 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
       </div>
       {rows.map((r) => {
         const warm = r.type === 'warmup'
-        if (warm) warmIdx++; else workIdx++
-        const prev = warm ? view.previous.warmups[warmIdx] : view.previous.work[workIdx]
+        const seg = isSegment(r)
+        if (warm) warmIdx++; else if (!seg) workIdx++
+        const prev = warm ? view.previous.warmups[warmIdx] : seg ? undefined : view.previous.work[workIdx]
+        const badge = warm ? SET_BADGE.warmup : seg ? SET_BADGE[r.type as 'drop' | 'myo'] : r.failure ? SET_BADGE.failure : workIdx + 1
+        const partial = Number(r.partial) || 0
         const rirN = r.rir === '' ? null : Number(r.rir)
         const padOn = (f: PadField) => activePad?.rowId === r.id && activePad.field === f
         return (
           <SwipeRow key={r.id} onDelete={() => onDelete(r.id)}>
             <div data-row-id={r.id} className={cx('grid gap-1.5 px-1 py-1 items-center border-b border-line/60 transition-colors', COLS, r.done && 'bg-surface2/60')}>
-              <button onClick={() => onType(r.id)} aria-label="Satztyp ändern"
-                className={cx('justify-self-center w-7 h-7 rounded-full text-xs font-semibold flex items-center justify-center active:opacity-70',
-                  warm ? 'bg-warn/15 text-warn' : 'bg-surface2 text-fg', r.done && 'opacity-40')}>
-                {warm ? 'W' : workIdx + 1}
+              <button onClick={() => onType(r.id)} aria-label={seg ? `${r.type === 'drop' ? 'Drop' : 'Myo'}-Segment, Optionen` : 'Satztyp ändern'}
+                className={cx('justify-self-center rounded-full text-xs font-semibold flex items-center justify-center active:opacity-70',
+                  seg ? 'w-6 h-6 ml-2 bg-accent/15 text-accent' : 'w-7 h-7',
+                  warm ? 'bg-warn/15 text-warn' : seg ? '' : r.failure ? 'bg-danger/15 text-danger' : 'bg-surface2 text-fg', r.done && 'opacity-40')}>
+                {badge}
               </button>
-              <span className={cx('text-xs text-muted text-center truncate', r.done && 'opacity-50')}>{previousText(prev, cardio, settings)}</span>
+              <span className={cx('text-xs text-muted text-center truncate', r.done && 'opacity-50')}>{seg ? (r.type === 'drop' ? '↳ Drop' : '↳ Myo') : previousText(prev, cardio, settings)}</span>
               {cardio ? (
                 <>
                   <input inputMode="decimal" className={cx(cell, 'w-full outline-none', r.done && 'opacity-40')} value={r.minutes}
@@ -93,6 +98,7 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
                   <button onClick={() => onPad(r.id, 'reps')} aria-label={rirN !== null && !warm ? `${r.reps || '–'}${r.failure ? ' oder mehr, bis zum Versagen' : ''}, Ziel-RIR ${rirN}` : undefined}
                     className={cx(cell, 'relative', r.done && 'opacity-40', padOn('reps') && 'ring-2 ring-accent !opacity-100')}>
                     {r.reps || '–'}{r.failure && !warm && r.reps ? '+' : ''}
+                    {partial > 0 && <span className="absolute bottom-0.5 left-1.5 text-[10px] font-semibold leading-none text-muted" aria-label={`plus ${partial} Teilwiederholungen`}>+{partial}T</span>}
                     {rirN !== null && !warm && (
                       <span className="absolute bottom-0.5 right-1.5 text-[10px] font-bold leading-none" style={{ color: rirColor(rirN) }}>{rirN}</span>
                     )}

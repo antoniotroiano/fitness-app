@@ -1,14 +1,58 @@
-import { BottomSheet, Button } from '../../components/ui'
+import type { ReactNode } from 'react'
+import { BottomSheet, cx } from '../../components/ui'
+import type { Row } from './state'
 
-/** Satztyp wählen. Das Datenmodell lässt später Drop-, Failure- und Myo-Sätze zu. */
-export function SetTypeSheet({ open, current, onPick, onClose }: {
-  open: boolean; current: 'warmup' | 'work'; onPick: (t: 'warmup' | 'work') => void; onClose: () => void
+export type SetTypeChoice = 'warmup' | 'work' | 'failure' | 'drop' | 'myo' | 'addSegment'
+
+/** Kürzel in der Satz-Spalte */
+export const SET_BADGE = { warmup: 'W', failure: 'F', drop: 'D', myo: 'M' } as const
+
+function Option({ badge, title, text, active, onClick, tone }: {
+  badge: ReactNode; title: string; text: string; active?: boolean; onClick: () => void; tone?: string
 }) {
   return (
-    <BottomSheet open={open} onClose={onClose} title="Satztyp">
+    <button onClick={onClick}
+      className={cx('w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left active:opacity-70 border', active ? 'border-accent bg-surface2' : 'border-transparent bg-surface2')}>
+      <span className={cx('w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-sm font-bold', tone ?? 'bg-surface text-fg')}>{badge}</span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block text-xs text-muted">{text}</span>
+      </span>
+    </button>
+  )
+}
+
+/**
+ * Satztyp wählen. Arbeitssätze: Standard, Failure, Aufwärmen oder als Drop-/Myo-Satz fortsetzen (fügt ein
+ * Segment an). Segmente (Teil eines Drop-/Myo-Satzes): weiteres Segment anhängen.
+ */
+export function SetTypeSheet({ open, row, onPick, onClose }: {
+  open: boolean; row: Row | undefined; onPick: (t: SetTypeChoice) => void; onClose: () => void
+}) {
+  const seg = row?.type === 'drop' || row?.type === 'myo'
+  const cur = !row ? 'work' : row.type === 'warmup' ? 'warmup' : row.failure ? 'failure' : row.type
+  return (
+    <BottomSheet open={open} onClose={onClose} title={seg ? (row?.type === 'drop' ? 'Drop-Satz' : 'Myo-Satz') : 'Satztyp'}>
       <div className="space-y-2">
-        <Button variant={current === 'warmup' ? 'primary' : 'ghost'} className="w-full" onClick={() => onPick('warmup')}>W · Aufwärmsatz</Button>
-        <Button variant={current === 'work' ? 'primary' : 'ghost'} className="w-full" onClick={() => onPick('work')}>Standardsatz</Button>
+        {seg ? (
+          <>
+            <Option badge="+" title="Weiteres Segment" onClick={() => onPick('addSegment')}
+              text={row?.type === 'drop' ? 'Gewicht nochmals reduzieren und weitermachen' : 'Nach kurzer Pause noch ein Mini-Satz'} />
+            <p className="text-xs text-muted px-1">Segment entfernen: Zeile nach links wischen.</p>
+          </>
+        ) : (
+          <>
+            <Option badge="1" title="Standardsatz" text="Gewicht und Wdh. im Zielbereich" active={cur === 'work'} onClick={() => onPick('work')} />
+            <Option badge={SET_BADGE.failure} tone="bg-danger/15 text-danger" title="Failure-Satz" text="Bis zum technischen Versagen, RIR 0"
+              active={cur === 'failure'} onClick={() => onPick('failure')} />
+            <Option badge={SET_BADGE.drop} tone="bg-accent/15 text-accent" title="Drop-Satz" text="Danach mit leichterem Gewicht weiter, ohne Pause"
+              onClick={() => onPick('drop')} />
+            <Option badge={SET_BADGE.myo} tone="bg-accent/15 text-accent" title="Myo-Satz" text="Danach Mini-Sätze mit gleichem Gewicht, 10–20 s Pause"
+              onClick={() => onPick('myo')} />
+            <Option badge={SET_BADGE.warmup} tone="bg-warn/15 text-warn" title="Aufwärmsatz" text="Zählt nicht für Volumen und Progression"
+              active={cur === 'warmup'} onClick={() => onPick('warmup')} />
+          </>
+        )}
       </div>
     </BottomSheet>
   )

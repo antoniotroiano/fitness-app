@@ -101,6 +101,13 @@ export interface Suggestion {
   /** null = noch keine Historie, Nutzer wählt das Startgewicht selbst */
   weight: number | null
   reps: number
+  /**
+   * Gewichtsstufe zu groß (siehe EXTEND_REPS): `extend` = Gewicht gehalten, Wdh. über der Obergrenze, bis die
+   * nächste Stufe im Bereich machbar ist; `gap` = Bereich mit dieser Stufe nicht erreichbar, Sprung mit weniger Wdh.
+   */
+  note?: 'extend' | 'gap'
+  /** Bei `note`: die nächste Gewichtsstufe (wie `weight`) */
+  nextWeight?: number
 }
 
 export interface SuggestInput {
@@ -128,6 +135,15 @@ export interface SuggestInput {
   bodyLoad?: number
   /** Körperlast am Tag der letzten Einheit (fehlt: wie `bodyLoad`) */
   lastBodyLoad?: number
+  /**
+   * Zielwert: `min` = klassische Double Progression (nach einer Steigerung zurück an die Untergrenze),
+   * `mid` = Gewicht und Wdh. so wählen, dass die Wdh. möglichst in der Mitte des Bereichs liegen (Standard: min).
+   */
+  target?: 'min' | 'mid'
+  /** Nur bei `mid`: Gewicht halten, solange die Wdh. damit im Bereich bleiben (Standard: an) */
+  weightMatch?: boolean
+  /** Bereich über die Obergrenze erweitern, wenn die nächste Gewichtsstufe zu groß ist (Standard: an, siehe EXTEND_REPS) */
+  expandRange?: boolean
 }
 
 /** Zeitübungen: Zuwachs pro Einheit in Sekunden */
@@ -148,6 +164,15 @@ export function detrainFactor(daysSince?: number): number {
   return 1 - Math.min(DETRAIN_MAX, (DETRAIN_PER_WEEK * (daysSince - 14)) / 7)
 }
 
+/**
+ * Equipment-Grenzen: Ist die nächste Gewichtsstufe so groß, dass damit selbst die Untergrenze (−1 Wdh.) bei Ziel-RIR
+ * nicht machbar ist (typisch: leichte Kurzhanteln in 2-kg-Schritten, Seitheben 10 → 12 kg = +20 %), bleibt das Gewicht
+ * und die Wdh. steigen über die Obergrenze, bis der e1RM die Stufe trägt. Höchstens EXTEND_REPS × Obergrenze darüber
+ * (15 → 19, 10 → 13); danach Sprung mit den machbaren Wdh. und Hinweis „nicht erreichbar“.
+ */
+export const EXTEND_REPS = 0.25
+const extendCap = (range: RepRange) => range.max + Math.max(2, Math.ceil(range.max * EXTEND_REPS))
+
 /** Plateau-Reset: neues e1RM-Ziel relativ zur letzten Einheit */
 export const STALL_RESET = 0.95
 /** Fällt das e1RM zwischen zwei Einheiten um mehr als das, beginnt ein neuer Abschnitt (z. B. nach einem Reset). */
@@ -161,13 +186,14 @@ export function suggestNext(input: SuggestInput): Suggestion {
   const sug = suggestTotal({ ...input, last }, off, lastOff)
   if (sug.weight == null) return sug
   // Gesamtlast → Zusatzgewicht
-  return { ...sug, weight: Math.max(0, Math.round((sug.weight - off) * 1000) / 1000) }
+  const added = (w: number) => Math.max(0, Math.round((w - off) * 1000) / 1000)
+  return { ...sug, weight: added(sug.weight), ...(sug.nextWeight != null ? { nextWeight: added(sug.nextWeight) } : {}) }
 }
 
 /** `off`/`lastOff`: Körperlast heute/in der letzten Einheit; Gewichte in `last` und im Ergebnis sind dann Gesamtlasten. */
-function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, metric, unit, scale, daysSince }: SuggestInput, off: number, lastOff: number): Suggestion {
+function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, metric, unit, scale, daysSince, target = 'min', weightMatch = true, expandRange = true }: SuggestInput, off: number, lastOff: number): Suggestion {
   const { inc, snap, up, down, floor, lowest } = loadSteps(equipment, unit, scale, off)
-  const worked = (last ?? []).filter((s) => !s.warmup && s.reps > 0)
+  const worked = (last ?? []).filter((s) => !s.warmup && !s.segment && s.reps > 0)
   if (worked.length === 0) return { weight: null, reps: range.min }
 
   // Zeitübungen (Halten/Tragen): +5 s je Einheit; an der Obergrenze Zusatzlast (falls schon mit Gewicht) bzw. Zeit halten
@@ -208,8 +234,17 @@ function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, me
 
   if (stalled) {
     // Reset über das e1RM (≈ −5 %), das Gewicht sinkt aber immer mindestens um einen Schritt
-    const reset = snap(weightForReps(avgE1rm * STALL_RESET, range.min, targetRir))
-    return afterBreak({ weight: Math.max(lowest, Math.min(reset, down(lastWeight))), reps: range.min })
+    const resetReps = target === 'mid' ? midOf(range) : range.min
+    const reset = snap(weightForReps(avgE1rm * STALL_RESET, resetReps, targetRir))
+    return afterBreak({ weight: Math.max(lowest, Math.min(reset, down(lastWeight))), reps: resetReps })
+  }
+
+  // Halten heißt bei Körperlast: gleiches Zusatzgewicht (die Körperlast kann sich seit der letzten Einheit geändert haben)
+  // Ohne Geräteliste bleibt das Zusatzgewicht exakt (eine 2,5-kg-Scheibe wird nicht auf die 1-kg-Schritte gerundet)
+  const held = off > 0 ? (scale ? snap(off + lastWeight - lastOff) : Math.round((off + lastWeight - lastOff) * 1000) / 1000) : scale ? snap(lastWeight) : lastWeight
+  const firstAdded = off > 0 && lastWeight - lastOff <= 1e-6 && minReps >= range.max
+  if (target === 'mid' && !firstAdded) {
+    return afterBreak(suggestMid({ range, targetRir, sets: topSets, minReps, held, lowest, snap, up, down, weightMatch, expandRange }))
   }
 
   // Alle Sätze am oberen Ende: Gewicht erhöhen, Wiederholungen zurück an die Untergrenze
@@ -217,7 +252,7 @@ function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, me
     // Körpergewicht ohne Zusatz → erstes Zusatzgewicht: sanfter Einstieg mit der kleinsten Stufe
     // (BODYWEIGHT_ADDED_START bzw. kleinstes Gerätegewicht) und so vielen Wdh., wie das e1RM bei Ziel-RIR hergibt,
     // statt mit vollem Sprung zurück an die Untergrenze (3 × 10 Klimmzüge → +2,5 kg × 8 statt +8 kg × 6).
-    if (off > 0 && lastWeight - lastOff <= 1e-6) {
+    if (firstAdded) {
       const start = scale ? minOfScale(scale) : BODYWEIGHT_ADDED_START
       const total = off + start
       const reps = Math.min(range.max, Math.max(range.min, Math.floor(effectiveRepsAt(avgE1rm, total) - targetRir + 1e-9)))
@@ -227,6 +262,19 @@ function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, me
     // verschiebt das Gewicht legitim um mehr als 10 %, der e1RM darf aber nur begrenzt wachsen.
     const candidate = snap(weightForReps(avgE1rm, range.min, targetRir))
     const minUp = up(lastWeight)
+    const extCap = expandRange ? extendCap(range) : range.max
+    // Keine schwerere Stufe verfügbar (Ende der Geräteliste): Gewicht halten, Wdh. bis zur erweiterten Grenze
+    if (minUp <= lastWeight + 1e-6) return afterBreak({ weight: lastWeight, reps: Math.min(extCap, minReps + 1), note: 'gap' })
+    // Machbare Wdh. mit der nächsten Stufe; reicht es nicht einmal für die Untergrenze − 1: Bereich erweitern.
+    // Hier ungedämpfter Epley: die Dämpfung ab 12 Wdh. ist für die 1RM-Schätzung bewusst vorsichtig, überschätzt aber
+    // den Wdh.-Verlust beim Sprung (+10 % ≈ −8 Wdh. statt ≈ −3 bis −4 nach RM-Tabellen).
+    const plainE1rm = sets.reduce((a, s) => a + s.weight * (1 + (s.reps + Math.max(0, s.rir ?? FALLBACK_RIR)) / 30), 0) / sets.length
+    const repsAtUp = Math.floor(30 * (plainE1rm / minUp - 1) - targetRir + 1e-9)
+    if (repsAtUp < range.min - 1 && candidate <= minUp) {
+      if (minReps < extCap) return afterBreak({ weight: lastWeight, reps: minReps + 1, note: 'extend', nextWeight: minUp })
+      // Ohne Erweiterung: Sprung, Ziel bleibt die Untergrenze (Hinweis „nicht erreichbar“)
+      return afterBreak({ weight: minUp, reps: expandRange ? Math.max(1, repsAtUp) : range.min, note: 'gap', nextWeight: minUp })
+    }
     const capE1rm = e1rm(lastWeight, minReps, targetRir) * (1 + MAX_E1RM_JUMP)
     const capW = weightForReps(capE1rm, range.min, targetRir)
     const cap = Math.max(minUp, floor(capW))
@@ -241,10 +289,64 @@ function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, me
   const tol = off > 0 ? Math.max(inc, lastWeight / 30) : inc
   const near = scale && off <= 0 ? candidate === up(lastWeight) || candidate === down(lastWeight) || candidate === lastWeight : Math.abs(candidate - lastWeight) <= tol
   // Mit Skala: war das letzte Gewicht nicht darauf (neue Einstellung), wird es auf die Skala gesetzt
-  // Halten heißt bei Körperlast: gleiches Zusatzgewicht (die Körperlast kann sich seit der letzten Einheit geändert haben)
-  const held = off > 0 ? snap(off + lastWeight - lastOff) : scale ? snap(lastWeight) : lastWeight
   const weight = near ? held : candidate
   return afterBreak({ weight: Math.max(lowest, weight), reps })
+}
+
+/** Mitte des Wdh.-Bereichs (abgerundet: 6–10 → 8, 12–15 → 13) */
+export const midOf = (range: RepRange) => Math.floor((range.min + range.max) / 2)
+
+/**
+ * Zielwert Mitte: Ziel-e1RM = eine Wdh. mehr als der schwächste Satz mit dem Top-Gewicht (mit dessen RIR),
+ * höher nur, wenn die Einheit insgesamt mehr hergab (höchstens MAX_E1RM_JUMP darüber). Kandidaten: die Stufen um das
+ * gehaltene Gewicht und das Gewicht für die Mitte. Je Kandidat die machbaren Wdh. bei Ziel-RIR; gewählt wird
+ * - mit Weight Match das gehaltene Gewicht, solange seine Wdh. im Bereich liegen (= Double Progression bis zur Obergrenze),
+ * - sonst das Gewicht mit Wdh. am nächsten an der Mitte (bei Gleichstand das gehaltene bzw. schwerere).
+ * Liegt keine Stufe im Bereich: über die Obergrenze erweitern (bis EXTEND_REPS) oder Sprung mit Hinweis.
+ */
+function suggestMid({ range, targetRir, sets, minReps, held, lowest, snap, up, down, weightMatch, expandRange }: {
+  range: RepRange; targetRir: number; sets: LoggedSet[]; minReps: number; held: number; lowest: number
+  snap: (w: number) => number; up: (w: number) => number; down: (w: number) => number; weightMatch: boolean; expandRange: boolean
+}): Suggestion {
+  const mid = midOf(range)
+  // Ungedämpfter Epley (wie bei den Equipment-Grenzen): die Dämpfung ab 12 Wdh. ist für die 1RM-Schätzung gedacht und
+  // würde den Wdh.-Verlust beim Wechsel der Gewichtsstufe überschätzen.
+  const est = (w: number, reps: number, rir: number) => w * (1 + (reps + Math.max(0, rir)) / 30)
+  const rirOf = (s: LoggedSet) => s.rir ?? FALLBACK_RIR
+  const avg = sets.reduce((a, s) => a + est(s.weight, s.reps, rirOf(s)), 0) / sets.length
+  const plusOne = Math.min(...sets.map((s) => est(s.weight, s.reps + 1, rirOf(s))))
+  const cap = Math.min(...sets.map((s) => est(s.weight, s.reps, rirOf(s)))) * (1 + MAX_E1RM_JUMP)
+  const goal = Math.max(plusOne, Math.min(avg, cap))
+  const repsAt = (w: number) => Math.floor(30 * (goal / w - 1) - targetRir + 1e-9)
+
+  const cands = new Set<number>([held])
+  let d = held, u = held
+  for (let i = 0; i < 3; i++) { d = Math.max(lowest, down(d)); cands.add(d) }
+  for (let i = 0; i < 4; i++) { u = up(u); cands.add(u) }
+  const atMid = snap(goal / (1 + (mid + targetRir) / 30))
+  if (atMid >= lowest) cands.add(atMid)
+  const list = [...cands].filter((w) => w > 0).sort((a, b) => a - b).map((w) => ({ w, r: repsAt(w) }))
+  const inRange = list.filter((c) => c.r >= range.min && c.r <= range.max)
+  const heldC = list.find((c) => c.w === held) ?? { w: held, r: repsAt(held) }
+
+  if (weightMatch && heldC.r >= range.min && heldC.r <= range.max) return { weight: held, reps: heldC.r }
+  if (inRange.length) {
+    const score = (c: { w: number; r: number }) => Math.abs(c.r - mid)
+    const best = inRange.reduce((a, c) => (score(c) < score(a) || (score(c) === score(a) && (c.w === held || (a.w !== held && c.w > a.w))) ? c : a))
+    return { weight: best.w, reps: best.r }
+  }
+
+  // Keine Stufe im Bereich: die Stufen springen über den Bereich hinweg
+  const lighter = [...list].reverse().find((c) => c.r > range.max)
+  const heavier = list.find((c) => c.r < range.min)
+  const extCap = expandRange ? extendCap(range) : range.max
+  if (lighter && (!heavier || (expandRange && minReps < extCap && lighter.w >= held - 1e-6))) {
+    // Leichtere Stufe mit Wdh. über dem Bereich (Ende der Geräteliste oder Erweiterung)
+    if (!heavier) return { weight: lighter.w, reps: Math.min(extCap, lighter.r), note: 'gap' }
+    return { weight: lighter.w, reps: Math.min(extCap, Math.max(range.max + 1, Math.min(lighter.r, minReps + 1))), note: 'extend', nextWeight: heavier.w }
+  }
+  if (heavier) return { weight: heavier.w, reps: expandRange ? Math.max(1, heavier.r) : range.min, note: 'gap', nextWeight: heavier.w }
+  return { weight: held, reps: range.min }
 }
 
 /**
@@ -266,7 +368,7 @@ export function isStalled(history: number[]): boolean {
 
 /** e1RM einer Einheit: bester Satz */
 export function sessionE1rm(sets: LoggedSet[], fallbackRir = FALLBACK_RIR): number {
-  return Math.max(0, ...sets.filter((s) => !s.warmup).map((s) => e1rm(s.weight, s.reps, s.rir ?? fallbackRir)))
+  return Math.max(0, ...sets.filter((s) => !s.warmup && !s.segment).map((s) => e1rm(s.weight, s.reps, s.rir ?? fallbackRir)))
 }
 
 /**
@@ -276,7 +378,7 @@ export function sessionE1rm(sets: LoggedSet[], fallbackRir = FALLBACK_RIR): numb
  * ein falsches Plateau (und ein Reset), ohne sie zählt es als Fortschritt.
  */
 export function sessionPerformance(sets: LoggedSet[]): number {
-  return Math.max(0, ...sets.filter((s) => !s.warmup).map((s) => e1rm(s.weight, s.reps, 0)))
+  return Math.max(0, ...sets.filter((s) => !s.warmup && !s.segment).map((s) => e1rm(s.weight, s.reps, 0)))
 }
 
 /** Letzte Einheit einer Übung, getrennt in Aufwärm- und Arbeitssätze (Sortierung: Datum, dann finishedAt). */
@@ -286,7 +388,8 @@ export function previousSets(sessions: Session[], exerciseId: string): { warmups
     .sort((a, b) => a.date.localeCompare(b.date) || a.finishedAt - b.finishedAt)
     .at(-1)
   const sets = last?.exercises.find((e) => e.exerciseId === exerciseId)?.sets ?? []
-  return { warmups: sets.filter((s) => s.warmup), work: sets.filter((s) => !s.warmup) }
+  // Drop-/Myo-Segmente gehören zum Satz davor: weder Vergleichszeile noch Grundlage der Progression
+  return { warmups: sets.filter((s) => s.warmup), work: sets.filter((s) => !s.warmup && !s.segment) }
 }
 
 /** Abweichung zwischen Ist- und Plan-e1RM, ab der Folgesätze angepasst werden (±1 RIR liegt darunter, ±2 darüber). */

@@ -3,7 +3,8 @@ import type { PlannedExercise } from '../../types'
 
 export interface Row {
   id: string
-  type: 'warmup' | 'work'
+  /** Arbeitssatz, Aufwärmsatz oder Segment (Fortsetzung des Arbeitssatzes davor) eines Drop-/Myo-Satzes */
+  type: 'warmup' | 'work' | 'drop' | 'myo'
   weight: string
   reps: string
   rir: string
@@ -16,8 +17,10 @@ export interface Row {
   planKg?: number | null
   planReps?: number
   planRir?: number
-  /** Satz bis zum Versagen (letzte Arbeitswoche): Wdh. sind das Minimum */
+  /** Satz bis zum Versagen (geplant in der letzten Arbeitswoche oder als Satztyp gewählt): Wdh. sind das Minimum */
   failure?: boolean
+  /** Teilwiederholungen zusätzlich zu den vollen */
+  partial?: string
 }
 
 /** Laufendes Workout, wird in der DB zwischengespeichert (übersteht Reload). */
@@ -35,3 +38,5 @@ export interface ActiveWorkout {
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
+
+export const isSegment = (r: Pick<Row, 'type'>) => r.type === 'drop' || r.type === 'myo'
