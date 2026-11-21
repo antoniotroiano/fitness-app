@@ -265,6 +265,7 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
   const [days, setDays] = useState(generated.days)
   const [swap, setSwap] = useState<{ d: number; i: number } | null>(null)
   const [add, setAdd] = useState<number | null>(null)
+  const [searchAll, setSearchAll] = useState(false)
 
   const cur = swap ? exerciseById(days[swap.d].exercises[swap.i].exerciseId, all) : undefined
   const alts = cur ? alternatives(cur, all, days[swap!.d].exercises.map((e) => e.exerciseId), cfg.equipment) : []
@@ -326,15 +327,22 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
         <ul className="divide-y divide-line">
           {alts.map((a) => (
             <li key={a.id}>
-              <button className="w-full text-left py-3" onClick={() => replace(a.id)}>
-                <div className="text-sm font-medium">{a.name}</div>
-                <div className="text-xs text-muted">{EQUIPMENT_LABEL[a.equipment]}</div>
+              <button className="w-full text-left py-2.5 flex items-center gap-3" onClick={() => replace(a.id)}>
+                <ExercisePhoto ex={a} size={48} />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">{a.name}</span>
+                  <span className="block text-xs text-muted">{EQUIPMENT_LABEL[a.equipment]}</span>
+                </span>
               </button>
             </li>
           ))}
           {!alts.length && <li className="py-4 text-sm text-muted">Keine Alternative mit deinem Equipment.</li>}
         </ul>
+        <Button variant="ghost" className="w-full mt-3" onClick={() => setSearchAll(true)}>Weitere Ersatzübung suchen</Button>
       </BottomSheet>
+
+      <ExercisePicker open={searchAll} onClose={() => setSearchAll(false)} exercises={all} allowCardio={false}
+        title="Ersatzübung suchen" onPick={(e) => replace(e.id)} />
 
       <ExercisePicker open={add !== null} onClose={() => setAdd(null)} exercises={all} allowCardio={false}
         onPick={(e) => {
