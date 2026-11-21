@@ -1,12 +1,14 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo } from 'react'
 import type {
   Exercise, ExerciseOverride, MeasureEntry, Program, Session, Settings, WeekState, WeightEntry,
 } from '../types'
-import { ALL_EXERCISES } from '../data/exercises'
+import { ALL_EXERCISES, exerciseById } from '../data/exercises'
+import { applyBodyweight } from '../engine/bodyweight'
 import { emptyWeek, jumpToWeek, maxReachedWeek } from '../engine/weekCycle'
 import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
-import { DEFAULT_REST } from '../engine/rest'
+import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
 
 interface KV { key: string; value: unknown }
@@ -42,7 +44,7 @@ export const db = new LiftDB()
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system', weightUnit: 'kg', lengthUnit: 'cm', distanceUnit: 'km', clock: '24h', language: 'de',
   name: '', birthday: '', sex: '', heightCm: null,
-  restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45,
+  restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST,
   keepAlive: false, warmupMode: 'smart', warmupSchemes: DEFAULT_WARMUP_SCHEMES,
 }
 
@@ -110,6 +112,20 @@ export function useSessions(): Session[] {
 }
 export function useWeights(): WeightEntry[] {
   return useLiveQuery(() => db.weights.orderBy('date').toArray(), [], []) ?? []
+}
+/**
+ * Sessions für Auswertungen (1RM, Volumen, Rekorde): Sätze von Körpergewichtsübungen tragen die Gesamtlast
+ * (Anteil × Körpergewicht am Tag + Zusatzgewicht). Nur anzeigen, nie speichern.
+ */
+export function useStatSessions(): Session[] {
+  const sessions = useSessions()
+  const weights = useWeightsLoaded()
+  const all = useAllExercises()
+  return useMemo(() => applyBodyweight(sessions, (id) => exerciseById(id, all), weights ?? []), [sessions, weights, all])
+}
+/** Wie useWeights, aber undefined, solange die Abfrage noch lädt (für Werte, die einmalig daraus berechnet werden). */
+export function useWeightsLoaded(): WeightEntry[] | undefined {
+  return useLiveQuery(() => db.weights.orderBy('date').toArray(), [])
 }
 export function useMeasures(): MeasureEntry[] {
   return useLiveQuery(() => db.measures.orderBy('date').toArray(), [], []) ?? []

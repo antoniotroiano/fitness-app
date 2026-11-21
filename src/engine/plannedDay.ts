@@ -1,9 +1,11 @@
 import type { Exercise, Program, Session, WorkoutDay, PlannedExercise } from '../types'
 import { isStalled, previousSets, sessionPerformance, suggestNext, type RepRange, type Suggestion } from './progression'
-import { effectiveRir, effectiveSets, setRir, shiftRange, weekPlan, type WeekPlan } from './periodization'
+import { effectiveSets, exerciseTargets, setRir, weekPlan, type WeekPlan } from './periodization'
 import { effectiveMode, freshnessFor, intensityOf, resolveWarmup, type WarmupContext, type WarmupSet } from './warmup'
 import { restCategory } from './rest'
-import type { ExerciseOverride, Settings } from '../types'
+import type { ExerciseOverride, Settings, WeightEntry } from '../types'
+import { bodyLoadOf, bodyweightAt, withBodyLoad } from './bodyweight'
+import { daysBetween } from '../utils/dates'
 
 export interface PlannedView {
   pe: PlannedExercise
@@ -14,6 +16,8 @@ export interface PlannedView {
   sets: number
   /** Ziel-RIR pro Arbeitssatz */
   setRirs: number[]
+  /** Letzter Arbeitssatz bis zum Versagen (letzte Arbeitswoche des Blocks) */
+  failureLast: boolean
   sug: Suggestion
   warmups: WarmupSet[]
   /** Kontext für die Aufwärm-Berechnung (Smart) */
@@ -21,6 +25,8 @@ export interface PlannedView {
   /** Effektiver Aufwärmmodus dieser Übung */
   warmupMode: 'smart' | 'scheme' | 'none'
   previous: ReturnType<typeof previousSets>
+  /** Körperlast heute (Anteil × Körpergewicht, kg), 0 ohne Anteil oder ohne Gewichtseintrag. Gewichte im Plan sind Zusatzgewichte. */
+  bodyLoad: number
 }
 
 /** Erkennt Einheiten dieses Programms, die in einer Deload-Woche trainiert wurden. */
@@ -35,7 +41,12 @@ export function plannedDay(
   warmup: Pick<Settings, 'warmupMode' | 'warmupSchemes'> & Partial<Pick<Settings, 'weightUnit'>>, overrides: Record<string, ExerciseOverride> = {},
   /** Deload-Einheiten zählen nicht für die Plateau-Erkennung */
   isDeloadSession: (s: Session) => boolean = () => false,
+  /** Heutiges Datum (yyyy-mm-dd): lange Trainingspausen senken den Vorschlag */
+  today?: string,
+  /** Gewichtsverlauf: Körpergewichtsübungen rechnen mit Anteil × Körpergewicht + Zusatzgewicht */
+  bodyweights: Pick<WeightEntry, 'date' | 'kg'>[] = [],
 ): PlannedView[] {
+  const bwToday = bodyweights.length ? bodyweightAt(bodyweights, today ?? '9999-12-31') : undefined
   const ids = day.exercises.map((e) => e.exerciseId)
   const out: PlannedView[] = []
   day.exercises.forEach((pe, index) => {
@@ -45,15 +56,18 @@ export function plannedDay(
       .filter((s) => s.exercises.some((e) => e.exerciseId === pe.exerciseId) && !isDeloadSession(s))
       .sort((a, b) => a.date.localeCompare(b.date) || a.finishedAt - b.finishedAt)
     const previous = previousSets(sessions, pe.exerciseId)
-    const e1rms = history.map((s) => sessionPerformance(s.exercises.find((e) => e.exerciseId === pe.exerciseId)!.sets))
+    // Körperlast einer Einheit: Anteil × Körpergewicht am Tag der Einheit
+    const loadOn = (date: string) => (bwToday ? bodyLoadOf(ex, bodyweightAt(bodyweights, date)) : 0)
+    const bodyLoad = bodyLoadOf(ex, bwToday)
+    const e1rms = history.map((s) => sessionPerformance(withBodyLoad(s.exercises.find((e) => e.exerciseId === pe.exerciseId)!.sets, loadOn(s.date))))
     const time = ex.metric === 'time'
-    // Zeitübungen: feste Sekunden-Range, keine Verschiebung durch die Periodisierung
-    const range = time ? { min: pe.repMin, max: pe.repMax } : shiftRange({ min: pe.repMin, max: pe.repMax }, plan.repShift)
-    const rir = effectiveRir(pe.rir, plan)
+    const { range, rir } = exerciseTargets(pe, plan, index, time, ex.compound)
+    const lastDate = sessions.filter((s) => s.exercises.some((e) => e.exerciseId === pe.exerciseId)).reduce((d, s) => (s.date > d ? s.date : d), '')
+    const daysSince = today && lastDate ? daysBetween(lastDate, today) : undefined
     const sets = ex.cardio ? 1 : effectiveSets(pe.sets, plan)
     const ov = overrides[pe.exerciseId]
     const sug: Suggestion = ex.cardio ? { weight: null, reps: 0 } : suggestNext({
-      range, targetRir: rir, equipment: ex.equipment, last: previous.work, stalled: !ex.assisted && !time && isStalled(e1rms), assisted: ex.assisted, metric: ex.metric, unit: warmup.weightUnit, scale: ov?.weightScale,
+      range, targetRir: rir, equipment: ex.equipment, last: previous.work, bodyLoad, lastBodyLoad: bodyLoad > 0 ? loadOn(lastDate) : undefined, stalled: !ex.assisted && !time && isStalled(e1rms), assisted: ex.assisted, metric: ex.metric, unit: warmup.weightUnit, scale: ov?.weightScale, daysSince,
     })
     const warmupMode = ex.cardio || time ? 'none' : effectiveMode(ov?.warmupMode, warmup.warmupMode)
     const warmupCtx: WarmupContext = {
@@ -62,8 +76,10 @@ export function plannedDay(
     }
     const scheme = ov?.warmupScheme ?? warmup.warmupSchemes[restCategory(ex)]
     const warmups = resolveWarmup({ mode: warmupMode, scheme, ctx: warmupCtx, workWeight: sug.weight, unit: warmup.weightUnit, scale: ov?.weightScale })
-    const setRirs = Array.from({ length: sets }, (_, i) => setRir(rir, i, sets, ex.compound))
-    out.push({ pe, ex, range, rir, sets, setRirs, sug, warmups, warmupCtx, warmupMode, previous })
+    // Letzte Arbeitswoche: der letzte Satz geht bis zum Versagen (RIR 0) und misst die Leistung für den nächsten Block
+    const failureLast = !!plan.failureLastSet && !ex.cardio && !time
+    const setRirs = Array.from({ length: sets }, (_, i) => (failureLast && i === sets - 1 ? 0 : setRir(rir, i, sets, ex.compound)))
+    out.push({ pe, ex, range, rir, sets, setRirs, failureLast, sug, warmups, warmupCtx, warmupMode, previous, bodyLoad })
   })
   return out
 }

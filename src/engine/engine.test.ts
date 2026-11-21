@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adaptNextWeight, e1rm, incrementKg, isStalled, previousSets, sessionE1rm, suggestNext, weightForReps } from './progression'
+import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, sessionE1rm, suggestNext, weightForReps } from './progression'
 import {
   DEFAULT_WARMUP_SCHEMES, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
   type WarmupContext,
@@ -13,21 +13,25 @@ import { axisTicks, bucketSpan, chartWindow, clampOffset, formatRange, niceTicks
 import { dailyValues, dailySeries, habitDots, monthGrid, shiftMonth, streakDays, streakWeeks, weekCount } from './habits'
 import { elapsedMs, formatClock, pauseClock, resumeClock, startClock } from './workoutClock'
 import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
-import { baseRepRange, effectiveSets, setRir, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview } from './periodization'
+import { baseRepRange, effectiveSets, exerciseTargets, setRir, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
-import { alternatives } from './swap'
+import { alternatives, swapPlanned } from './swap'
 import { targetMuscles } from './targetMuscles'
 import { weekProgress } from './weekProgress'
 import { deloadSessionOf, plannedDay } from './plannedDay'
 import { MEDIA_MAP, posterSlug } from '../data/media'
 import { TIPS } from '../data/media/tips'
 import manifest from '../data/media/manifest.json'
-import { emptyWeek, historyUpTo, isWeekComplete, jumpToWeek, markSlot, maxReachedWeek } from './weekCycle'
+import { emptyWeek, historyUpTo, isWeekComplete, jumpToWeek, markSlot, maxReachedWeek, weekLabel, weekOptions } from './weekCycle'
 import { average, cardioDaily, exerciseDaily, filterPeriod, groupByMonth, muscleDaily, summary } from './stats'
 import { ALL_EXERCISES, EXERCISES, exerciseById, TIME_BASED } from '../data/exercises'
 import { recentRecords } from './records'
+import { applyBodyweight, bodyLoadOf, bodyweightAt } from './bodyweight'
+import { BODYWEIGHT_SHARE } from '../data/exercises'
+import { buildImportSessions, parseTrainingCsv, suggestMapping } from './trainingImport'
+import { IMPORT_ALIASES } from '../data/importAliases'
 import { bodySeries, lastEntries, ratioSeries, weightSeries } from './body'
-import type { MeasureEntry, ProgramConfig, Session, WeightEntry } from '../types'
+import type { MeasureEntry, Program, ProgramConfig, Session, WeightEntry } from '../types'
 
 const range = { min: 6, max: 10 }
 
@@ -105,6 +109,25 @@ describe('periodization', () => {
     expect(effectiveSets(4, p)).toBe(2)
     expect(weekPlan({ deload: true, repScheme: 'static' }, 5).isDeload).toBe(false)
   })
+  it('Blocklänge: 4 Wochen wie bisher, längere Blöcke strecken den Verlauf', () => {
+    const run = (blockWeeks: number | undefined, deload = true) => Array.from({ length: (blockWeeks ?? 4) + 1 }, (_, w) =>
+      weekPlan({ deload, repScheme: 'linear', blockWeeks }, w))
+    const four = run(undefined)
+    expect(four.map((p) => p.repShift)).toEqual([0, -1, -2, -3, 0])
+    expect(four.map((p) => p.rirDelta)).toEqual([0, -1, -2, -2, 3])
+    expect(four.map((p) => p.setsFactor > 1)).toEqual([false, false, true, true, false])
+    expect(run(4)).toEqual(four)
+    const five = run(5)
+    expect(five.map((p) => p.isDeload)).toEqual([false, false, false, false, false, true])
+    expect(five.map((p) => p.repShift)).toEqual([0, -1, -2, -2, -3, 0])
+    expect(five.map((p) => p.rirDelta).slice(0, 5)).toEqual([0, 0, -1, -2, -2])
+    const six = run(6)
+    expect(six[6].isDeload).toBe(true)
+    expect(six.slice(0, 6).map((p) => p.repShift)).toEqual([0, -1, -1, -2, -2, -3])
+    expect(six.slice(0, 6).map((p) => p.rirDelta)).toEqual([0, 0, -1, -1, -2, -2])
+    expect(weekPlan({ deload: true, repScheme: 'static', blockWeeks: 5 }, 6).isDeload).toBe(false)
+    expect(weeklyOverview({ sets: 3, repMin: 8, repMax: 12, rir: 2 }, { repScheme: 'linear', deload: true, blockWeeks: 5 }, {})).toHaveLength(6)
+  })
   it('Basis-Rep-Ranges', () => {
     expect(baseRepRange('strength', true)).toEqual({ min: 3, max: 6 })
   })
@@ -158,6 +181,21 @@ describe('planGenerator', () => {
     const alts = alternatives(cur, EXERCISES)
     expect(alts.length).toBeGreaterThan(3)
     for (const a of alts) expect(a.primary).toContain('chest')
+  })
+  it('Tausch übernimmt Bereich der neuen Übungsart, nicht den der alten', () => {
+    const ex = (id: string) => exerciseById(id)!
+    const main = { exerciseId: 'bb-bench', sets: 3, repMin: 6, repMax: 10, rir: 2 }
+    // Verbund → Isolation: Isolationsbereich statt 6–10
+    const curl = swapPlanned(main, ex('bb-bench'), ex('cable-curl'), { goal: 'hypertrophy' }, [ex('bb-row')])
+    expect(curl).toMatchObject({ exerciseId: 'cable-curl', repMin: 10, repMax: 15, sets: 3, rir: 2 })
+    // Gleiche Art: Werte bleiben
+    expect(swapPlanned(main, ex('bb-bench'), ex('bb-ohp'), { goal: 'hypertrophy' }, [])).toEqual({ ...main, exerciseId: 'bb-ohp' })
+    // Isolation → Verbund: Hauptübung, solange der Tag weniger als zwei Verbundübungen hat, sonst weitere Verbundübung; mind. 3 Sätze
+    const iso = { exerciseId: 'db-lateral', sets: 2, repMin: 10, repMax: 15, rir: 2 }
+    expect(swapPlanned(iso, ex('db-lateral'), ex('bb-ohp'), { goal: 'both' }, [ex('bb-bench')])).toMatchObject({ repMin: 4, repMax: 6, sets: 3 })
+    expect(swapPlanned(iso, ex('db-lateral'), ex('bb-ohp'), { goal: 'both' }, [ex('bb-bench'), ex('bb-squat')])).toMatchObject({ repMin: 6, repMax: 10 })
+    // Zeitübung: Sekunden-Bereich
+    expect(swapPlanned(iso, ex('db-lateral'), ex('plank'), { goal: 'hypertrophy' }, [])).toMatchObject({ repMin: TIME_RANGE.min, repMax: TIME_RANGE.max })
   })
 })
 
@@ -364,7 +402,7 @@ describe('Kurzhantel-Volumen und Rep-Rollen', () => {
 })
 
 describe('rest', () => {
-  const settings = { restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45 }
+  const settings = { restSeconds: DEFAULT_REST, warmupRestBetween: 30, warmupRestLast: 90 }
   it('Kategorien', () => {
     expect(restCategory(exerciseById('bb-bench')!)).toBe('compoundUpper')
     expect(restCategory(exerciseById('bb-squat')!)).toBe('compoundLower')
@@ -373,9 +411,9 @@ describe('rest', () => {
     expect(restCategory(exerciseById('plank')!)).toBe('core')
   })
   it('Pausenzeiten inklusive Aufwärmsatz', () => {
-    expect(restSecondsFor(exerciseById('bb-bench')!, settings, false)).toBe(150)
-    expect(restSecondsFor(exerciseById('bb-bench')!, settings, true)).toBe(90)
-    expect(restSecondsFor(exerciseById('db-lateral')!, settings, true)).toBe(45)
+    expect(restSecondsFor(exerciseById('bb-bench')!, settings, 'work')).toBe(150)
+    expect(restSecondsFor(exerciseById('bb-bench')!, settings, 'warmup')).toBe(30)
+    expect(restSecondsFor(exerciseById('db-lateral')!, settings, 'lastWarmup')).toBe(90)
   })
 })
 
@@ -730,25 +768,101 @@ describe('Wochensprung', () => {
   })
 })
 
-describe('adaptNextWeight (relativ zur Planung)', () => {
+describe('adaptNextSets (Folgesätze mit Ermüdung)', () => {
   const plan = { planWeight: 100, planReps: 8, planRir: 3 }
-  it('Satz exakt nach Plan → Folgesatz bleibt beim geplanten Gewicht', () => {
-    expect(adaptNextWeight({ weight: 100, reps: 8, rir: 3, ...plan }, 100, 'barbell')).toBe(100)
+  const one = [{ planWeight: 100, rir: 3 }]
+  const r610 = { min: 6, max: 10 }
+  it('Satz nach Plan (±1 RIR) → Folgesätze bleiben unverändert', () => {
+    for (const rir of [2, 3, 4]) expect(adaptNextSets({ weight: 100, reps: 8, rir, ...plan }, one, r610, 'barbell')).toEqual([null])
   })
-  it('±1 RIR ist Schätzungenauigkeit und löst keine Änderung aus', () => {
-    expect(adaptNextWeight({ weight: 100, reps: 8, rir: 2, ...plan }, 100, 'barbell')).toBe(100)
-    expect(adaptNextWeight({ weight: 100, reps: 8, rir: 4, ...plan }, 100, 'barbell')).toBe(100)
+  it('leichter als geplant: erst mehr Wdh., über dem Bereich schwerer', () => {
+    expect(adaptNextSets({ weight: 100, reps: 8, rir: 5, ...plan }, one, r610, 'barbell')).toEqual([{ weight: 100, reps: 9 }])
+    expect(adaptNextSets({ weight: 100, reps: 8, rir: 5, ...plan }, one, { min: 6, max: 8 }, 'barbell')).toEqual([{ weight: 102.5, reps: 7 }])
   })
-  it('2 RIR mehr als geplant → schwerer, 2 RIR weniger → leichter', () => {
-    expect(adaptNextWeight({ weight: 100, reps: 8, rir: 5, ...plan }, 100, 'barbell')!).toBeGreaterThan(100)
-    expect(adaptNextWeight({ weight: 100, reps: 8, rir: 1, ...plan }, 100, 'barbell')!).toBeLessThan(100)
+  it('schwerer als geplant: weniger Wdh., unter dem Bereich leichter (höchstens −10 %)', () => {
+    expect(adaptNextSets({ weight: 100, reps: 8, rir: 1, ...plan }, one, r610, 'barbell')).toEqual([{ weight: 100, reps: 5 }])
+    expect(adaptNextSets({ weight: 100, reps: 8, rir: 1, ...plan }, one, { min: 8, max: 10 }, 'barbell')).toEqual([{ weight: 95, reps: 7 }])
   })
-  it('Sprung auf 10 % des geplanten Gewichts begrenzt, ungültige Eingaben ergeben null', () => {
-    expect(adaptNextWeight({ weight: 100, reps: 20, rir: 0, ...plan, planReps: 3 }, 100, 'barbell')).toBe(110)
-    expect(adaptNextWeight({ weight: 0, reps: 6, rir: 2, ...plan }, 100, 'barbell')).toBeNull()
+  it('Kalibrierung ohne Verlauf: 40 kg × 11 bei RIR 1 → 40 kg × 9, nicht 45 × 4', () => {
+    const done = { weight: 40, reps: 11, rir: 1, planWeight: null, planReps: 10, planRir: 1 }
+    expect(adaptNextSets(done, [{ planWeight: null, rir: 2 }, { planWeight: null, rir: 1 }], { min: 10, max: 15 }, 'cable'))
+      .toEqual([{ weight: 40, reps: 9 }, { weight: 40, reps: 9 }])
   })
-  it('ohne Planungsgewicht (neue Übung) dient das Gewicht des abgehakten Satzes als Basis', () => {
-    expect(adaptNextWeight({ weight: 60, reps: 8, rir: 3, planWeight: null, planReps: 8, planRir: 3 }, null, 'barbell')).toBe(60)
+  it('spätere Sätze behalten das Gewicht und verlieren nur Wdh. (Ermüdung)', () => {
+    const done = { weight: 40, reps: 11, rir: 1, planWeight: null, planReps: 4, planRir: 3 }
+    const res = adaptNextSets(done, [{ planWeight: null, rir: 2 }, { planWeight: null, rir: 2 }], { min: 4, max: 8 }, 'barbell')
+    expect(res).toEqual([{ weight: 42.5, reps: 6 }, { weight: 42.5, reps: 5 }])
+  })
+  it('ungültige Eingaben ergeben null', () => {
+    expect(adaptNextSets({ weight: 0, reps: 6, rir: 2, ...plan }, one, r610, 'barbell')).toEqual([null])
+  })
+  it('effectiveRepsAt kehrt e1rm um', () => {
+    for (const n of [3, 8, 12, 15]) expect(effectiveRepsAt(e1rm(100, n, 0), 100)).toBeCloseTo(n, 6)
+  })
+})
+
+describe('Trainingspause', () => {
+  it('Abschlag erst nach 3 Wochen, nach 8 Wochen ≈ 9 %, höchstens 15 %', () => {
+    expect(detrainFactor(undefined)).toBe(1)
+    expect(detrainFactor(21)).toBe(1)
+    expect(detrainFactor(56)).toBeCloseTo(0.91, 5)
+    expect(detrainFactor(400)).toBeCloseTo(0.85, 5)
+  })
+  it('suggestNext senkt das Gewicht nach langer Pause', () => {
+    const last = [1, 2, 3].map(() => ({ weight: 100, reps: 8, rir: 2 }))
+    const base = { range: { min: 6, max: 10 }, targetRir: 2, equipment: 'barbell' as const, last }
+    expect(suggestNext(base)).toEqual({ weight: 100, reps: 9 })
+    expect(suggestNext({ ...base, daysSince: 10 })).toEqual({ weight: 100, reps: 9 })
+    expect(suggestNext({ ...base, daysSince: 56 })).toEqual({ weight: 90, reps: 9 })
+  })
+})
+
+describe('Schema "Wechselnde Bereiche"', () => {
+  it('drei Zonen à 3 Wdh. um die Mitte des Basisbereichs', () => {
+    expect([0, 1, 2].map((z) => zoneRange({ min: 10, max: 15 }, z))).toEqual([{ min: 11, max: 13 }, { min: 8, max: 10 }, { min: 14, max: 16 }])
+    expect(zoneRange({ min: 3, max: 6 }, 1)).toEqual({ min: 3, max: 5 })
+  })
+  it('Übungen eines Tages stehen in verschiedenen Zonen, jede Übung wechselt wöchentlich', () => {
+    const cfg = { repScheme: 'rotating' as const, deload: true, blockWeeks: 5 }
+    const pe = { repMin: 6, repMax: 10, rir: 2 }
+    const week1 = weekPlan(cfg, 1)
+    const day = [0, 1, 2].map((i) => exerciseTargets(pe, week1, i, false).range.min)
+    expect(new Set(day).size).toBe(3)
+    const ex0 = [0, 1, 2].map((w) => exerciseTargets(pe, weekPlan(cfg, w), 0, false).range.min)
+    expect(new Set(ex0).size).toBe(3)
+    // Schwere Zone: eine Wdh. mehr Reserve; Deload: mittlere Zone; Zeitübung: unverändert
+    expect(exerciseTargets(pe, weekPlan(cfg, 1), 0, false)).toEqual({ range: { min: 4, max: 6 }, rir: 3 })
+    expect(exerciseTargets(pe, weekPlan(cfg, 5), 1, false).range).toEqual({ min: 7, max: 9 })
+    expect(exerciseTargets({ repMin: 30, repMax: 60, rir: 2 }, week1, 0, true).range).toEqual({ min: 30, max: 60 })
+  })
+  it('sanfter RIR-Verlauf: höchstens −1 über den Block, Verbund nie unter RIR 1', () => {
+    const cfg = { repScheme: 'rotating' as const, deload: false }
+    const rirs = (rir: number, compound: boolean) => [0, 1, 2, 3].flatMap((w) => [0, 1, 2].map((i) =>
+      exerciseTargets({ repMin: 6, repMax: 10, rir }, weekPlan(cfg, w), i, false, compound).rir))
+    expect(Math.min(...rirs(2, true))).toBe(1)
+    expect(Math.min(...rirs(1, true))).toBe(1)
+    expect(Math.min(...rirs(2, false))).toBe(1)
+    expect(Math.min(...rirs(1, false))).toBe(0)
+    // Andere Schemata unverändert: Reserve sinkt um bis zu 2
+    expect(exerciseTargets({ repMin: 6, repMax: 10, rir: 2 }, weekPlan({ repScheme: 'static', deload: false }, 3), 0, false, true).rir).toBe(0)
+  })
+  it('Automatik empfiehlt es für Fortgeschrittene (Hypertrophie/Beides)', () => {
+    expect(recommendedRepScheme('hypertrophy', 'intermediate')).toBe('rotating')
+  })
+})
+
+describe('Satz bis Versagen am Blockende', () => {
+  it('nur in der letzten Arbeitswoche, nicht im Deload', () => {
+    const cfg = { repScheme: 'static' as const, deload: true }
+    expect([0, 1, 2, 3, 4].map((w) => !!weekPlan(cfg, w).failureLastSet)).toEqual([false, false, false, true, false])
+    expect(!!weekPlan({ ...cfg, blockWeeks: 5 }, 4).failureLastSet).toBe(true)
+  })
+  it('plannedDay setzt den letzten Arbeitssatz auf RIR 0', () => {
+    const day = { id: 'd', name: 'T', exercises: [{ exerciseId: 'bb-bench', sets: 3, repMin: 6, repMax: 10, rir: 2 }] }
+    const warm = { warmupMode: 'off' as const, warmupSchemes: DEFAULT_WARMUP_SCHEMES }
+    const [v] = plannedDay(day, weekPlan({ repScheme: 'static', deload: true }, 3), [], (id) => exerciseById(id), warm)
+    expect(v.failureLast).toBe(true)
+    expect(v.setRirs.at(-1)).toBe(0)
   })
 })
 
@@ -969,8 +1083,10 @@ describe('Einheit lb (B7)', () => {
     expect(isMultiple(lb(sug.weight!), 2.5)).toBe(true)
   })
   it('Anpassung zwischen Sätzen rundet in lb', () => {
-    const w = adaptNextWeight({ weight: 60, reps: 8, rir: 0, planWeight: 60, planReps: 8, planRir: 3 }, 60, 'barbell', 'lb')!
-    expect(isMultiple(lb(w), 5)).toBe(true)
+    const [n] = adaptNextSets({ weight: 60, reps: 8, rir: 0, planWeight: 60, planReps: 8, planRir: 3 }, [{ planWeight: 60, rir: 3 }], { min: 6, max: 10 }, 'barbell', 'lb')
+    if (!n) throw new Error('erwartet Anpassung')
+    expect(n.weight).toBeLessThan(60)
+    expect(isMultiple(lb(n.weight), 5)).toBe(true)
   })
   it('Aufwärmsätze runden in lb, leere Stange = 45 lb', () => {
     const sets = stepsToSets([{ pct: 40, reps: 5 }, { pct: 60, reps: 5 }], 140, 'barbell', 'lb')
@@ -1068,11 +1184,10 @@ describe('Gerätegewichte', () => {
     expect(suggestNext({ range: { min: 30, max: 60 }, targetRir: 2, equipment: 'kettlebell', last, metric: 'time', scale: { kind: 'list', weights: [16, 24, 32] } }))
       .toEqual({ weight: 24, reps: 30 })
   })
-  it('adaptNextWeight rundet auf die Skala', () => {
-    const plan = { planWeight: 40, planReps: 8, planRir: 3 }
-    const w = adaptNextWeight({ weight: 40, reps: 8, rir: 8, ...plan }, 40, 'cable', 'kg', r5)!
-    expect(w % 5).toBe(0)
-    expect(w).toBeGreaterThan(40)
+  it('adaptNextSets rundet auf die Skala', () => {
+    const plan = { planWeight: 60, planReps: 8, planRir: 3 }
+    expect(adaptNextSets({ weight: 60, reps: 8, rir: 8, ...plan }, [{ planWeight: 60, rir: 3 }], { min: 6, max: 10 }, 'cable', 'kg', r5))
+      .toEqual([{ weight: 65, reps: 8 }])
   })
   it('Aufwärmsätze liegen auf der Skala', () => {
     const sets = stepsToSets([{ pct: 40, reps: 8 }, { pct: 70, reps: 5 }], 62.5, 'machine', 'kg', r5)
@@ -1106,10 +1221,193 @@ describe('weeklyOverview (Wizard-Vorschau)', () => {
 })
 
 describe('recommendedRepScheme', () => {
-  it('Einsteiger static, Kraft linear, sonst undulating', () => {
+  it('Einsteiger static, Kraft linear, sonst wechselnde Bereiche', () => {
     expect(recommendedRepScheme('hypertrophy', 'none')).toBe('static')
     expect(recommendedRepScheme('strength', 'beginner')).toBe('static')
     expect(recommendedRepScheme('strength', 'advanced')).toBe('linear')
-    expect(recommendedRepScheme('hypertrophy', 'intermediate')).toBe('undulating')
+    expect(recommendedRepScheme('hypertrophy', 'intermediate')).toBe('rotating')
+  })
+})
+
+describe('Trainings-Import (CSV)', () => {
+  const csv = [
+    '﻿"Datum","Trainingsdauer","Training","Übung","Übungsgrundgewicht (kg)","Satztyp","Gewicht (kg)","Wiederholungen","RIR","Dauer","Distanz kurz (m)","Distanz lang (km)"',
+    '"2026-05-02","3498","Plan (Workout A)","Barbell Bench Press",,"Warm-Up Set","20.0","8.0",,,,',
+    '"2026-05-02","3498","Plan (Workout A)","Barbell Bench Press",,"Standard Set","50.0","5.0","3",,,',
+    '"2026-05-02","3498","Plan (Workout A)","Barbell Bench Press",,"Failure Set","50.0","6.0",,,,',
+    '"2026-05-02","3498","Plan (Workout A)","Running",,"Standard Set",,,,"600",,"0.89"',
+    '"2026-05-02","3498","Plan (Workout A)","Mystery Move",,"Standard Set","10","10","2",,,',
+    '"2026-05-04","3000","Plan (Workout B)","Cable Straight Bar Biceps Curl",,"Standard Set","40,0","11","1",,,',
+  ].join('\r\n')
+  const lookup = (id: string) => exerciseById(id)
+  it('liest Sätze, Satztypen, Cardio und Dezimalkomma', () => {
+    const rows = parseTrainingCsv(csv)
+    expect(rows).toHaveLength(6)
+    expect(rows[0]).toMatchObject({ date: '2026-05-02', exercise: 'Barbell Bench Press', type: 'warmup', weight: 20, reps: 8 })
+    expect(rows[2].type).toBe('failure')
+    expect(rows[3]).toMatchObject({ seconds: 600, km: 0.89 })
+    expect(rows[5].weight).toBe(40)
+  })
+  it('ordnet bekannte Namen zu, unbekannte bleiben offen', () => {
+    const m = suggestMapping(['Barbell Bench Press', 'Running', 'Mystery Move', 'Kabel-Curl'], ALL_EXERCISES)
+    expect(m).toEqual({ 'Barbell Bench Press': 'bb-bench', Running: 'c-run', 'Mystery Move': null, 'Kabel-Curl': 'cable-curl' })
+  })
+  it('baut Einheiten je Tag und Training, Versagen ohne RIR = 0, überspringt Duplikate', () => {
+    const rows = parseTrainingCsv(csv)
+    const mapping = suggestMapping([...new Set(rows.map((r) => r.exercise))], ALL_EXERCISES)
+    const res = buildImportSessions(rows, mapping, [], lookup)
+    expect(res.sessions).toHaveLength(2)
+    expect(res.skippedSets).toBe(1)
+    const [a, b] = res.sessions
+    expect(a).toMatchObject({ programId: null, date: '2026-05-02', durationSec: 3498, week: 0 })
+    expect(a.exercises[0].sets).toEqual([{ weight: 20, reps: 8, warmup: true }, { weight: 50, reps: 5, rir: 3 }, { weight: 50, reps: 6, rir: 0 }])
+    expect(a.exercises[1]).toEqual({ exerciseId: 'c-run', sets: [{ reps: 0, weight: 0, minutes: 10, km: 0.89 }] })
+    expect(b.exercises[0].exerciseId).toBe('cable-curl')
+    // Zweiter Import derselben Datei: nichts Neues
+    const again = buildImportSessions(rows, mapping, res.sessions, lookup)
+    expect(again.sessions).toHaveLength(0)
+    expect(again.duplicates).toBe(3)
+  })
+  it('fehlende Pflichtspalten ergeben eine verständliche Fehlermeldung', () => {
+    expect(() => parseTrainingCsv('a,b\n1,2')).toThrow(/Datum/)
+  })
+  it('alle Aliase zeigen auf vorhandene Übungen', () => {
+    for (const id of Object.values(IMPORT_ALIASES)) expect(ALL_EXERCISES.some((e) => e.id === id)).toBe(true)
+  })
+})
+
+describe('Wochenauswahl', () => {
+  const prog = (config?: Partial<ProgramConfig>) => ({
+    id: 1, name: 'P', days: [], weekSlots: [], active: true, createdAt: 0,
+    ...(config ? { config: { ...cfg(), ...config } } : {}),
+  }) as unknown as Program
+  const at = (week: number) => ({ programId: 1, dayIndex: 0, date: '2026-01-01', finishedAt: 0, week, exercises: [] }) as Session
+  it('zeigt genau einen Block (Arbeitswochen + Deload), ein Sprung verlängert die Liste nicht', () => {
+    const p = prog({ deload: true })
+    expect(weekOptions(p, [], 0).map((o) => o.label)).toEqual(['Woche 1', 'Woche 2', 'Woche 3', 'Woche 4', 'Deload'])
+    expect(weekOptions(p, [], 2)).toHaveLength(5)
+    expect(weekOptions(prog({ deload: true, blockWeeks: 5 }), [], 4).map((o) => o.label).at(-1)).toBe('Deload')
+    expect(weekOptions(prog({ deload: false, blockWeeks: 6 }), [], 0)).toHaveLength(6)
+  })
+  it('zweiter Block erscheint erst, wenn er erreicht ist; Beschriftung mit Block', () => {
+    const p = prog({ deload: true })
+    expect(weekOptions(p, [at(5)], 0)).toHaveLength(10)
+    expect(weekOptions(p, [], 6).map((o) => o.block).at(-1)).toBe(1)
+    expect(weekLabel(p, 4)).toBe('Deload')
+    expect(weekLabel(p, 6)).toBe('Woche 2 · Block 2')
+  })
+  it('ohne Periodisierung: bis eine Woche nach der letzten trainierten, ohne Wachstum durch Auswahl', () => {
+    const p = prog()
+    expect(weekOptions(p, [at(1)], 0)).toHaveLength(3)
+    expect(weekOptions(p, [at(1)], 2)).toHaveLength(3)
+  })
+})
+
+describe('Körpergewichtsanteil', () => {
+  const pull = exerciseById('pullup')!
+  const weights = [{ date: '2026-01-10', kg: 80 }, { date: '2026-03-01', kg: 78 }]
+
+  it('Anteile gehören zu existierenden Körpergewichtsübungen im Bereich 0–1', () => {
+    for (const [id, share] of Object.entries(BODYWEIGHT_SHARE)) {
+      const ex = exerciseById(id)
+      expect(ex, id).toBeDefined()
+      expect(ex!.equipment).toBe('bodyweight')
+      expect(ex!.bodyweight).toBe(share)
+      expect(share > 0 && share <= 1).toBe(true)
+    }
+    expect(exerciseById('plank')!.bodyweight).toBeUndefined()
+  })
+
+  it('Körpergewicht am Datum: letzter Eintrag davor, vor der ersten Messung der früheste', () => {
+    expect(bodyweightAt(weights, '2026-02-15')).toBe(80)
+    expect(bodyweightAt(weights, '2026-03-01')).toBe(78)
+    expect(bodyweightAt(weights, '2025-12-01')).toBe(80)
+    expect(bodyweightAt([], '2026-01-01')).toBeUndefined()
+  })
+
+  it('Körperlast nur bei Anteil, bekanntem Gewicht und nicht assistiert', () => {
+    expect(bodyLoadOf(pull, 80)).toBe(76)
+    expect(bodyLoadOf(pull, undefined)).toBe(0)
+    expect(bodyLoadOf({ ...pull, assisted: true }, 80)).toBe(0)
+    expect(bodyLoadOf(exerciseById('bb-bench'), 80)).toBe(0)
+  })
+
+  it('ohne Körperlast bleibt die reine Wiederholungs-Progression', () => {
+    const last = [{ weight: 0, reps: 8, rir: 2 }, { weight: 0, reps: 8, rir: 2 }]
+    expect(suggestNext({ range: { min: 6, max: 10 }, targetRir: 2, equipment: 'bodyweight', last })).toEqual({ weight: 0, reps: 9 })
+  })
+
+  it('mit Körperlast: unter der Obergrenze +1 Wdh. ohne Zusatzgewicht', () => {
+    const last = [{ weight: 0, reps: 8, rir: 2 }, { weight: 0, reps: 8, rir: 2 }]
+    expect(suggestNext({ range: { min: 6, max: 10 }, targetRir: 2, equipment: 'bodyweight', last, bodyLoad: 76 })).toEqual({ weight: 0, reps: 9 })
+  })
+
+  it('mit Körperlast: an der Obergrenze sanfter Einstieg mit kleinster Zusatzstufe und Wdh. aus dem e1RM', () => {
+    const last = [{ weight: 0, reps: 10, rir: 2 }, { weight: 0, reps: 10, rir: 2 }]
+    // e1RM 76 × (1 + 12/30) = 106,4; bei 78,5 kg ≈ 10,7 eff. Wdh. − 2 RIR → 8
+    expect(suggestNext({ range: { min: 6, max: 10 }, targetRir: 2, equipment: 'bodyweight', last, bodyLoad: 76 })).toEqual({ weight: 2.5, reps: 8 })
+    // mit Gerätegewicht-Skala (Gewichtsscheiben am Gürtel): kleinste Stufe
+    const scale: WeightScale = { kind: 'list', weights: [1.25, 2.5, 5, 10] }
+    expect(suggestNext({ range: { min: 6, max: 10 }, targetRir: 2, equipment: 'bodyweight', last, bodyLoad: 76, scale }).weight).toBe(1.25)
+  })
+
+  it('mit Körperlast und schon Zusatzgewicht: an der Obergrenze normaler Sprung (gedeckelt)', () => {
+    const last = [{ weight: 5, reps: 10, rir: 2 }, { weight: 5, reps: 10, rir: 2 }]
+    const sug = suggestNext({ range: { min: 6, max: 10 }, targetRir: 2, equipment: 'bodyweight', last, bodyLoad: 76 })
+    expect(sug.reps).toBe(6)
+    const cap = weightForReps(e1rm(81, 10, 2) * 1.05, 6, 2) - 76
+    expect(sug.weight!).toBeGreaterThan(5)
+    expect(sug.weight!).toBeLessThanOrEqual(cap)
+  })
+
+  it('gewichtete Sätze: e1RM auf Gesamtlast, Vorschlag bleibt Zusatzgewicht', () => {
+    const last = [{ weight: 10, reps: 7, rir: 2 }]
+    const sug = suggestNext({ range: { min: 6, max: 10 }, targetRir: 2, equipment: 'bodyweight', last, bodyLoad: 76 })
+    expect(sug).toEqual({ weight: 10, reps: 8 })
+  })
+
+  it('geändertes Körpergewicht: Halten heißt gleiches Zusatzgewicht', () => {
+    // letzte Einheit bei 80 kg (Last 76), heute 78 kg (Last 74,1): kein Zusatzgewicht, nur weil man leichter ist
+    const last = [{ weight: 0, reps: 8, rir: 2 }]
+    const sug = suggestNext({ range: { min: 6, max: 10 }, targetRir: 2, equipment: 'bodyweight', last, bodyLoad: 74.1, lastBodyLoad: 76 })
+    expect(sug.reps).toBe(9)
+    expect(sug.weight).toBe(0)
+  })
+
+  it('Anpassung der Folgesätze funktioniert auch ohne Zusatzgewicht', () => {
+    // geplant 0 kg × 8 @2, geschafft nur 5 @0: Folgesätze bekommen weniger Wdh.
+    const res = adaptNextSets({ weight: 0, reps: 5, rir: 0, planWeight: 0, planReps: 8, planRir: 2 },
+      [{ planWeight: 0, rir: 2 }], { min: 6, max: 10 }, 'bodyweight', 'kg', undefined, 76)
+    expect(res[0]).not.toBeNull()
+    expect(res[0]!.weight).toBe(0)
+    expect(res[0]!.reps).toBeLessThan(8)
+    // ohne Körperlast keine Anpassung (Gewicht 0)
+    expect(adaptNextSets({ weight: 0, reps: 5, rir: 0, planWeight: 0, planReps: 8, planRir: 2 },
+      [{ planWeight: 0, rir: 2 }], { min: 6, max: 10 }, 'bodyweight')).toEqual([null])
+  })
+
+  it('Statistik: 1RM und Volumen mit Körpergewicht am Tag der Einheit', () => {
+    const s: Session = { programId: null, dayIndex: 0, date: '2026-02-01', finishedAt: 1, week: 0,
+      exercises: [{ exerciseId: 'pullup', sets: [{ weight: 0, reps: 10, rir: 0 }, { weight: 0, reps: 5, warmup: true }] }] }
+    const [t] = applyBodyweight([s], (id) => exerciseById(id), weights)
+    expect(t.exercises[0].sets[0].weight).toBe(76)
+    expect(t.exercises[0].sets[1].weight).toBe(0)
+    expect(exerciseValue(t.exercises[0].sets, 'totalVolume')).toBe(760)
+    expect(exerciseValue(s.exercises[0].sets, 'totalVolume')).toBe(0)
+    expect(applyBodyweight([s], (id) => exerciseById(id), [])[0]).toBe(s)
+  })
+
+  it('plannedDay rechnet mit Körperlast und gibt Zusatzgewicht zurück', () => {
+    const day = { id: 'd', name: 'A', exercises: [{ exerciseId: 'pullup', sets: 3, repMin: 6, repMax: 10, rir: 2 }] }
+    const sessions: Session[] = [{ programId: null, dayIndex: 0, date: '2026-03-02', finishedAt: 1, week: 0,
+      exercises: [{ exerciseId: 'pullup', sets: [{ weight: 0, reps: 10, rir: 2 }, { weight: 0, reps: 10, rir: 2 }] }] }]
+    const plan = weekPlan({ deload: false, repScheme: 'static' } as ProgramConfig, 0)
+    const settings = { warmupMode: 'off' as const, warmupSchemes: {} as never }
+    const [withBw] = plannedDay(day, plan, sessions, (id) => exerciseById(id), settings, {}, undefined, '2026-03-05', weights)
+    expect(withBw.bodyLoad).toBeCloseTo(74.1)
+    expect(withBw.sug.weight!).toBeGreaterThan(0)
+    const [without] = plannedDay(day, plan, sessions, (id) => exerciseById(id), settings, {}, undefined, '2026-03-05')
+    expect(without.bodyLoad).toBe(0)
+    expect(without.sug.weight).toBe(2.5)
   })
 })

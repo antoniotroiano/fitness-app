@@ -33,11 +33,16 @@ export interface Exercise {
   load?: 'single' | 'perSide'
   /** Messgröße: Wiederholungen (Default) oder Zeit in Sekunden (Halten/Tragen). Zeitübungen: Progression +5 s, kein 1RM/Volumen. */
   metric?: 'reps' | 'time'
+  /**
+   * Körpergewichtsanteil (0–1): Anteil des Körpergewichts, der bewegt wird (Klimmzug ≈ 0,95, Liegestütz ≈ 0,64).
+   * Last für 1RM/Volumen/Progression = Anteil × Körpergewicht + Zusatzgewicht (engine/bodyweight.ts).
+   */
+  bodyweight?: number
 }
 
 export type Goal = 'hypertrophy' | 'strength' | 'both'
 export type Split = 'fullBody' | 'ulfb' | 'ppl' | 'none'
-export type RepScheme = 'static' | 'linear' | 'reverseLinear' | 'undulating'
+export type RepScheme = 'static' | 'linear' | 'reverseLinear' | 'undulating' | 'rotating'
 export type Experience = 'none' | 'beginner' | 'intermediate' | 'advanced'
 export type TimeBudget = 'u20' | '20-40' | '40-60' | '60-90' | '90-120' | 'o120'
 export type Priority = 'high' | 'low'
@@ -51,6 +56,8 @@ export interface ProgramConfig {
   repScheme: RepScheme
   focus: Partial<Record<MuscleId, Priority>>
   deload: boolean
+  /** Arbeitswochen pro Block vor der Deload-Woche (fehlt bei älteren Programmen: 4) */
+  blockWeeks?: number
   experience: Experience
   /** Verfügbares Equipment; undefined = alles */
   equipment?: Equipment[]
@@ -160,9 +167,9 @@ export interface Settings {
   heightCm: number | null
   /** Pausen nach Arbeitssätzen in Sekunden pro Übungskategorie */
   restSeconds: Record<RestCategory, number>
-  /** Pause nach Aufwärmsatz: Verbundübung / sonstige */
-  warmupRestCompound: number
-  warmupRestOther: number
+  /** Pause zwischen Aufwärmsätzen / nach dem letzten Aufwärmsatz (vor dem ersten Arbeitssatz), Sekunden */
+  warmupRestBetween: number
+  warmupRestLast: number
   /** Aufwärm-Automatik: Smart (Frische + Gewicht), feste Schemata oder aus */
   /** Display aktiv halten, solange ein Workout läuft */
   keepAlive: boolean

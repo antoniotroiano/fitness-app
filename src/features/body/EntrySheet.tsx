@@ -85,7 +85,7 @@ export function EntrySheet({ date, today, entry, unit, onClose }: {
   const box = (f: 'kg' | 'bf', label: string, value: string, suffix: string) => (
     <button type="button" onClick={() => pick(f)}
       className={cx('flex-1 rounded-xl bg-surface2 border px-3 py-2 text-left', field === f ? 'border-accent' : 'border-line')}>
-      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
+      <div className="text-2xs uppercase tracking-wide text-muted">{label}</div>
       <div className="text-xl font-semibold tabular-nums">{value || '–'} <span className="text-sm text-muted font-normal">{suffix}</span></div>
     </button>
   )

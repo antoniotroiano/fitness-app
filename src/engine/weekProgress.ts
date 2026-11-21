@@ -1,5 +1,5 @@
 import type { Exercise, MuscleId, Program, Session, WeekState } from '../types'
-import { effectiveSets, weekPlan } from './periodization'
+import { effectiveSets, NEUTRAL_WEEK, weekPlan } from './periodization'
 
 export interface WeekProgress {
   exercises: { done: number; total: number }
@@ -12,7 +12,7 @@ export interface WeekProgress {
 export function weekProgress(
   program: Program, state: WeekState, sessions: Session[], lookup: (id: string) => Exercise | undefined,
 ): WeekProgress {
-  const plan = program.config ? weekPlan(program.config, state.week) : { isDeload: false, repShift: 0, rirDelta: 0, setsFactor: 1 }
+  const plan = program.config ? weekPlan(program.config, state.week) : NEUTRAL_WEEK
   const cycle = sessions.filter((s) => s.programId === program.id && s.week === state.week)
   const plannedSets: Partial<Record<MuscleId, number>> = {}
   const doneSets: Partial<Record<MuscleId, number>> = {}

@@ -9,7 +9,7 @@ export const de = {
       mode: 'Wie möchtest du deinen Plan erstellen?', goal: 'Was ist dein Ziel?', days: 'An wie vielen Tagen willst du trainieren?',
       split: 'Wie soll dein Training aufgeteilt werden?', time: 'Wie viel Zeit hast du pro Training?',
       rep: 'Wie sollen sich die Wiederholungen über die Wochen entwickeln?', focus: 'Welche Muskeln sollen Priorität haben?',
-      deload: 'Möchtest du regelmäßige Entlastungswochen?', exp: 'Wie viel Trainingserfahrung hast du?',
+      deload: 'Wie lang soll ein Trainingsblock sein?', exp: 'Wie viel Trainingserfahrung hast du?',
       equipment: 'Welche Geräte stehen dir zur Verfügung?', identity: 'Wie soll dein Programm heißen?', preview: 'So sieht dein Plan aus',
     },
     perWeek: 'Mal pro Woche', auto: 'Automatisch', autoDesc: 'Wir wählen eine empfohlene Option für dich aus',

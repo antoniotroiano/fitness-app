@@ -13,7 +13,7 @@ export const NOTE_MAX = 300
 function Stepper({ value, onChange, min, max, step, suffix, label }: {
   value: number; onChange: (v: number) => void; min: number; max: number; step: number; suffix: string; label: string
 }) {
-  const btn = 'w-8 h-8 rounded-lg bg-surface2 border border-line text-base disabled:opacity-40'
+  const btn = 'w-8 h-8 rounded-lg bg-surface2 text-base disabled:opacity-40'
   return (
     <div className="flex items-center justify-end gap-1.5">
       <button className={btn} aria-label={`${label} weniger`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - step))}>−</button>
@@ -124,7 +124,7 @@ export function RestOverrideSheet({ open, onClose, defaultSec, override, onSave 
 }) {
   const [v, setV] = useState(override ?? defaultSec)
   useEffect(() => { if (open) setV(override ?? defaultSec) }, [open, override, defaultSec])
-  const btn = 'w-11 h-11 rounded-xl bg-surface2 border border-line text-xl'
+  const btn = 'w-11 h-11 rounded-xl bg-surface2 text-xl'
   return (
     <BottomSheet open={open} onClose={onClose} title={de.warmup.restTimer}>
       <p className="text-xs text-muted mb-4">Pause nach Arbeitssätzen dieser Übung. Standard ihrer Gruppe: {formatRest(defaultSec)}.</p>
@@ -156,7 +156,7 @@ export function scaleSummary(s: WeightScale | undefined, unit: Settings['weightU
 }
 
 function NumField({ label, value, onChange, step, suffix }: { label: string; value: string; onChange: (v: string) => void; step: number; suffix: string }) {
-  const btn = 'w-9 h-9 rounded-lg bg-surface2 border border-line text-base'
+  const btn = 'w-9 h-9 rounded-lg bg-surface2 text-base'
   const bump = (d: number) => onChange(String(Math.max(0, r3((Number(value.replace(',', '.')) || 0) + d))))
   return (
     <div className="flex items-center gap-2">

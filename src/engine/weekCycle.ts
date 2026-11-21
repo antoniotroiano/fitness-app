@@ -1,4 +1,5 @@
 import type { Program, Session, WeekState } from '../types'
+import { blockWeeksOf, weekInBlock, weekPlan } from './periodization'
 
 export const emptyWeek = (week = 0): WeekState => ({ week, done: Array(7).fill(false), markedDates: [] })
 
@@ -59,4 +60,38 @@ export function maxReachedWeek(program: Program, sessions: Session[], current: n
  */
 export function historyUpTo(sessions: Session[], programId: number | undefined, week: number): Session[] {
   return sessions.filter((s) => s.programId !== programId || s.week <= week)
+}
+
+/** Wochen eines Blocks (Arbeitswochen + ggf. Deload); 0 = Programm ohne Periodisierung (eigener Plan). */
+export function cycleLength(program: Pick<Program, 'config'>): number {
+  const c = program.config
+  return c ? blockWeeksOf(c) + (c.deload ? 1 : 0) : 0
+}
+
+/** Anzeigename einer Programmwoche: "Woche 3" bzw. "Deload", ab dem zweiten Block mit "Block n". */
+export function weekLabel(program: Pick<Program, 'config'>, week: number): string {
+  const c = program.config
+  if (!c) return `Woche ${week + 1}`
+  const len = cycleLength(program)
+  const name = weekPlan(c, week).isDeload ? 'Deload' : `Woche ${weekInBlock(week, c.deload, blockWeeksOf(c)) + 1}`
+  const block = Math.floor(week / len)
+  return block > 0 ? `${name} · Block ${block + 1}` : name
+}
+
+export interface WeekOption { week: number; label: string; block: number }
+
+/**
+ * Wählbare Wochen: alle Wochen der Blöcke bis zum aktuellen bzw. zuletzt trainierten Block (Arbeitswochen + Deload),
+ * nicht mehr. Ohne Periodisierung bis eine Woche nach der letzten trainierten. Ein Sprung verlängert die Liste
+ * daher nicht (früher: immer drei Wochen mehr als die höchste).
+ */
+export function weekOptions(program: Program, sessions: Session[], current: number): WeekOption[] {
+  const logged = sessions.reduce((m, s) => (s.programId === program.id ? Math.max(m, s.week) : m), -1)
+  const len = cycleLength(program)
+  const count = len > 0
+    ? (Math.floor(Math.max(logged, current, 0) / len) + 1) * len
+    : Math.max(logged + 1, current) + 1
+  return Array.from({ length: count }, (_, week) => ({
+    week, block: len > 0 ? Math.floor(week / len) : 0, label: weekLabel(program, week).replace(/ · Block \d+$/, ''),
+  }))
 }

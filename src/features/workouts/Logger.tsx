@@ -6,24 +6,26 @@ import { Button, Card, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import {
   clearActiveWorkout, db, loadActiveWorkout, programNoteKey, saveActiveWorkout, saveExerciseOverride, saveProgramNote, saveWeekState,
-  useProgramByParam, useAllExercises, useExerciseOverridesLoaded, useProgramNotes, useSessions, useSessionsLoaded, useSettingsLoaded, useWeekState, useWeekStateLoaded,
+  useProgramByParam, useAllExercises, useExerciseOverridesLoaded, useProgramNotes, useSessions, useSessionsLoaded, useSettingsLoaded, useWeightsLoaded, useWeekState, useWeekStateLoaded,
 } from '../../db/db'
 import { DEFAULT_SETTINGS } from '../../db/db'
 import { smartSteps, resolveWarmup, effectiveMode, dedupeWarmups } from '../../engine/warmup'
 import { restCategory } from '../../engine/rest'
 import { noLoadStats, volumeFactor } from '../../engine/stats'
+import { usesBodyweight } from '../../engine/bodyweight'
+
 import type { PlannedView } from '../../engine/plannedDay'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
-import { adaptNextWeight } from '../../engine/progression'
-import { TIME_RANGE, weekPlan } from '../../engine/periodization'
+import { adaptNextSets } from '../../engine/progression'
+import { NEUTRAL_WEEK, TIME_RANGE, weekPlan } from '../../engine/periodization'
 import { restSecondsFor } from '../../engine/rest'
 import { historyUpTo, markSlot, maxReachedWeek } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
 import { displayToKg, displayToKm, kgToDisplay } from '../../utils/units'
-import { fmt } from '../../utils/dates'
+import { fmt, todayStr } from '../../utils/dates'
 import { ExerciseStrip } from './ExerciseStrip'
 import { NumpadSheet } from './NumpadSheet'
-import { RestBar, type RestState } from './RestBar'
+import { RestChip, RestSheet, type RestState } from './RestTimer'
 import { SetTable, type PadField } from './SetTable'
 import { SetTypeSheet } from './SetTypeSheet'
 import { WorkoutHeader } from './WorkoutHeader'
@@ -33,6 +35,9 @@ import { NoteSheet, scopeLabel, type NoteScope } from './sheets'
 import { WarmupSheet } from './WarmupSheet'
 import { uid, type ActiveWorkout, type Row } from './state'
 import { de } from '../../i18n/de'
+
+/** Körperlast für die Anzeige (eine Nachkommastelle) */
+const fmtLoad = (n: number) => (Math.round(n * 10) / 10).toLocaleString('de-DE')
 
 const num = (s: string) => Number(s.replace(',', '.')) || 0
 /** Startzeilen einer Übung: Aufwärmsätze und Arbeitssätze aus der Planung. */
@@ -47,6 +52,7 @@ function buildRows(v: PlannedView, wl: Settings['weightUnit']): Row[] {
     reps: v.ex.cardio ? '' : String(v.sug.reps),
     rir: v.ex.cardio ? '' : String(v.setRirs[i]),
     ...(v.ex.cardio ? {} : { planKg: v.sug.weight, planReps: v.sug.reps, planRir: v.setRirs[i] }),
+    ...(v.failureLast && i === v.sets - 1 ? { failure: true } : {}),
   }))
   return [...warm, ...work]
 }
@@ -67,10 +73,12 @@ export default function Logger() {
   const program = useProgramByParam(param)
   const week = useWeekState()
   const sessions = useSessions()
+  const weightsLoaded = useWeightsLoaded()
+  const bodyweights = useMemo(() => weightsLoaded ?? [], [weightsLoaded])
   // Der Start wartet, bis Verlauf und Wochenstand geladen sind (sonst fehlen Vorschlagsgewichte nach einem Reload)
   const sessionsLoaded = useSessionsLoaded()
   const weekLoaded = useWeekStateLoaded()
-  const dataLoaded = sessionsLoaded !== undefined && weekLoaded !== undefined
+  const dataLoaded = sessionsLoaded !== undefined && weekLoaded !== undefined && weightsLoaded !== undefined
   const settingsLoaded = useSettingsLoaded()
   const settings = settingsLoaded ?? DEFAULT_SETTINGS
   const overridesLoaded = useExerciseOverridesLoaded()
@@ -82,6 +90,8 @@ export default function Logger() {
   const [stored, setStored] = useState<ActiveWorkout | null | undefined>(undefined)
   const [active, setActive] = useState<ActiveWorkout | null>(null)
   const [rest, setRest] = useState<RestState | null>(null)
+  const [restOpen, setRestOpen] = useState(false)
+  const endRest = useCallback(() => setRest(null), [])
   const [pad, setPad] = useState<{ rowId: string; field: PadField } | null>(null)
   const [typeRow, setTypeRow] = useState<string | null>(null)
   const [finishOpen, setFinishOpen] = useState(false)
@@ -105,7 +115,7 @@ export default function Logger() {
   const curWeek = foreign ? maxReachedWeek(program, sessions, 0) : week.week
   const day = program?.days[dayIdx]
   const plan = useMemo(
-    () => (program?.config ? weekPlan(program.config, curWeek) : { isDeload: false, repShift: 0, rirDelta: 0, setsFactor: 1 }),
+    () => (program?.config ? weekPlan(program.config, curWeek) : NEUTRAL_WEEK),
     [program, curWeek],
   )
   const lookup = useCallback((id: string) => all.find((e) => e.id === id), [all])
@@ -113,8 +123,8 @@ export default function Logger() {
   const added = active?.added
   const fullDay = useMemo(() => (day && added?.length ? { ...day, exercises: [...day.exercises, ...added] } : day), [day, added])
   const views = useMemo(
-    () => (fullDay ? plannedDay(fullDay, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program)) : []),
-    [fullDay, plan, sessions, program, curWeek, lookup, settings, overrides],
+    () => (fullDay ? plannedDay(fullDay, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), todayStr(), bodyweights) : []),
+    [fullDay, plan, sessions, program, curWeek, lookup, settings, overrides, bodyweights],
   )
 
   useEffect(() => { loadActiveWorkout<ActiveWorkout>().then(setStored) }, [])
@@ -144,6 +154,29 @@ export default function Logger() {
     document.addEventListener('visibilitychange', onVisible)
     return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); void lock?.release() }
   }, [keepAwake])
+
+  // Numpad offen: das bearbeitete Feld sichtbar halten (nicht hinter dem Numpad oder der Kopfzeile)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const padRowId = pad?.rowId
+  const padField = pad?.field
+  useEffect(() => {
+    if (!padRowId) return
+    const raf = requestAnimationFrame(() => {
+      const row = document.querySelector(`[data-row-id="${padRowId}"]`)
+      const numpad = document.querySelector('[data-numpad]')
+      if (!row || !numpad) return
+      const r = row.getBoundingClientRect()
+      const bottom = numpad.getBoundingClientRect().top - 12
+      const top = (headerRef.current?.getBoundingClientRect().bottom ?? 0) + 8
+      // Gescrollt wird der App-Container (overflow-y-auto), nicht das Fenster
+      let box: Element | null = row.parentElement
+      while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+      const scroller = box ?? window
+      if (r.bottom > bottom) scroller.scrollBy({ top: r.bottom - bottom, behavior: 'smooth' })
+      else if (r.top < top) scroller.scrollBy({ top: r.top - top, behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [padRowId, padField])
 
   const allDone = !!active && views.length > 0 && views.every((v) => isComplete(active.rows[v.pe.exerciseId] ?? []))
   useEffect(() => {
@@ -177,11 +210,12 @@ export default function Logger() {
   const setRows = (id: string, fn: (r: Row[]) => Row[]) =>
     setActive((a) => (a ? { ...a, rows: { ...a.rows, [id]: fn(a.rows[id] ?? []) } } : a))
   const patch = (rowId: string, p: Partial<Row>) =>
-    setRows(current.pe.exerciseId, (rs) => rs.map((r) => (r.id === rowId ? { ...r, ...p, ...(p.weight !== undefined ? { manual: true } : {}) } : r)))
+    setRows(current.pe.exerciseId, (rs) => rs.map((r) => (r.id === rowId ? { ...r, ...p, ...(p.weight !== undefined || p.reps !== undefined ? { manual: true } : {}) } : r)))
 
   /**
-   * Nach einem abgehakten Arbeitssatz: Gewicht der noch offenen, nicht von Hand geänderten Folgesätze relativ zur
-   * Planung anpassen (lief der Satz wie geplant, bleibt alles unverändert). Assistierte Übungen werden nicht angepasst.
+   * Nach einem abgehakten Arbeitssatz: Gewicht und Wdh. der noch offenen, nicht von Hand geänderten Folgesätze
+   * neu berechnen (Ermüdung je Satz Abstand eingerechnet). Lief der Satz wie geplant, bleibt alles unverändert.
+   * Ohne Verlauf (kein Planungsgewicht) kalibriert der erste Satz. Assistierte, Zeit- und Cardioübungen nicht.
    */
   const adaptFollowing = (rs: Row[], doneRow: Row): Row[] => {
     if (doneRow.type !== 'work' || current.ex.cardio || current.ex.assisted || current.ex.metric === 'time' || doneRow.rir === '' || doneRow.planReps === undefined) return rs
@@ -190,10 +224,18 @@ export default function Logger() {
       weight: displayToKg(num(doneRow.weight), wl), reps: num(doneRow.reps), rir: num(doneRow.rir),
       planWeight: doneRow.planKg, planReps: doneRow.planReps, planRir: doneRow.planRir ?? num(doneRow.rir),
     }
-    return rs.map((r, i) => {
-      if (i <= idx || r.type !== 'work' || r.done || r.manual) return r
-      const kg = adaptNextWeight(done, r.planKg ?? null, current.ex.equipment, wl, overrides[current.pe.exerciseId]?.weightScale)
-      return kg === null ? r : { ...r, weight: String(kgToDisplay(kg, wl)) }
+    // Alle folgenden Arbeitssätze zählen für den Abstand; angepasst werden nur offene, nicht von Hand geänderte
+    const following = rs.map((r, i) => ({ r, i })).filter(({ r, i }) => i > idx && r.type === 'work')
+    const open = following.filter(({ r }) => !r.done && !r.manual)
+    if (!open.length) return rs
+    const res = adaptNextSets(done, open.map(({ r }) => ({ planWeight: r.planKg ?? null, rir: r.rir === '' ? (r.planRir ?? 2) : num(r.rir) })),
+      current.range, current.ex.equipment, wl, overrides[current.pe.exerciseId]?.weightScale, current.bodyLoad)
+    const byId = new Map(open.map(({ r }, k) => [r.id, res[k]]))
+    return rs.map((r) => {
+      const next = byId.get(r.id)
+      if (!next) return r
+      // Neue Erwartung für diesen Satz: Vergleichsbasis, wenn er abgehakt wird
+      return { ...r, weight: String(kgToDisplay(next.weight, wl)), reps: String(next.reps), planKg: next.weight, planReps: next.reps }
     })
   }
 
@@ -215,7 +257,10 @@ export default function Logger() {
     })
     if (completes) setPad(null)
     if (turningOn && !current.ex.cardio) {
-      const sec = restSecondsFor(current.ex, settings, row.type === 'warmup', overrides[current.pe.exerciseId]?.restSeconds)
+      // Letzter Aufwärmsatz: danach folgt der erste Arbeitssatz, also die längere Pause
+      const moreWarmups = rows.some((r) => r.id !== row.id && r.type === 'warmup' && !r.done)
+      const after = row.type !== 'warmup' ? 'work' : moreWarmups ? 'warmup' : 'lastWarmup'
+      const sec = restSecondsFor(current.ex, settings, after, overrides[current.pe.exerciseId]?.restSeconds)
       setRest({ endsAt: Date.now() + sec * 1000, total: sec })
     }
   }
@@ -260,7 +305,7 @@ export default function Logger() {
     if (views.some((v) => v.pe.exerciseId === ex.id)) { selectExercise(ex.id); return }
     const range = ex.metric === 'time' ? TIME_RANGE : ex.compound ? { min: 6, max: 10 } : { min: 10, max: 15 }
     const pe: PlannedExercise = { exerciseId: ex.id, sets: ex.cardio ? 1 : 3, repMin: range.min, repMax: range.max, rir: 2 }
-    const [view] = plannedDay({ ...day, exercises: [pe] }, plan, historyUpTo(sessions, program.id, curWeek), lookup, settings, overrides, deloadSessionOf(program))
+    const [view] = plannedDay({ ...day, exercises: [pe] }, plan, historyUpTo(sessions, program.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), todayStr(), bodyweights)
     if (!view) return
     setPad(null)
     setActive((a) => (a ? { ...a, added: [...(a.added ?? []), pe], rows: { ...a.rows, [ex.id]: buildRows(view, wl) }, current: ex.id } : a))
@@ -379,20 +424,17 @@ export default function Logger() {
   const trained = views.filter((v) => !v.ex.cardio && (active.rows[v.pe.exerciseId] ?? []).some((r) => r.done && r.type === 'work'))
   const primaryDone = [...new Set(trained.flatMap((v) => v.ex.primary))] as MuscleId[]
   const secondaryDone = [...new Set(trained.flatMap((v) => v.ex.secondary))].filter((m) => !primaryDone.includes(m)) as MuscleId[]
-  const workDone = trained.flatMap((v) => (active.rows[v.pe.exerciseId] ?? []).filter((r) => r.done && r.type === 'work').map((r) => ({ r, f: volumeFactor(v.ex), e: v.ex })))
-  const volumeKg = workDone.filter(({ e }) => !noLoadStats(e)).reduce((a, { r, f }) => a + displayToKg(num(r.weight), wl) * num(r.reps) * f, 0)
+  const workDone = trained.flatMap((v) => (active.rows[v.pe.exerciseId] ?? []).filter((r) => r.done && r.type === 'work').map((r) => ({ r, f: volumeFactor(v.ex), e: v.ex, b: v.bodyLoad })))
+  const volumeKg = workDone.filter(({ e }) => !noLoadStats(e)).reduce((a, { r, f, b }) => a + (displayToKg(num(r.weight), wl) + b) * num(r.reps) * f, 0)
   const durMin = Math.round(elapsedMs(active.clock, paused ? (active.clock.pausedAt as number) : Date.now()) / 60000)
   const noteBoxes = (['session', 'exercise', 'program'] as const).filter((sc) => noteValues[sc])
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-8" style={{ paddingBottom: pad ? '22rem' : undefined }}>
       {saveError && <div role="alert" className="mb-3 rounded-xl bg-danger/15 text-danger text-sm p-3">{saveError}</div>}
-      <div className="sticky top-0 z-30 bg-bg -mx-4 px-4 pt-2 pb-2 safe-top border-b border-line">
-        <WorkoutHeader clock={active.clock} onBack={() => nav('/workouts')} onMenu={() => setMenuOpen(true)} />
-        {rest && !paused && (
-          <RestBar rest={rest} onDone={() => setRest(null)}
-            onAdjust={(d) => setRest((r) => (r ? { endsAt: r.endsAt + d * 1000, total: Math.max(15, r.total + d) } : r))} />
-        )}
+      <div ref={headerRef} className="sticky top-0 z-30 bg-bg -mx-4 px-4 pt-2 pb-2 safe-top border-b border-line">
+        <WorkoutHeader clock={active.clock} onBack={() => nav('/workouts')} onMenu={() => setMenuOpen(true)}
+          timer={<RestChip rest={rest} onDone={endRest} onOpen={() => setRestOpen(true)} />} />
       </div>
 
       <div className={paused ? 'pointer-events-none opacity-40' : undefined}>
@@ -406,6 +448,13 @@ export default function Logger() {
           </div>
           {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
           {current.ex.assisted && <p className="text-xs text-muted mt-1">Das Gewicht ist die Unterstützung: weniger Gewicht ist schwerer.</p>}
+          {usesBodyweight(current.ex) && (
+            <p className="text-xs text-muted mt-1">
+              {current.bodyLoad > 0
+                ? `Körpergewichtsanteil ${Math.round(current.ex.bodyweight! * 100)} % = ${fmtLoad(kgToDisplay(current.bodyLoad, wl))} ${wl}, das Gewicht ist Zusatzgewicht.`
+                : 'Trage dein Körpergewicht ein, dann zählen 1RM und Volumen mit Körpergewichtsanteil.'}
+            </p>
+          )}
           <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar">
             <ActionPill icon="guide" label="Info" onClick={() => setInfoOpen(true)} />
             {!current.ex.cardio && <ActionPill icon="warmup" label={de.logger.warmup} onClick={() => setWarmupOpen(true)} active={modeNow !== 'none'} />}
@@ -421,7 +470,7 @@ export default function Logger() {
           <div className="mt-4 space-y-2" aria-label="Notizen">
             {noteBoxes.map((sc) => (
               <button key={sc} onClick={() => setNoteScope(sc)} className="w-full text-left rounded-xl bg-surface2/60 px-3 py-2 active:opacity-70">
-                <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted"><Icon name="note" size={13} />{scopeLabel(sc)}</span>
+                <span className="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted"><Icon name="note" size={13} />{scopeLabel(sc)}</span>
                 <span className="block text-sm mt-0.5 whitespace-pre-wrap break-words">{noteValues[sc]}</span>
               </button>
             ))}
@@ -450,6 +499,10 @@ export default function Logger() {
 
       <SetTypeSheet open={typeRow !== null} current={rows.find((r) => r.id === typeRow)?.type ?? 'work'}
         onPick={changeType} onClose={() => setTypeRow(null)} />
+
+      <RestSheet open={restOpen} onClose={() => setRestOpen(false)} rest={rest} onStop={endRest}
+        onStart={(sec) => setRest({ endsAt: Date.now() + sec * 1000, total: sec })}
+        onAdjust={(d) => setRest((r) => (r ? { endsAt: r.endsAt + d * 1000, total: Math.max(15, r.total + d) } : r))} />
 
       <WorkoutMenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} paused={paused}
         onPause={togglePause} onMinimize={() => nav('/workouts')} onFinish={() => setFinishOpen(true)} onDiscard={discard} />

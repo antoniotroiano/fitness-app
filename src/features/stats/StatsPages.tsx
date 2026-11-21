@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Page } from '../../components/ui'
 import { exerciseById } from '../../data/exercises'
 import { muscleLabel } from '../../data/muscles'
-import { useAllExercises, useMeasures, useSessions, useSettings, useWeights } from '../../db/db'
+import { useAllExercises, useMeasures, useSessions, useSettings, useStatSessions, useWeights } from '../../db/db'
 import { bodyLabel, bodySeries, type BodyKey } from '../../engine/body'
 import { bodyUnit, formatBody } from '../body/format'
 import {
@@ -45,7 +45,7 @@ function CardioStats({ id }: { id: string }) {
 export function ExerciseStatsPage() {
   const { id = '' } = useParams()
   const nav = useNavigate()
-  const sessions = useSessions()
+  const sessions = useStatSessions()
   const all = useAllExercises()
   const settings = useSettings()
   const [metric, setMetric] = useState<ExerciseMetric>('rm1')
@@ -69,7 +69,7 @@ export function MuscleStatsPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
   const nav = useNavigate()
-  const sessions = useSessions()
+  const sessions = useStatSessions()
   const all = useAllExercises()
   const settings = useSettings()
   const [metric, setMetric] = useState<MuscleMetric>(params.get('m') === 'volume' ? 'volume' : 'sets')
