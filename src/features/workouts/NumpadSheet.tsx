@@ -16,10 +16,12 @@ interface Props {
   onRir: (v: string) => void
   onConfirm: () => void
   onClose: () => void
+  /** Zusatzzeile unter dem Wert (z. B. Scheiben pro Seite) */
+  hint?: string
 }
 
 /** Am unteren Rand angedocktes Zahlenfeld (nicht modal, die Tabelle bleibt sichtbar). */
-export function NumpadSheet({ field, label, value, rir, showRir = true, partial = '', onPartial, onValue, onRir, onConfirm, onClose }: Props) {
+export function NumpadSheet({ field, label, value, rir, showRir = true, partial = '', onPartial, onValue, onRir, onConfirm, onClose, hint }: Props) {
   // Erste Eingabe ersetzt den vorhandenen Wert
   const fresh = useRef(true)
   const isWeight = field === 'weight'
@@ -52,6 +54,7 @@ export function NumpadSheet({ field, label, value, rir, showRir = true, partial 
           <div className="text-2xl font-semibold tabular-nums">{shown || '–'}</div>
           <button onClick={onClose} aria-label="Schließen" className="text-muted text-xl px-2">✕</button>
         </div>
+        {hint && isWeight && <div className="px-1 -mt-2 text-xs text-muted text-right" aria-live="polite">{hint}</div>}
         {!isWeight && onPartial && (
           <div className="flex gap-1.5" role="group" aria-label="Art der Wiederholungen">
             {(['full', 'partial'] as const).map((t) => (

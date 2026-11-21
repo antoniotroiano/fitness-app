@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import { DEFAULT_BAR, DEFAULT_PLATES } from '../engine/plates'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import type {
@@ -46,7 +47,7 @@ export const DEFAULT_SETTINGS: Settings = {
   name: '', birthday: '', sex: '', heightCm: null,
   restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST,
   keepAlive: false, warmupMode: 'smart', warmupSchemes: DEFAULT_WARMUP_SCHEMES,
-  progressionTarget: 'mid', weightMatch: true, expandRange: true, hardSetFirst: false, hideDoneWarmups: true, sideRest: 15, prefillMode: 'suggestion',
+  progressionTarget: 'mid', weightMatch: true, expandRange: true, hardSetFirst: false, hideDoneWarmups: true, sideRest: 15, prefillMode: 'suggestion', barWeight: DEFAULT_BAR, plates: DEFAULT_PLATES,
 }
 
 async function getKV<T>(key: string, fallback: T): Promise<T> {

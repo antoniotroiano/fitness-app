@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Equipment, Exercise, MuscleId, Settings } from '../../types'
-import { BottomSheet, Button, Card, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
+import { BottomSheet, Button, Card, Chip, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
+import { PLATE_OPTIONS } from '../../engine/plates'
+import { kgToDisplay } from '../../utils/units'
 import { TrainingImportCard } from './TrainingImport'
 import { DEFAULT_SETTINGS, exportAll, importAll, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
 import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
@@ -174,6 +176,9 @@ function SwitchRow({ icon, label, desc, checked, onChange }: { icon: IconName; l
 }
 
 /** Einstellungen › Workouts: General (Pause, Aufwärmen) und Display (Display aktiv halten). */
+/** Gewicht in der Anzeigeeinheit (Einstellungen speichern kg) */
+const fmtKgIn = (kg: number, unit: 'kg' | 'lb') => `${(unit === 'kg' ? kg : kgToDisplay(kg, unit)).toLocaleString('de-DE', { maximumFractionDigits: 2 })} ${unit}`
+
 export function WorkoutSettingsPage() {
   const nav = useNavigate()
   const { s, update } = useSettingsForm()
@@ -220,6 +225,24 @@ export function WorkoutSettingsPage() {
           checked={s.hardSetFirst} onChange={(v) => update({ hardSetFirst: v })} />
         <SwitchRow icon="repLinear" label="Bereich erweitern" desc="Ist die nächste Gewichtsstufe zu groß, steigen erst die Wdh. über die Obergrenze, statt mit zu wenig Wdh. zu springen."
           checked={s.expandRange} onChange={(v) => update({ expandRange: v })} />
+      </Section>
+      <Section title="Langhantel">
+        <div className="py-3.5 space-y-2">
+          <span className="block text-sm font-medium">Stange</span>
+          <div className="flex gap-2 flex-wrap">
+            {[10, 15, 20].map((b) => <Chip key={b} active={s.barWeight === b} onClick={() => update({ barWeight: b })}>{fmtKgIn(b, s.weightUnit)}</Chip>)}
+          </div>
+        </div>
+        <div className="py-3.5 space-y-2">
+          <span className="block text-sm font-medium">Verfügbare Scheiben</span>
+          <div className="flex gap-2 flex-wrap">
+            {PLATE_OPTIONS.map((p) => {
+              const on = s.plates.includes(p)
+              return <Chip key={p} active={on} onClick={() => update({ plates: on ? s.plates.filter((x) => x !== p) : [...s.plates, p].sort((a, b) => b - a) })}>{fmtKgIn(p, s.weightUnit)}</Chip>
+            })}
+          </div>
+          <span className="block text-xs text-muted">Beim Eintragen des Gewichts einer Langhantelübung zeigt das Zahlenfeld, welche Scheiben pro Seite auf die Stange gehören.</span>
+        </div>
       </Section>
       <Section title={de.common.display}>
         <SwitchRow icon="phone" label={de.more.keepAlive} desc={de.more.keepAliveDesc} checked={s.keepAlive} onChange={(v) => update({ keepAlive: v })} />
