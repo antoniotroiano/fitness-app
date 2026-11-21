@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mergeSides, splitsSides, weakerSide } from './sides'
 import { prefillSets } from './prefill'
+import { DEFAULT_PLATES, platesFor } from './plates'
 import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, sessionE1rm, suggestNext, weightForReps } from './progression'
 import {
   DEFAULT_WARMUP_SCHEMES, collapsedWarmups, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
@@ -1848,5 +1849,17 @@ describe('Volumen nach Zusatz- und Körpergewicht', () => {
     expect(r.external).toBe(80 + 500)
     expect(r.bodyweight).toBe(Math.round(load * 18))
     expect(volumeSplit(s, lookup, [], 1, '2026-11-22').bodyweight).toBe(0)
+  })
+})
+
+describe('Scheibenrechner', () => {
+  it('schwerste Scheiben zuerst, pro Seite', () => {
+    expect(platesFor(102.5, 20, DEFAULT_PLATES)).toEqual({ perSide: [25, 15, 1.25], rest: 0 })
+    expect(platesFor(140, 20, DEFAULT_PLATES)).toEqual({ perSide: [25, 25, 10], rest: 0 })
+  })
+  it('nur Stange, unter der Stange, Rest', () => {
+    expect(platesFor(20, 20, DEFAULT_PLATES)).toEqual({ perSide: [], rest: 0 })
+    expect(platesFor(15, 20, DEFAULT_PLATES)).toBeNull()
+    expect(platesFor(63, 20, [20, 10, 5, 2.5])).toEqual({ perSide: [20], rest: 3 })
   })
 })

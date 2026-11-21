@@ -14,6 +14,7 @@ import { restCategory } from '../../engine/rest'
 import { noLoadStats, volumeFactor } from '../../engine/stats'
 import { mergeSides, splitsSides, weakerSide } from '../../engine/sides'
 import { prefillSets } from '../../engine/prefill'
+import { platesFor } from '../../engine/plates'
 import { usesBodyweight } from '../../engine/bodyweight'
 
 import type { PlannedView } from '../../engine/plannedDay'
@@ -45,6 +46,17 @@ import { progressionNote } from './progressionNote'
 function sideSet(v: Pick<Row, 'weight' | 'reps' | 'rir' | 'partial'>, wl: Settings['weightUnit']) {
   const partial = num(v.partial ?? '')
   return { weight: displayToKg(num(v.weight), wl), reps: num(v.reps), ...(v.rir === '' ? {} : { rir: Number(v.rir) }), ...(partial > 0 ? { partial } : {}) }
+}
+
+/** Scheiben pro Seite als Text für das Numpad (Langhantel), leer ohne Gewicht */
+function plateHint(kg: number, s: Settings, wl: Settings['weightUnit']): string | undefined {
+  if (!(kg > 0)) return undefined
+  const r = platesFor(kg, s.barWeight, s.plates)
+  // kg exakt (1,25), lb über die Anzeige-Umrechnung
+  const f = (n: number) => (wl === 'kg' ? n : kgToDisplay(n, wl)).toLocaleString('de-DE', { maximumFractionDigits: 2 })
+  if (!r) return `Leichter als die Stange (${f(s.barWeight)} ${wl})`
+  const side = r.perSide.length ? `Pro Seite: ${r.perSide.map(f).join(' + ')}` : 'Nur Stange'
+  return r.rest > 0 ? `${side} · ${f(r.rest)} ${wl} nicht ladbar` : side
 }
 
 /** Körperlast für die Anzeige (eine Nachkommastelle) */
@@ -654,7 +666,8 @@ export default function Logger() {
             value={pad.field === 'weight' ? vals.weight : vals.reps} rir={vals.rir} showRir={!isSegment(padRow)}
             partial={vals.partial ?? ''} onPartial={(v) => set({ partial: v })}
             onValue={(v) => set(pad.field === 'weight' ? { weight: v } : { reps: v })}
-            onRir={(v) => set({ rir: v })} onConfirm={onConfirmPad} onClose={() => setPad(null)} />
+            onRir={(v) => set({ rir: v })} onConfirm={onConfirmPad} onClose={() => setPad(null)}
+            hint={current.ex.equipment === 'barbell' ? plateHint(displayToKg(num(vals.weight), wl), settings, wl) : undefined} />
         )
       })()}
 

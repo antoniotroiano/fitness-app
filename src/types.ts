@@ -230,6 +230,9 @@ export interface Settings {
   sideRest: number
   /** Logger-Vorbelegung der Arbeitssätze: Progressionsvorschlag oder Werte der letzten Einheit */
   prefillMode: 'suggestion' | 'last'
+  /** Scheibenrechner: Gewicht der Langhantelstange und verfügbare Scheiben (kg) */
+  barWeight: number
+  plates: number[]
 }
 
 /** Ein Aufwärmsatz im Schema: Prozent des Arbeitsgewichts und Wiederholungen */
