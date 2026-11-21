@@ -39,5 +39,8 @@ export function swapPlanned(
     range = baseRepRange(config.goal, true, mains < 2 ? 'main' : 'secondary')
   }
   const minSets = to.compound ? 3 : 2
-  return { ...pe, exerciseId: to.id, repMin: range.min, repMax: range.max, sets: Math.max(pe.sets, minSets) }
+  // Anderer Übungstyp: eigene Wochenziele (Wdh./Sätze der alten Übung) passen nicht mehr
+  const rest: PlannedExercise = { ...pe }
+  delete rest.weeks
+  return { ...rest, exerciseId: to.id, repMin: range.min, repMax: range.max, sets: Math.max(pe.sets, minSets) }
 }

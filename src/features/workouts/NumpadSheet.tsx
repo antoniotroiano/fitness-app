@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { cx } from '../../components/ui'
 import { rirColor } from '../../components/rir'
 
@@ -7,6 +7,11 @@ interface Props {
   label: string
   value: string
   rir: string
+  /** RIR-Leiste zeigen (bei Drop-/Myo-Segmenten nicht) */
+  showRir?: boolean
+  /** Teilwiederholungen (nur Feld Wdh.) */
+  partial?: string
+  onPartial?: (v: string) => void
   onValue: (v: string) => void
   onRir: (v: string) => void
   onConfirm: () => void
@@ -14,34 +19,50 @@ interface Props {
 }
 
 /** Am unteren Rand angedocktes Zahlenfeld (nicht modal, die Tabelle bleibt sichtbar). */
-export function NumpadSheet({ field, label, value, rir, onValue, onRir, onConfirm, onClose }: Props) {
+export function NumpadSheet({ field, label, value, rir, showRir = true, partial = '', onPartial, onValue, onRir, onConfirm, onClose }: Props) {
   // Erste Eingabe ersetzt den vorhandenen Wert
   const fresh = useRef(true)
   const isWeight = field === 'weight'
+  // Wdh.-Feld: volle Wdh. oder Teilwiederholungen eingeben
+  const [target, setTarget] = useState<'full' | 'partial'>('full')
+  const editPartial = !isWeight && target === 'partial' && !!onPartial
+  const shown = editPartial ? partial : value
+  const write = (v: string) => (editPartial ? onPartial!(v) : onValue(v))
+  const switchTo = (t: 'full' | 'partial') => { fresh.current = true; setTarget(t) }
 
   const press = (k: string) => {
-    const base = fresh.current ? '' : value
+    const base = fresh.current ? '' : shown
     fresh.current = false
     if (k === ',') {
       if (!isWeight || base.includes('.')) return
-      onValue((base || '0') + '.')
+      write((base || '0') + '.')
       return
     }
     if (base.length >= (isWeight ? 6 : 3)) return
-    onValue(base === '0' ? k : base + k)
+    write(base === '0' ? k : base + k)
   }
-  const back = () => { fresh.current = false; onValue(value.slice(0, -1)) }
+  const back = () => { fresh.current = false; write(shown.slice(0, -1)) }
 
   const key = 'h-12 rounded-xl bg-surface2 text-xl font-medium active:bg-line'
   return (
     <div data-numpad className="fixed bottom-0 inset-x-0 z-40">
       <div className="max-w-2xl mx-auto bg-surface border-t border-x border-line rounded-t-2xl p-3 safe-bottom shadow-2xl space-y-3">
         <div className="flex items-center justify-between px-1">
-          <div className="text-sm text-muted">{label}</div>
-          <div className="text-2xl font-semibold tabular-nums">{value || '–'}</div>
+          <div className="text-sm text-muted">{editPartial ? 'Teilwiederholungen' : label}</div>
+          <div className="text-2xl font-semibold tabular-nums">{shown || '–'}</div>
           <button onClick={onClose} aria-label="Schließen" className="text-muted text-xl px-2">✕</button>
         </div>
-        {!isWeight && (
+        {!isWeight && onPartial && (
+          <div className="flex gap-1.5" role="group" aria-label="Art der Wiederholungen">
+            {(['full', 'partial'] as const).map((t) => (
+              <button key={t} onClick={() => switchTo(t)} aria-pressed={target === t}
+                className={cx('flex-1 h-8 rounded-lg text-xs font-semibold', target === t ? 'bg-accent text-accent-fg' : 'bg-surface2 text-muted')}>
+                {t === 'full' ? 'Volle Wdh.' : `Teilwdh.${partial ? ` (${partial})` : ''}`}
+              </button>
+            ))}
+          </div>
+        )}
+        {!isWeight && showRir && (
           <div className="flex gap-1.5 items-center">
             <span className="text-xs text-muted mr-1">RIR</span>
             {['0', '1', '2', '3', '4', '5', '6'].map((n) => (

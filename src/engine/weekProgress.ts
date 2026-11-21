@@ -1,5 +1,5 @@
 import type { Exercise, MuscleId, Program, Session, WeekState } from '../types'
-import { effectiveSets, NEUTRAL_WEEK, weekPlan } from './periodization'
+import { isSkipped, neutralWeek, plannedSets as setsInWeek, weekPlan } from './periodization'
 
 export interface WeekProgress {
   exercises: { done: number; total: number }
@@ -12,7 +12,7 @@ export interface WeekProgress {
 export function weekProgress(
   program: Program, state: WeekState, sessions: Session[], lookup: (id: string) => Exercise | undefined,
 ): WeekProgress {
-  const plan = program.config ? weekPlan(program.config, state.week) : NEUTRAL_WEEK
+  const plan = program.config ? weekPlan(program.config, state.week) : neutralWeek(state.week)
   const cycle = sessions.filter((s) => s.programId === program.id && s.week === state.week)
   const plannedSets: Partial<Record<MuscleId, number>> = {}
   const doneSets: Partial<Record<MuscleId, number>> = {}
@@ -25,9 +25,9 @@ export function weekProgress(
     const session = cycle.find((s) => s.dayIndex === dayIdx)
     for (const pe of day.exercises) {
       const ex = lookup(pe.exerciseId)
-      if (!ex || ex.cardio) continue
-      const planned = effectiveSets(pe.sets, plan)
-      const logged = session?.exercises.find((e) => e.exerciseId === pe.exerciseId)?.sets.filter((x) => !x.warmup).length ?? 0
+      if (!ex || ex.cardio || isSkipped(pe, plan)) continue
+      const planned = setsInWeek(pe, plan)
+      const logged = session?.exercises.find((e) => e.exerciseId === pe.exerciseId)?.sets.filter((x) => !x.warmup && !x.segment).length ?? 0
       exTotal += 1
       if (logged > 0) exDone += 1
       setTotal += planned

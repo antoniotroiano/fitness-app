@@ -34,14 +34,18 @@ export const volumeFactor = (ex?: Pick<Exercise, 'equipment' | 'load'>) => (isPe
 /** Übungen ohne 1RM-/Gewichts-/Volumenwerte: assistiert (Gewicht = Unterstützung) und Zeitübungen (Wdh. = Sekunden). */
 export const noLoadStats = (ex?: Pick<Exercise, 'assisted' | 'metric'>) => !!ex && (!!ex.assisted || ex.metric === 'time')
 
-/** Arbeitssätze: zählen für Sätze und Wiederholungen (auch Körpergewichtssätze ohne Zusatzlast). */
+/** Arbeitssätze inkl. Drop-/Myo-Segmenten: zählen für Wiederholungen (auch Körpergewichtssätze ohne Zusatzlast). */
 const work = (sets: LoggedSet[]) => sets.filter((s) => !s.warmup && s.reps > 0)
-/** Belastete Arbeitssätze (Gewicht > 0): Grundlage für 1RM, schwerstes Gewicht und Volumen. */
+/** Eigenständige Arbeitssätze (ohne Segmente): zählen als Sätze. */
+export const mainSets = (sets: LoggedSet[]) => work(sets).filter((s) => !s.segment)
+/** Belastete Arbeitssätze inkl. Segmente (Gewicht > 0): Grundlage für Volumen. */
 const loaded = (sets: LoggedSet[]) => work(sets).filter((s) => s.weight > 0)
+/** Belastete eigenständige Sätze: Grundlage für 1RM, schwerstes Gewicht und besten Satz. */
+const loadedMain = (sets: LoggedSet[]) => loaded(sets).filter((s) => !s.segment)
 
 /** Höchstes Gewicht, das nach Schätzung für n Wiederholungen reicht (bester Satz). */
 export function rmN(sets: LoggedSet[], n: number): number {
-  return Math.max(0, ...loaded(sets).map((s) => weightForReps(e1rm(s.weight, s.reps, s.rir ?? FALLBACK_RIR), n)))
+  return Math.max(0, ...loadedMain(sets).map((s) => weightForReps(e1rm(s.weight, s.reps, s.rir ?? FALLBACK_RIR), n)))
 }
 
 /**
@@ -50,19 +54,21 @@ export function rmN(sets: LoggedSet[], n: number): number {
  */
 export function exerciseValue(sets: LoggedSet[], metric: ExerciseMetric, factor = 1, assisted = false): number {
   const w = work(sets)
+  const m = mainSets(sets)
   const l = assisted ? [] : loaded(sets)
+  const lm = assisted ? [] : loadedMain(sets)
   if (!w.length) return 0
   const top = (xs: number[]) => (xs.length ? Math.max(...xs) : 0)
   switch (metric) {
-    case 'rm1': return top(l.map((s) => e1rm(s.weight, s.reps, s.rir ?? FALLBACK_RIR)))
-    case 'rm3': return rmN(l, 3)
-    case 'rm10': return rmN(l, 10)
-    case 'heaviest': return top(l.map((s) => s.weight))
+    case 'rm1': return top(lm.map((s) => e1rm(s.weight, s.reps, s.rir ?? FALLBACK_RIR)))
+    case 'rm3': return rmN(lm, 3)
+    case 'rm10': return rmN(lm, 10)
+    case 'heaviest': return top(lm.map((s) => s.weight))
     case 'totalVolume': return l.reduce((a, s) => a + s.weight * s.reps * factor, 0)
-    case 'bestSetVolume': return top(l.map((s) => s.weight * s.reps * factor))
+    case 'bestSetVolume': return top(lm.map((s) => s.weight * s.reps * factor))
     case 'totalReps': return w.reduce((a, s) => a + s.reps, 0)
-    case 'bestSetReps': return Math.max(...w.map((s) => s.reps))
-    case 'totalSets': return w.length
+    case 'bestSetReps': return top(m.map((s) => s.reps))
+    case 'totalSets': return m.length
   }
 }
 
@@ -115,7 +121,7 @@ export function muscleDaily(
       if (!def || def.cardio) continue
       const w = def.primary.includes(muscle) ? 1 : def.secondary.includes(muscle) ? SECONDARY_WEIGHT : 0
       if (!w) continue
-      const sets = metric === 'sets' ? work(ex.sets) : noLoadStats(def) ? [] : loaded(ex.sets)
+      const sets = metric === 'sets' ? mainSets(ex.sets) : noLoadStats(def) ? [] : loaded(ex.sets)
       const amount = metric === 'sets' ? sets.length : sets.reduce((a, x) => a + x.weight * x.reps * volumeFactor(def), 0)
       if (amount > 0) byDate.set(s.date, (byDate.get(s.date) ?? 0) + amount * w)
     }

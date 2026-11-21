@@ -58,6 +58,8 @@ export interface ProgramConfig {
   deload: boolean
   /** Arbeitswochen pro Block vor der Deload-Woche (fehlt bei älteren Programmen: 4) */
   blockWeeks?: number
+  /** Deload-Woche am Anfang statt am Ende des Blocks (z. B. nach einer Pause) */
+  deloadFirst?: boolean
   experience: Experience
   /** Verfügbares Equipment; undefined = alles */
   equipment?: Equipment[]
@@ -75,6 +77,25 @@ export interface PlannedExercise {
   repMax: number
   /** Ziel-RIR (reps in reserve) für die erste Woche */
   rir: number
+  /**
+   * Supersatz: benachbarte Übungen mit gleicher ID werden abwechselnd trainiert, die Pause folgt erst nach der Runde.
+   * ID = Übungs-ID des ersten Mitglieds (engine/superset.ts `withLinks`).
+   */
+  superset?: string
+  /**
+   * Eigene Ziele je Woche (engine/periodization.ts `weekOverride`): Schlüssel `b<n>` = Position im Block
+   * (0-basiert, inkl. Deload; gilt in jedem Block), `w<n>` = eine einzelne Programmwoche (hat Vorrang).
+   */
+  weeks?: Record<string, WeekTarget>
+}
+
+/** Ziele einer Übung in einer Woche, überschreiben die berechneten Werte; `skip` = Übung in dieser Woche auslassen */
+export interface WeekTarget {
+  sets?: number
+  repMin?: number
+  repMax?: number
+  rir?: number
+  skip?: boolean
 }
 
 export interface WorkoutDay {
@@ -102,6 +123,15 @@ export interface LoggedSet {
   rir?: number
   /** Aufwärmsatz: zählt nie in Volumen, e1RM oder Progression */
   warmup?: boolean
+  /** Satz bis zum (technischen) Versagen, RIR 0 */
+  failure?: boolean
+  /**
+   * Fortsetzung des vorherigen Arbeitssatzes: Drop-Satz (leichteres Gewicht) oder Myo-Mini-Satz (kurze Pause).
+   * Zählt für Wdh. und Volumen, nicht als eigener Satz, nicht für 1RM, schwerstes Gewicht und Progression.
+   */
+  segment?: 'drop' | 'myo'
+  /** Zusätzliche Teilwiederholungen: nur Protokoll, zählen nirgends mit */
+  partial?: number
   /** Cardio: Minuten und Kilometer */
   minutes?: number
   km?: number
@@ -176,6 +206,14 @@ export interface Settings {
   warmupMode: 'smart' | 'scheme' | 'off'
   /** Standard-Aufwärmschemata je Übungskategorie */
   warmupSchemes: Record<RestCategory, WarmupStep[]>
+  /** Progression: Zielwert nach einer Steigerung (Untergrenze = klassische Double Progression, Mitte des Bereichs) */
+  progressionTarget: 'min' | 'mid'
+  /** Progression (nur Mitte): Gewicht halten, solange die Wdh. im Bereich bleiben */
+  weightMatch: boolean
+  /** Progression: Wdh. über die Obergrenze, wenn die nächste Gewichtsstufe zu groß ist */
+  expandRange: boolean
+  /** RIR-Verteilung: erster Arbeitssatz am härtesten (Anker), danach Ziel-RIR; Versagenssatz zuerst */
+  hardSetFirst: boolean
 }
 
 /** Ein Aufwärmsatz im Schema: Prozent des Arbeitsgewichts und Wiederholungen */

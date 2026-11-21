@@ -46,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   name: '', birthday: '', sex: '', heightCm: null,
   restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST,
   keepAlive: false, warmupMode: 'smart', warmupSchemes: DEFAULT_WARMUP_SCHEMES,
+  progressionTarget: 'mid', weightMatch: true, expandRange: true, hardSetFirst: false,
 }
 
 async function getKV<T>(key: string, fallback: T): Promise<T> {

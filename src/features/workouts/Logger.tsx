@@ -16,8 +16,10 @@ import { usesBodyweight } from '../../engine/bodyweight'
 
 import type { PlannedView } from '../../engine/plannedDay'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
-import { adaptNextSets } from '../../engine/progression'
-import { NEUTRAL_WEEK, TIME_RANGE, weekPlan } from '../../engine/periodization'
+import { adaptNextSets, loadSteps } from '../../engine/progression'
+import { MYO_REST_SEC, nextSegment } from '../../engine/setTypes'
+import { linksOf, nextInSuperset, setSupersetLink, supersetMembers, withLinks } from '../../engine/superset'
+import { neutralWeek, TIME_RANGE, weekPlan } from '../../engine/periodization'
 import { restSecondsFor } from '../../engine/rest'
 import { historyUpTo, markSlot, maxReachedWeek } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
@@ -27,14 +29,15 @@ import { ExerciseStrip } from './ExerciseStrip'
 import { NumpadSheet } from './NumpadSheet'
 import { RestChip, RestSheet, type RestState } from './RestTimer'
 import { SetTable, type PadField } from './SetTable'
-import { SetTypeSheet } from './SetTypeSheet'
+import { SetTypeSheet, type SetTypeChoice } from './SetTypeSheet'
 import { WorkoutHeader } from './WorkoutHeader'
 import { ExerciseInfoSheet } from './ExerciseInfoSheet'
-import { CompleteSheet, FinishChoiceSheet, WorkoutMenuSheet } from './LoggerSheets'
+import { CompleteSheet, FinishChoiceSheet, SupersetSheet, WorkoutMenuSheet } from './LoggerSheets'
 import { NoteSheet, scopeLabel, type NoteScope } from './sheets'
 import { WarmupSheet } from './WarmupSheet'
-import { uid, type ActiveWorkout, type Row } from './state'
+import { isSegment, uid, type ActiveWorkout, type Row } from './state'
 import { de } from '../../i18n/de'
+import { progressionNote } from './progressionNote'
 
 /** Körperlast für die Anzeige (eine Nachkommastelle) */
 const fmtLoad = (n: number) => (Math.round(n * 10) / 10).toLocaleString('de-DE')
@@ -52,7 +55,7 @@ function buildRows(v: PlannedView, wl: Settings['weightUnit']): Row[] {
     reps: v.ex.cardio ? '' : String(v.sug.reps),
     rir: v.ex.cardio ? '' : String(v.setRirs[i]),
     ...(v.ex.cardio ? {} : { planKg: v.sug.weight, planReps: v.sug.reps, planRir: v.setRirs[i] }),
-    ...(v.failureLast && i === v.sets - 1 ? { failure: true } : {}),
+    ...(i === v.failureIdx ? { failure: true } : {}),
   }))
   return [...warm, ...work]
 }
@@ -105,6 +108,7 @@ export default function Logger() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [supersetOpen, setSupersetOpen] = useState(false)
 
   const local = param.replace(/^p\d+-/, '')
   const slotIdx = local.startsWith('s') ? Number(local.slice(1)) : null
@@ -115,7 +119,7 @@ export default function Logger() {
   const curWeek = foreign ? maxReachedWeek(program, sessions, 0) : week.week
   const day = program?.days[dayIdx]
   const plan = useMemo(
-    () => (program?.config ? weekPlan(program.config, curWeek) : NEUTRAL_WEEK),
+    () => (program?.config ? weekPlan(program.config, curWeek) : neutralWeek(curWeek)),
     [program, curWeek],
   )
   const lookup = useCallback((id: string) => all.find((e) => e.id === id), [all])
@@ -123,9 +127,15 @@ export default function Logger() {
   const added = active?.added
   const fullDay = useMemo(() => (day && added?.length ? { ...day, exercises: [...day.exercises, ...added] } : day), [day, added])
   const views = useMemo(
-    () => (fullDay ? plannedDay(fullDay, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), todayStr(), bodyweights) : []),
+    // In dieser Woche ausgelassene Übungen (eigenes Wochenziel) erscheinen nicht im Training
+    () => (fullDay ? plannedDay(fullDay, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), todayStr(), bodyweights).filter((v) => !v.skipped) : []),
     [fullDay, plan, sessions, program, curWeek, lookup, settings, overrides, bodyweights],
   )
+  /** Supersatz-Mitglieder, die diese Woche trainiert werden (ausgelassene zählen nicht) */
+  const trainedMembers = (id: string) => {
+    const m = supersetMembers(fullDay?.exercises ?? [], id).filter((x) => views.some((v) => v.pe.exerciseId === x))
+    return m.length >= 2 ? m : []
+  }
 
   useEffect(() => { loadActiveWorkout<ActiveWorkout>().then(setStored) }, [])
 
@@ -241,28 +251,43 @@ export default function Logger() {
 
   const toggleDone = (row: Row) => {
     const turningOn = !row.done
-    const completes = turningOn && isComplete(rows.map((r) => (r.id === row.id ? { ...r, done: true } : r)))
+    const id = current.pe.exerciseId
+    const toggled = rows.map((r) => (r.id === row.id ? { ...r, done: !r.done } : r))
+    const completes = turningOn && isComplete(toggled)
+    const work = turningOn && row.type !== 'warmup'
+    // Drop-/Myo-Segment direkt danach: ohne Übungswechsel weiter (Drop sofort, Myo nach kurzer Pause)
+    const following = rows[rows.findIndex((r) => r.id === row.id) + 1]
+    const segNext = work && following && isSegment(following) && !following.done ? following : undefined
+    // Supersatz: nach jedem Arbeitssatz zur nächsten Übung der Runde, Pause erst nach der letzten
+    const group = trainedMembers(id)
+    const ss = work && !segNext && group.length
+      ? nextInSuperset(group, id, (m) => (m === id ? toggled : active.rows[m] ?? []).some((r) => !r.done))
+      : null
     setActive((a) => {
       if (!a) return a
-      const id = current.pe.exerciseId
-      const toggled = (a.rows[id] ?? []).map((r) => (r.id === row.id ? { ...r, done: !r.done } : r))
-      const nextRows = { ...a.rows, [id]: turningOn ? adaptFollowing(toggled, row) : toggled }
+      const mine = (a.rows[id] ?? []).map((r) => (r.id === row.id ? { ...r, done: !r.done } : r))
+      const nextRows = { ...a.rows, [id]: turningOn ? adaptFollowing(mine, row) : mine }
       let cur = a.current
-      if (completes) {
+      if (ss?.next) cur = ss.next
+      else if (completes) {
         // Immer zur ersten Übung der Reihenfolge, die noch offen ist (auch übersprungene)
         const open = views.find((v) => !isComplete(nextRows[v.pe.exerciseId] ?? []))
         if (open) cur = open.pe.exerciseId
       }
       return { ...a, rows: nextRows, current: cur }
     })
-    if (completes) setPad(null)
-    if (turningOn && !current.ex.cardio) {
-      // Letzter Aufwärmsatz: danach folgt der erste Arbeitssatz, also die längere Pause
-      const moreWarmups = rows.some((r) => r.id !== row.id && r.type === 'warmup' && !r.done)
-      const after = row.type !== 'warmup' ? 'work' : moreWarmups ? 'warmup' : 'lastWarmup'
-      const sec = restSecondsFor(current.ex, settings, after, overrides[current.pe.exerciseId]?.restSeconds)
-      setRest({ endsAt: Date.now() + sec * 1000, total: sec })
+    if (completes || (ss?.next && ss.next !== id)) setPad(null)
+    if (!turningOn || current.ex.cardio) return
+    if (segNext) {
+      setRest(segNext.type === 'myo' ? { endsAt: Date.now() + MYO_REST_SEC * 1000, total: MYO_REST_SEC } : null)
+      return
     }
+    if (ss?.next && !ss.rest) { setRest(null); return }
+    // Letzter Aufwärmsatz: danach folgt der erste Arbeitssatz, also die längere Pause
+    const moreWarmups = rows.some((r) => r.id !== row.id && r.type === 'warmup' && !r.done)
+    const after = row.type !== 'warmup' ? 'work' : moreWarmups ? 'warmup' : 'lastWarmup'
+    const sec = restSecondsFor(current.ex, settings, after, overrides[current.pe.exerciseId]?.restSeconds)
+    setRest({ endsAt: Date.now() + sec * 1000, total: sec })
   }
   /** Header-Checkbox: alle Sätze der Übung abhaken bzw. alle zurücksetzen (ohne Pausen-Timer). */
   const toggleAll = () => {
@@ -283,15 +308,54 @@ export default function Logger() {
   const addSet = () => setRows(current.pe.exerciseId, (rs) => {
     const last = [...rs].reverse().find((r) => r.type === 'work') ?? rs.at(-1)
     const base: Row = last ?? { id: '', type: 'work', weight: '', reps: '', rir: '', done: false, minutes: '', km: '' }
-    return [...rs, { ...base, id: uid(), type: 'work', done: false }]
+    return [...rs, { ...base, id: uid(), type: 'work', done: false, partial: undefined }]
   })
+  /** Zeile löschen; bei einem Arbeitssatz auch seine Drop-/Myo-Segmente */
   const deleteRow = (rowId: string) => {
-    setRows(current.pe.exerciseId, (rs) => rs.filter((r) => r.id !== rowId))
-    setPad((p) => (p?.rowId === rowId ? null : p))
+    const gone = new Set([rowId])
+    const i = rows.findIndex((r) => r.id === rowId)
+    if (rows[i]?.type === 'work') for (let k = i + 1; rows[k] && isSegment(rows[k]); k++) gone.add(rows[k].id)
+    setRows(current.pe.exerciseId, (rs) => rs.filter((r) => !gone.has(r.id)))
+    setPad((p) => (p && gone.has(p.rowId) ? null : p))
   }
-  const changeType = (type: 'warmup' | 'work') => {
-    if (typeRow) patch(typeRow, { type, rir: type === 'warmup' ? '' : rows.find((r) => r.id === typeRow)?.rir || String(current.rir) })
+  const changeType = (t: SetTypeChoice) => {
+    const row = rows.find((r) => r.id === typeRow)
     setTypeRow(null)
+    if (!row) return
+    if (t === 'warmup') { patch(row.id, { type: 'warmup', rir: '', failure: undefined }); return }
+    if (t === 'work') {
+      patch(row.id, { type: 'work', failure: undefined, rir: row.type === 'warmup' || row.failure || row.rir === '' ? String(row.planRir ?? current.rir) : row.rir })
+      return
+    }
+    if (t === 'failure') { patch(row.id, { type: 'work', failure: true, rir: '0' }); return }
+    // Drop/Myo: neues Segment hinter dem Satz bzw. hinter seinem letzten Segment
+    const kind = t === 'addSegment' ? (row.type === 'myo' ? 'myo' : 'drop') : t
+    const { snap } = loadSteps(current.ex.equipment, wl, overrides[current.pe.exerciseId]?.weightScale)
+    setRows(current.pe.exerciseId, (rs) => {
+      let end = rs.findIndex((r) => r.id === row.id)
+      if (end < 0) return rs
+      while (rs[end + 1] && isSegment(rs[end + 1])) end++
+      const prev = rs[end]
+      const seg = nextSegment(kind, { weight: prev.weight === '' ? null : displayToKg(num(prev.weight), wl), reps: num(prev.reps), segment: isSegment(prev) }, snap)
+      const segRow: Row = {
+        id: uid(), type: kind, weight: seg.weight == null ? '' : String(kgToDisplay(seg.weight, wl)),
+        reps: seg.reps == null ? '' : String(seg.reps), rir: '', done: false, minutes: '', km: '',
+      }
+      return [...rs.slice(0, end + 1), segRow, ...rs.slice(end + 1)]
+    })
+  }
+
+  // ---- Supersatz: Übung mit der vorherigen/nächsten verbinden oder lösen (gilt auch für das Programm) ----
+  const dayList = fullDay?.exercises ?? []
+  const curIdx = dayList.findIndex((e) => e.exerciseId === current.pe.exerciseId)
+  const members = trainedMembers(current.pe.exerciseId)
+  const linkSuperset = (action: 'prev' | 'next' | 'none') => {
+    setSupersetOpen(false)
+    if (curIdx < 0) return
+    const next = setSupersetLink(dayList, curIdx, action)
+    const n = day.exercises.length
+    if (program.id != null) void db.programs.update(program.id, { days: program.days.map((d, i) => (i === dayIdx ? { ...d, exercises: next.slice(0, n) } : d)) })
+    if (next.length > n) setActive((a) => (a ? { ...a, added: next.slice(n) } : a))
   }
 
   const padRow = pad ? rows.find((r) => r.id === pad.rowId) : undefined
@@ -382,7 +446,13 @@ export default function Logger() {
         ? { reps: 0, weight: 0, minutes: num(r.minutes), km: displayToKm(num(r.km), settings.distanceUnit) }
         : r.type === 'warmup'
           ? { weight: displayToKg(num(r.weight), wl), reps: num(r.reps), warmup: true }
-          : { weight: displayToKg(num(r.weight), wl), reps: num(r.reps), rir: r.rir === '' ? undefined : Number(r.rir) })
+          : {
+            weight: displayToKg(num(r.weight), wl), reps: num(r.reps),
+            rir: isSegment(r) || r.rir === '' ? undefined : Number(r.rir),
+            ...(r.type === 'work' && r.failure ? { failure: true } : {}),
+            ...(r.type === 'drop' || r.type === 'myo' ? { segment: r.type } : {}),
+            ...(num(r.partial ?? '') > 0 ? { partial: num(r.partial ?? '') } : {}),
+          })
       if (sets.length) exercises.push({ exerciseId: v.pe.exerciseId, sets })
     }
     setClosed(true)
@@ -402,9 +472,12 @@ export default function Logger() {
           // Im Workout hinzugefügte (und trainierte) Übungen dauerhaft in den Trainingstag übernehmen
           const keep = (active.added ?? []).filter((pe) => exercises.some((e) => e.exerciseId === pe.exerciseId))
           if (keep.length && program.id != null) {
-            const days = program.days.map((d, i) => (i !== dayIdx ? d : {
-              ...d, exercises: [...d.exercises, ...keep.filter((pe) => !d.exercises.some((e) => e.exerciseId === pe.exerciseId))],
-            }))
+            const days = program.days.map((d, i) => {
+              if (i !== dayIdx) return d
+              const list = [...d.exercises, ...keep.filter((pe) => !d.exercises.some((e) => e.exerciseId === pe.exerciseId))]
+              // Nicht trainierte hinzugefügte Übungen fehlen: Supersätze neu zusammensetzen (nur Benachbarte bleiben verbunden)
+              return { ...d, exercises: withLinks(list, linksOf(list)) }
+            })
             await db.programs.update(program.id, { days })
           }
         }
@@ -424,8 +497,10 @@ export default function Logger() {
   const trained = views.filter((v) => !v.ex.cardio && (active.rows[v.pe.exerciseId] ?? []).some((r) => r.done && r.type === 'work'))
   const primaryDone = [...new Set(trained.flatMap((v) => v.ex.primary))] as MuscleId[]
   const secondaryDone = [...new Set(trained.flatMap((v) => v.ex.secondary))].filter((m) => !primaryDone.includes(m)) as MuscleId[]
-  const workDone = trained.flatMap((v) => (active.rows[v.pe.exerciseId] ?? []).filter((r) => r.done && r.type === 'work').map((r) => ({ r, f: volumeFactor(v.ex), e: v.ex, b: v.bodyLoad })))
-  const volumeKg = workDone.filter(({ e }) => !noLoadStats(e)).reduce((a, { r, f, b }) => a + (displayToKg(num(r.weight), wl) + b) * num(r.reps) * f, 0)
+  // Sätze ohne Drop-/Myo-Segmente, Volumen mit
+  const loggedDone = trained.flatMap((v) => (active.rows[v.pe.exerciseId] ?? []).filter((r) => r.done && r.type !== 'warmup').map((r) => ({ r, f: volumeFactor(v.ex), e: v.ex, b: v.bodyLoad })))
+  const workDone = loggedDone.filter(({ r }) => r.type === 'work')
+  const volumeKg = loggedDone.filter(({ e }) => !noLoadStats(e)).reduce((a, { r, f, b }) => a + (displayToKg(num(r.weight), wl) + b) * num(r.reps) * f, 0)
   const durMin = Math.round(elapsedMs(active.clock, paused ? (active.clock.pausedAt as number) : Date.now()) / 60000)
   const noteBoxes = (['session', 'exercise', 'program'] as const).filter((sc) => noteValues[sc])
 
@@ -439,7 +514,7 @@ export default function Logger() {
 
       <div className={paused ? 'pointer-events-none opacity-40' : undefined}>
         <ExerciseStrip current={current.pe.exerciseId} onSelect={selectExercise} onAdd={() => setAddOpen(true)}
-          items={views.map((v) => ({ ex: v.ex, done: isComplete(active.rows[v.pe.exerciseId] ?? []) }))} />
+          items={views.map((v, i) => ({ ex: v.ex, done: isComplete(active.rows[v.pe.exerciseId] ?? []), linkNext: !!v.pe.superset && v.pe.superset === views[i + 1]?.pe.superset }))} />
 
         <div className="mt-2 mb-4">
           <div className="flex items-center justify-between gap-2">
@@ -447,6 +522,14 @@ export default function Logger() {
             {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
           </div>
           {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
+          {progressionNote(current.sug, current.range, wl, current.bodyLoad) && (
+            <p className="text-xs text-warn mt-1">{progressionNote(current.sug, current.range, wl, current.bodyLoad)}</p>
+          )}
+          {members.length > 0 && (
+            <p className="text-xs text-accent mt-1 flex items-center gap-1"><Icon name="link" size={13} />
+              Supersatz mit {members.filter((m) => m !== current.pe.exerciseId).map((m) => lookup(m)?.name ?? m).join(', ')}
+            </p>
+          )}
           {current.ex.assisted && <p className="text-xs text-muted mt-1">Das Gewicht ist die Unterstützung: weniger Gewicht ist schwerer.</p>}
           {usesBodyweight(current.ex) && (
             <p className="text-xs text-muted mt-1">
@@ -459,6 +542,7 @@ export default function Logger() {
             <ActionPill icon="guide" label="Info" onClick={() => setInfoOpen(true)} />
             {!current.ex.cardio && <ActionPill icon="warmup" label={de.logger.warmup} onClick={() => setWarmupOpen(true)} active={modeNow !== 'none'} />}
             <ActionPill icon="note" label={de.common.note} onClick={() => setNoteScope(noteBoxes[0] ?? 'session')} active={noteBoxes.length > 0} />
+            {dayList.length > 1 && <ActionPill icon="link" label="Supersatz" onClick={() => setSupersetOpen(true)} active={members.length > 0} />}
           </div>
         </div>
 
@@ -481,7 +565,8 @@ export default function Logger() {
       {pad && padRow && (
         <NumpadSheet key={`${pad.rowId}-${pad.field}`} field={pad.field}
           label={pad.field === 'weight' ? `Gewicht (${wl})` : 'Wiederholungen'}
-          value={pad.field === 'weight' ? padRow.weight : padRow.reps} rir={padRow.rir}
+          value={pad.field === 'weight' ? padRow.weight : padRow.reps} rir={padRow.rir} showRir={!isSegment(padRow)}
+          partial={padRow.partial ?? ''} onPartial={(v) => patch(padRow.id, { partial: v })}
           onValue={(v) => patch(padRow.id, pad.field === 'weight' ? { weight: v } : { reps: v })}
           onRir={(v) => patch(padRow.id, { rir: v })} onConfirm={onConfirmPad} onClose={() => setPad(null)} />
       )}
@@ -497,8 +582,13 @@ export default function Logger() {
       <NoteSheet open={noteScope !== null} onClose={() => setNoteScope(null)} ex={current.ex}
         scopes={['session', 'exercise', 'program']} initialScope={noteScope ?? 'session'} values={noteValues} onSave={saveNote} />
 
-      <SetTypeSheet open={typeRow !== null} current={rows.find((r) => r.id === typeRow)?.type ?? 'work'}
+      <SetTypeSheet open={typeRow !== null} row={rows.find((r) => r.id === typeRow)}
         onPick={changeType} onClose={() => setTypeRow(null)} />
+
+      <SupersetSheet open={supersetOpen} onClose={() => setSupersetOpen(false)} inSuperset={members.length > 0}
+        prev={curIdx > 0 ? lookup(dayList[curIdx - 1].exerciseId)?.name : undefined}
+        next={curIdx >= 0 && curIdx < dayList.length - 1 ? lookup(dayList[curIdx + 1].exerciseId)?.name : undefined}
+        onPick={linkSuperset} />
 
       <RestSheet open={restOpen} onClose={() => setRestOpen(false)} rest={rest} onStop={endRest}
         onStart={(sec) => setRest({ endsAt: Date.now() + sec * 1000, total: sec })}

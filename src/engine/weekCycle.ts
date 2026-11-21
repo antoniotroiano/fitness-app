@@ -1,5 +1,5 @@
 import type { Program, Session, WeekState } from '../types'
-import { blockWeeksOf, weekInBlock, weekPlan } from './periodization'
+import { blockLength, weekInBlock, weekPlan } from './periodization'
 
 export const emptyWeek = (week = 0): WeekState => ({ week, done: Array(7).fill(false), markedDates: [] })
 
@@ -65,7 +65,7 @@ export function historyUpTo(sessions: Session[], programId: number | undefined, 
 /** Wochen eines Blocks (Arbeitswochen + ggf. Deload); 0 = Programm ohne Periodisierung (eigener Plan). */
 export function cycleLength(program: Pick<Program, 'config'>): number {
   const c = program.config
-  return c ? blockWeeksOf(c) + (c.deload ? 1 : 0) : 0
+  return c ? blockLength(c) : 0
 }
 
 /** Anzeigename einer Programmwoche: "Woche 3" bzw. "Deload", ab dem zweiten Block mit "Block n". */
@@ -73,7 +73,7 @@ export function weekLabel(program: Pick<Program, 'config'>, week: number): strin
   const c = program.config
   if (!c) return `Woche ${week + 1}`
   const len = cycleLength(program)
-  const name = weekPlan(c, week).isDeload ? 'Deload' : `Woche ${weekInBlock(week, c.deload, blockWeeksOf(c)) + 1}`
+  const name = weekPlan(c, week).isDeload ? 'Deload' : `Woche ${weekInBlock(week, c) + 1}`
   const block = Math.floor(week / len)
   return block > 0 ? `${name} · Block ${block + 1}` : name
 }

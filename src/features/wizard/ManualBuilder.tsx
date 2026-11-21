@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { PlannedExercise, WorkoutDay } from '../../types'
 import { BottomBar, Button, Card, Page, inputCls } from '../../components/ui'
 import { exerciseById } from '../../data/exercises'
 import { db, saveProgram, useActiveProgram, useAllExercises } from '../../db/db'
 import { weekSlots } from '../../engine/planGenerator'
-import { ExercisePicker, IdentityFields } from './shared'
+import { ExercisePicker, IdentityFields, SupersetLinkRow } from './shared'
+import { linksOf, normalizeSupersets, toggleSupersetLink } from '../../engine/superset'
 
 /** Ganzzahlfeld, das sich leeren lässt: der Wert wird erst übernommen, wenn eine gültige Zahl drinsteht, beim Verlassen wird zurückgesetzt. */
 function IntInput({ value, min = 1, max, className, onValue }: { value: number; min?: number; max?: number; className: string; onValue: (n: number) => void }) {
@@ -49,12 +50,12 @@ export default function ManualBuilder() {
       const restIdx = slots.findIndex((s) => s === 'rest')
       if (restIdx !== -1 && slots.filter((s) => s === 'rest').length > 1) slots[restIdx] = dayIndex
       await db.programs.update(active.id, {
-        days: [...active.days, { ...days[0], id: `day-${dayIndex}` }], weekSlots: slots,
+        days: [...active.days, { ...days[0], id: `day-${dayIndex}`, exercises: normalizeSupersets(days[0].exercises) }], weekSlots: slots,
       })
     } else {
       await saveProgram({
         name: single ? days[0].name : name, icon, color, config: null,
-        days: days.map((d, i) => ({ ...d, id: `day-${i}` })), weekSlots: weekSlots(days.length),
+        days: days.map((d, i) => ({ ...d, id: `day-${i}`, exercises: normalizeSupersets(d.exercises) })), weekSlots: weekSlots(days.length),
       })
     }
     nav('/workouts')
@@ -76,10 +77,12 @@ export default function ManualBuilder() {
           </div>
           <ul className="divide-y divide-line">
             {d.exercises.map((e, ei) => (
-              <li key={`${e.exerciseId}-${ei}`} className="py-2.5 space-y-2">
+              <Fragment key={`${e.exerciseId}-${ei}`}>
+              {ei > 0 && <SupersetLinkRow linked={linksOf(d.exercises)[ei - 1]} onToggle={() => update(di, (x) => ({ ...x, exercises: toggleSupersetLink(x.exercises, ei - 1) }))} />}
+              <li className="py-2.5 space-y-2">
                 <div className="flex justify-between gap-2">
                   <span className="text-sm font-medium">{exerciseById(e.exerciseId, all)?.name}</span>
-                  <button className="text-xs text-danger" onClick={() => update(di, (x) => ({ ...x, exercises: x.exercises.filter((_, i) => i !== ei) }))}>Entfernen</button>
+                  <button className="text-xs text-danger" onClick={() => update(di, (x) => ({ ...x, exercises: normalizeSupersets(x.exercises.filter((_, i) => i !== ei)) }))}>Entfernen</button>
                 </div>
                 {!exerciseById(e.exerciseId, all)?.cardio && (
                   <div className="flex gap-2 items-center text-xs text-muted">
@@ -91,6 +94,7 @@ export default function ManualBuilder() {
                   </div>
                 )}
               </li>
+              </Fragment>
             ))}
           </ul>
           <Button variant="ghost" className="w-full" onClick={() => setPicker(di)}>+ Übung hinzufügen</Button>
