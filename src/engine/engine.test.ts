@@ -25,7 +25,7 @@ import { MEDIA_MAP, posterSlug } from '../data/media'
 import { TIPS } from '../data/media/tips'
 import manifest from '../data/media/manifest.json'
 import { emptyWeek, historyUpTo, isWeekComplete, jumpToWeek, isSlotSkipped, markSlot, maxReachedWeek, skipSlot, unmarkSlot, weekLabel, weekOptions } from './weekCycle'
-import { average, cardioDaily, exerciseDaily, filterPeriod, groupByMonth, muscleDaily, muscleContributions, setTier, summary, weeklyMuscleSets } from './stats'
+import { average, cardioDaily, exerciseDaily, filterPeriod, groupByMonth, muscleDaily, muscleContributions, setTier, summary, volumeSplit, weeklyMuscleSets } from './stats'
 import { ALL_EXERCISES, EXERCISES, exerciseById, TIME_BASED } from '../data/exercises'
 import { recentRecords } from './records'
 import { linksOf, nextInSuperset, normalizeSupersets, setSupersetLink, supersetMembers, toggleSupersetLink, withLinks } from './superset'
@@ -1830,5 +1830,23 @@ describe('Übungsbeiträge je Muskel', () => {
     expect(c).toEqual([{ exerciseId: 'bb-bench', perWeek: 2, role: 'secondary' }, { exerciseId: 'bb-ohp', perWeek: 1, role: 'secondary' }])
     const sum = c.reduce((a, x) => a + x.perWeek, 0)
     expect(sum).toBe(weeklyMuscleSets(s, lookup, 1, '2026-11-22').triceps)
+  })
+})
+
+describe('Volumen nach Zusatz- und Körpergewicht', () => {
+  const lookup = (id: string) => ALL_EXERCISES.find((e) => e.id === id)
+  it('Körperanteil getrennt, Aufwärmsätze und Zeiträume außen vor', () => {
+    const s: Session[] = [{
+      programId: null, dayIndex: 0, date: '2026-11-20', finishedAt: 0, week: 0,
+      exercises: [
+        { exerciseId: 'pullup', sets: [{ weight: 0, reps: 5, warmup: true }, { weight: 10, reps: 8 }, { weight: 0, reps: 10 }] },
+        { exerciseId: 'bb-bench', sets: [{ weight: 100, reps: 5 }] },
+      ],
+    }, { programId: null, dayIndex: 0, date: '2026-10-01', finishedAt: 0, week: 0, exercises: [{ exerciseId: 'bb-bench', sets: [{ weight: 100, reps: 5 }] }] }]
+    const load = bodyLoadOf(lookup('pullup'), 80)
+    const r = volumeSplit(s, lookup, [{ date: '2026-11-01', kg: 80 }], 1, '2026-11-22')
+    expect(r.external).toBe(80 + 500)
+    expect(r.bodyweight).toBe(Math.round(load * 18))
+    expect(volumeSplit(s, lookup, [], 1, '2026-11-22').bodyweight).toBe(0)
   })
 })

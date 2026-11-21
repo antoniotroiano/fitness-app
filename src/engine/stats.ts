@@ -1,7 +1,8 @@
-import type { Exercise, LoggedSet, MuscleId, Session } from '../types'
+import type { Exercise, LoggedSet, MuscleId, Session, WeightEntry } from '../types'
 import { SECONDARY_WEIGHT } from '../data/muscles'
 import { addDays, monthKey, todayStr, weekStart } from '../utils/dates'
 import { e1rm, FALLBACK_RIR, weightForReps } from './progression'
+import { bodyLoadOf, bodyweightAt } from './bodyweight'
 
 export type ExerciseMetric =
   | 'rm1' | 'rm3' | 'rm10' | 'heaviest' | 'totalVolume' | 'bestSetVolume' | 'totalReps'
@@ -231,4 +232,34 @@ export function muscleContributions(
   }
   return [...by.values()].map((c) => ({ ...c, perWeek: Math.round((c.perWeek / weeks) * 10) / 10 }))
     .sort((a, b) => b.perWeek - a.perWeek || a.exerciseId.localeCompare(b.exerciseId))
+}
+
+/**
+ * Ø Volumen pro Woche (kg), aufgeteilt in bewegtes Zusatz-/Hantelgewicht (`external`) und Körpergewichtsanteil
+ * (`bodyweight`, Anteil × Körpergewicht am Tag, nur Übungen mit `Exercise.bodyweight`). Arbeitssätze inkl. Segmente,
+ * keine Aufwärmsätze; assistierte und Zeitübungen zählen nicht (`noLoadStats`). Erwartet gespeicherte Sessions
+ * (Zusatzgewicht), nicht `applyBodyweight`.
+ */
+export function volumeSplit(
+  sessions: Session[], lookup: (id: string) => Exercise | undefined, weights: Pick<WeightEntry, 'date' | 'kg'>[],
+  weeks: number, today = todayStr(),
+): { external: number; bodyweight: number } {
+  const start = addDays(today, -weeks * 7 + 1)
+  let external = 0
+  let body = 0
+  for (const s of sessions) {
+    if (s.date < start || s.date > today) continue
+    for (const ex of s.exercises) {
+      const def = lookup(ex.exerciseId)
+      if (!def || def.cardio || noLoadStats(def)) continue
+      const f = volumeFactor(def)
+      const load = bodyLoadOf(def, bodyweightAt(weights, s.date))
+      for (const x of work(ex.sets)) {
+        external += setVolume(x, f)
+        const reps = x.sides ? x.sides.l.reps + x.sides.r.reps : x.reps
+        body += load * reps * f
+      }
+    }
+  }
+  return { external: Math.round(external / weeks), bodyweight: Math.round(body / weeks) }
 }

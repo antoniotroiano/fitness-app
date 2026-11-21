@@ -4,8 +4,9 @@ import { Card, Chip, cx, LinkButton } from '../../components/ui'
 import { MusclePair } from '../../components/MuscleFigure'
 import { MUSCLES } from '../../data/muscles'
 import { exerciseById } from '../../data/exercises'
-import { useAllExercises, useSessions } from '../../db/db'
-import { muscleContributions, setTier, weeklyMuscleSets } from '../../engine/stats'
+import { useAllExercises, useSessions, useSettings, useWeights } from '../../db/db'
+import { kgToDisplay } from '../../utils/units'
+import { muscleContributions, setTier, volumeSplit, weeklyMuscleSets } from '../../engine/stats'
 
 const WEEKS = [1, 4, 12] as const
 /** Farbstufen (setTier 1–4): Muskelfarbe, gemischt mit der Linienfarbe */
@@ -61,15 +62,17 @@ export function BodyMap({ onMuscle }: { onMuscle: (id: MuscleId) => void }) {
   )
 
   return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {WEEKS.map((w) => <Chip key={w} active={weeks === w} onClick={() => setWeeks(w)}>{w === 1 ? '1 Woche' : `${w} Wochen`}</Chip>)}
+      </div>
+    <VolumeSplitCard weeks={weeks} />
     <Card className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div>
           <div className="font-semibold text-sm">Körperkarte</div>
           <div className="text-xs text-muted">Ø Sätze pro Woche, sekundäre Muskeln zählen halb</div>
         </div>
-      </div>
-      <div className="flex gap-2">
-        {WEEKS.map((w) => <Chip key={w} active={weeks === w} onClick={() => setWeeks(w)}>{w === 1 ? '1 Woche' : `${w} Wochen`}</Chip>)}
       </div>
       <div className="flex justify-center" role="img" aria-label={`Körperkarte, Ø Sätze pro Woche über ${weeks} ${weeks === 1 ? 'Woche' : 'Wochen'}`}>
         <MusclePair colors={colors} height={240} />
@@ -113,6 +116,45 @@ export function BodyMap({ onMuscle }: { onMuscle: (id: MuscleId) => void }) {
           )
         })}
       </ul>
+    </Card>
+    </div>
+  )
+}
+
+/** Ø Wochenvolumen, aufgeteilt in Zusatz-/Hantelgewicht und Körpergewichtsanteil (gleicher Zeitraum wie die Karte) */
+function VolumeSplitCard({ weeks }: { weeks: number }) {
+  const sessions = useSessions()
+  const all = useAllExercises()
+  const weights = useWeights()
+  const unit = useSettings().weightUnit
+  const v = useMemo(() => volumeSplit(sessions, (id) => exerciseById(id, all), weights, weeks), [sessions, all, weights, weeks])
+  const total = v.external + v.bodyweight
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
+  const kg = (n: number) => `${Math.round(kgToDisplay(n, unit)).toLocaleString('de-DE')} ${unit}`
+  const rows = [
+    { label: 'Gewicht (Hantel, Maschine, Zusatz)', value: v.external, color: 'var(--muscle)' },
+    { label: 'Körpergewicht', value: v.bodyweight, color: 'color-mix(in srgb, var(--muscle) 40%, var(--line))' },
+  ]
+  return (
+    <Card className="space-y-3">
+      <div>
+        <div className="font-semibold text-sm">Wochenvolumen</div>
+        <div className="text-xs text-muted">Ø pro Woche, Gewicht × Wdh.</div>
+      </div>
+      <div className="text-2xl font-semibold tabular-nums">{kg(total)}</div>
+      <div className="flex h-3 rounded-full overflow-hidden bg-surface2" role="img"
+        aria-label={`${pct(v.external)} % Gewicht, ${pct(v.bodyweight)} % Körpergewicht`}>
+        {rows.map((r) => r.value > 0 && <div key={r.label} style={{ width: `${pct(r.value)}%`, background: r.color }} />)}
+      </div>
+      <ul className="space-y-1.5">
+        {rows.map((r) => (
+          <li key={r.label} className="flex items-center justify-between gap-2 text-sm">
+            <span className="flex items-center gap-2 min-w-0"><i className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ background: r.color }} /><span className="truncate">{r.label}</span></span>
+            <span className="tabular-nums shrink-0"><span className="font-semibold">{kg(r.value)}</span> <span className="text-muted">· {pct(r.value)} %</span></span>
+          </li>
+        ))}
+      </ul>
+      {weights.length === 0 && <p className="text-xs text-muted">Ohne eingetragenes Körpergewicht zählt bei Klimmzügen, Dips und Co. nur das Zusatzgewicht.</p>}
     </Card>
   )
 }
