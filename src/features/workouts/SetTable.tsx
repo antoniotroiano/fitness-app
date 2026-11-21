@@ -30,9 +30,9 @@ function previousText(s: LoggedSet | undefined, cardio: boolean, settings: Setti
   return `${kgToDisplay(s.weight, settings.weightUnit)} ${settings.weightUnit} × ${s.reps}`
 }
 
-const COLS = 'grid-cols-[2.25rem_1fr_3.5rem_3.5rem_2.5rem_2.75rem]'
+const COLS = 'grid-cols-[2.25rem_1fr_3.75rem_3.75rem_2.75rem]'
 
-/** Satztabelle: Satz | Zuletzt | kg | Wdh. | RIR | Haken */
+/** Satztabelle: Satz | Zuletzt | kg | Wdh. (RIR unten rechts im Feld) | Haken */
 export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDone, onToggleAll, onAdd, onDelete, onType, onPad }: Props) {
   const cardio = !!view.ex.cardio
   const side = !cardio && isPerSide(view.ex)
@@ -48,7 +48,6 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
         <span>{de.logger.set}</span><span>{de.logger.previous}</span>
         <span>{cardio ? 'min' : side ? de.logger.perSide(settings.weightUnit) : settings.weightUnit}</span>
         <span>{cardio ? settings.distanceUnit : side ? de.logger.repsPerSide : view.ex.metric === 'time' ? de.common.seconds : de.common.reps}</span>
-        <span>{cardio ? '' : 'RIR'}</span>
         <button onClick={onToggleAll} disabled={rows.length === 0} role="checkbox" aria-checked={allDone ? true : doneN > 0 ? 'mixed' : false}
           aria-label="Alle Sätze abhaken"
           className={cx('h-11 rounded-lg border bg-transparent text-sm leading-none', allDone ? 'bg-accent text-accent-fg border-accent' : doneN > 0 ? 'border-accent text-accent' : 'border-line text-muted/40')}>
@@ -75,17 +74,17 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
                     onChange={(e) => onPatch(r.id, { minutes: e.target.value.replace(',', '.') })} placeholder="min" />
                   <input inputMode="decimal" className={cx(cell, 'w-full outline-none')} value={r.km}
                     onChange={(e) => onPatch(r.id, { km: e.target.value.replace(',', '.') })} placeholder={settings.distanceUnit} />
-                  <span />
                 </>
               ) : (
                 <>
                   <button onClick={() => onPad(r.id, 'weight')} className={cx(cell, padOn('weight') && 'ring-2 ring-accent')}>{r.weight || '–'}</button>
-                  <button onClick={() => onPad(r.id, 'reps')} className={cx(cell, padOn('reps') && 'ring-2 ring-accent')}>{r.reps || '–'}</button>
-                  {rirN !== null && !warm ? (
-                    <button onClick={() => onPad(r.id, 'reps')} aria-label={`Ziel-RIR ${rirN}`}
-                      className="h-8 rounded-full text-xs font-bold tabular-nums bg-surface2 border active:opacity-70"
-                      style={{ color: rirColor(rirN), borderColor: rirColor(rirN) }}>{rirN}</button>
-                  ) : <span />}
+                  <button onClick={() => onPad(r.id, 'reps')} aria-label={rirN !== null && !warm ? `${r.reps || '–'}, Ziel-RIR ${rirN}` : undefined}
+                    className={cx(cell, 'relative', padOn('reps') && 'ring-2 ring-accent')}>
+                    {r.reps || '–'}
+                    {rirN !== null && !warm && (
+                      <span className="absolute bottom-0.5 right-1.5 text-[10px] font-bold leading-none" style={{ color: rirColor(rirN) }}>{rirN}</span>
+                    )}
+                  </button>
                 </>
               )}
               <button aria-label="Satz abhaken" onClick={() => onToggleDone(r)}

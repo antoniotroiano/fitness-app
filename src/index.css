@@ -48,8 +48,8 @@ body::before {
 .no-scrollbar { scrollbar-width: none; }
 
 /* RIR-Farben: rot nur für RIR 0, sonst neutral (geplanter RIR 1-2 ist gewollt, kein Fehler) */
-:root { --rir-red: #b91c1c; --rir-neutral: #475569; }
-.dark { --rir-red: #f87171; --rir-neutral: #cbd5e1; }
+:root { --rir-red: #dc2626; --rir-yellow: #ca8a04; --rir-green: #16a34a; --rir-blue: #2563eb; }
+.dark { --rir-red: #f87171; --rir-yellow: #facc15; --rir-green: #4ade80; --rir-blue: #60a5fa; }
 
 /* Status-Farben (Kontrast >= 4,5:1 auf surface/surface2) */
 :root { --warn: #a14a0a; --danger: #b91c1c; --danger-fg: #ffffff; }
