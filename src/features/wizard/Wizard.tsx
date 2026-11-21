@@ -15,7 +15,7 @@ import { muscleLabel } from '../../data/muscles'
 
 const DEFAULT: ProgramConfig = {
   mode: 'auto', goal: 'hypertrophy', days: 4, split: 'none', time: '60-90', repScheme: 'static',
-  focus: {}, deload: true, experience: 'intermediate', name: '', icon: '🏋️', color: '#38bdf8',
+  focus: {}, deload: true, experience: 'intermediate', name: '', icon: 'workouts', color: '#38bdf8',
 }
 
 type StepId = 'mode' | 'goal' | 'days' | 'split' | 'time' | 'rep' | 'focus' | 'deload' | 'exp' | 'equipment' | 'identity' | 'preview'

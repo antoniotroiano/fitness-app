@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import { HashRouter, NavLink, Route, Routes, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { useSettings } from './db/db'
 import { BottomSheet, cx } from './components/ui'
@@ -6,12 +6,34 @@ import { Icon, type IconName } from './components/icons'
 import Dashboard from './features/dashboard/Dashboard'
 import Workouts from './features/workouts/Workouts'
 import WorkoutPreview from './features/workouts/WorkoutPreview'
-import Logger from './features/workouts/Logger'
-import Wizard from './features/wizard/Wizard'
-import ManualBuilder from './features/wizard/ManualBuilder'
 import { WeightPage, MeasuresPage } from './features/body/Body'
-import { BodyStatsPage, ExerciseStatsPage, MuscleStatsPage } from './features/stats/StatsPages'
-import More, { UnitsPage, RestSettingsPage, WarmupSettingsPage, WorkoutSettingsPage, ProfilePage, LibraryPage, AboutPage, HelpPage, DataPage } from './features/more/More'
+import { de } from './i18n/de'
+
+/** Seiten, die nicht beim Start gebraucht werden, laden als eigene Chunks. */
+const Logger = lazy(() => import('./features/workouts/Logger'))
+const Wizard = lazy(() => import('./features/wizard/Wizard'))
+const ManualBuilder = lazy(() => import('./features/wizard/ManualBuilder'))
+const More = lazy(() => import('./features/more/More'))
+const named = <M extends Record<string, unknown>>(load: () => Promise<M>, key: keyof M) =>
+  lazy(() => load().then((m) => ({ default: m[key] as ComponentType })))
+const loadMore = () => import('./features/more/More')
+const loadStats = () => import('./features/stats/StatsPages')
+const ExerciseStatsPage = named(loadStats, 'ExerciseStatsPage')
+const MuscleStatsPage = named(loadStats, 'MuscleStatsPage')
+const BodyStatsPage = named(loadStats, 'BodyStatsPage')
+const UnitsPage = named(loadMore, 'UnitsPage')
+const RestSettingsPage = named(loadMore, 'RestSettingsPage')
+const WarmupSettingsPage = named(loadMore, 'WarmupSettingsPage')
+const WorkoutSettingsPage = named(loadMore, 'WorkoutSettingsPage')
+const ProfilePage = named(loadMore, 'ProfilePage')
+const LibraryPage = named(loadMore, 'LibraryPage')
+const AboutPage = named(loadMore, 'AboutPage')
+const HelpPage = named(loadMore, 'HelpPage')
+const DataPage = named(loadMore, 'DataPage')
+
+function PageFallback() {
+  return <div role="status" aria-label={de.common.loading} className="p-8 text-center text-sm text-muted">{de.common.loading}</div>
+}
 
 function useTheme() {
   const { theme } = useSettings()
@@ -71,6 +93,7 @@ function Shell() {
   return (
     <div ref={scroller} className="h-full overflow-y-auto"
       onScroll={(e) => { positions.current[pathRef.current] = e.currentTarget.scrollTop }}>
+      <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/workouts" element={<Workouts />} />
@@ -94,6 +117,7 @@ function Shell() {
         <Route path="/more/about" element={<AboutPage />} />
         <Route path="/more/help" element={<HelpPage />} />
       </Routes>
+      </Suspense>
 
       {!hideTabs && (
         <nav className="fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-line safe-bottom-tight">
@@ -103,7 +127,7 @@ function Shell() {
             <button onClick={() => setSheet(true)} aria-label="Hinzufügen"
               className="-mt-6 w-14 h-14 rounded-full bg-accent text-accent-fg text-3xl font-light shadow-lg active:scale-95">＋</button>
             <Tab to="/more/library" label="Übungen" icon="library" />
-            <Tab to="/more" label="More" icon="more" />
+            <Tab to="/more" label={de.nav.more} icon="more" />
           </div>
         </nav>
       )}

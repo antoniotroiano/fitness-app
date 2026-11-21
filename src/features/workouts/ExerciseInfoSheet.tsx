@@ -1,23 +1,37 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Exercise } from '../../types'
 import { BottomSheet, cx } from '../../components/ui'
+import { ProgramBadge } from '../../components/icons'
 import { MuscleDetail } from '../../components/MuscleFigure'
 import { ExerciseHero } from '../../components/ExerciseMedia'
-import { tipsFor } from '../../data/media/tips'
-import { instructionsFor } from '../../data/instructions'
+import type { MediaTips } from '../../data/media/types'
 import { EQUIPMENT_LABEL } from '../../data/exercises'
 import { muscleLabel } from '../../data/muscles'
 import { usePrograms, useSessions, useSettings } from '../../db/db'
 import { formatDate } from '../../utils/dates'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
+import { de } from '../../i18n/de'
 
 type Tab = 'instructions' | 'details' | 'history'
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'instructions', label: 'Instructions' }, { id: 'details', label: 'Details' }, { id: 'history', label: 'History' },
+  { id: 'instructions', label: de.info.instructions }, { id: 'details', label: 'Details' }, { id: 'history', label: de.info.history },
 ]
 
-function Tips({ id }: { id: string }) {
-  const t = tipsFor(id)
+interface Guide { steps: string[]; tips?: MediaTips }
+
+/** Anleitung und Tipps liegen in großen Textdateien: erst beim Öffnen der Info nachladen (eigener Chunk). */
+function useGuide(ex: Exercise): Guide | null {
+  const [loaded, setLoaded] = useState<{ instructionsFor: (e: Exercise) => string[]; tipsFor: (id: string) => MediaTips | undefined } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([import('../../data/instructions'), import('../../data/media/tips')])
+      .then(([i, t]) => { if (!cancelled) setLoaded({ instructionsFor: i.instructionsFor, tipsFor: t.tipsFor }) })
+    return () => { cancelled = true }
+  }, [])
+  return useMemo(() => (loaded ? { steps: loaded.instructionsFor(ex), tips: loaded.tipsFor(ex.id) } : null), [loaded, ex])
+}
+
+function Tips({ t }: { t?: MediaTips }) {
   if (!t) return null
   const block = (title: string, items: string[]) => items.length > 0 && (
     <section className="mt-5">
@@ -69,10 +83,7 @@ function History({ ex }: { ex: Exercise }) {
         <li key={e.key}>
           <button className="w-full flex items-center gap-3 py-3 text-left" aria-expanded={open === e.key}
             onClick={() => setOpen(open === e.key ? null : e.key)}>
-            <span className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-lg"
-              style={{ background: `${e.program?.color ?? '#64748b'}33`, border: `2px solid ${e.program?.color ?? '#64748b'}` }}>
-              {e.program?.icon ?? '🏋️'}
-            </span>
+            <ProgramBadge icon={e.program?.icon} color={e.program?.color ?? '#64748b'} size={36} />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium">{formatDate(e.date)}</span>
               <span className="block text-xs text-muted truncate">{e.program?.name ?? 'Einzelnes Workout'}</span>
@@ -81,7 +92,7 @@ function History({ ex }: { ex: Exercise }) {
           </button>
           {open === e.key && (
             <div className="pb-3 pl-12 space-y-1 text-sm">
-              {e.warm.map((t, i) => <div key={`w${i}`} className="flex gap-3"><span className="w-6 text-amber-500 font-semibold">W</span><span>{t}</span></div>)}
+              {e.warm.map((t, i) => <div key={`w${i}`} className="flex gap-3"><span className="w-6 text-warn font-semibold">W</span><span>{t}</span></div>)}
               {e.work.map((t, i) => <div key={i} className="flex gap-3"><span className="w-6 text-muted">{i + 1}</span><span>{t}</span></div>)}
             </div>
           )}
@@ -95,6 +106,11 @@ function History({ ex }: { ex: Exercise }) {
 export function ExerciseInfoSheet({ ex, open, onClose }: { ex: Exercise | null; open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('instructions')
   if (!ex) return null
+  return <InfoSheet ex={ex} open={open} onClose={onClose} tab={tab} setTab={setTab} />
+}
+
+function InfoSheet({ ex, open, onClose, tab, setTab }: { ex: Exercise; open: boolean; onClose: () => void; tab: Tab; setTab: (t: Tab) => void }) {
+  const guide = useGuide(ex)
   return (
     <BottomSheet tall open={open} onClose={onClose} title={ex.name}>
       <div role="tablist" className="sticky top-0 z-10 flex gap-1 p-1 rounded-xl bg-surface2 mb-4">
@@ -107,9 +123,10 @@ export function ExerciseInfoSheet({ ex, open, onClose }: { ex: Exercise | null; 
         <div>
           <ExerciseHero ex={ex} />
           <ol className="space-y-3 text-sm list-decimal pl-5">
-            {instructionsFor(ex).map((step, i) => <li key={i}>{step}</li>)}
+            {(guide?.steps ?? []).map((step, i) => <li key={i}>{step}</li>)}
           </ol>
-          <Tips id={ex.id} />
+          {!guide && <p className="text-sm text-muted">{de.common.loading}</p>}
+          <Tips t={guide?.tips} />
         </div>
       )}
       {tab === 'details' && (

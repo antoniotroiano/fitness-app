@@ -7,18 +7,19 @@ import { useAllExercises, useMeasures, useSessions, useSettings, useWeights } fr
 import { bodyLabel, bodySeries, type BodyKey } from '../../engine/body'
 import { bodyUnit, formatBody } from '../body/format'
 import {
-  cardioDaily, exerciseDaily, isBar, METRIC_UNIT, muscleDaily, volumeFactor,
+  cardioDaily, exerciseDaily, isBar, METRIC_UNIT, muscleDaily, noLoadStats, volumeFactor,
   type CardioMetric, type ExerciseMetric, type MuscleMetric,
 } from '../../engine/stats'
 import type { MuscleId } from '../../types'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
 import { StatsView } from './StatsView'
+import { de } from '../../i18n/de'
 
 const EX_METRICS: { value: ExerciseMetric; label: string }[] = [
   { value: 'rm1', label: '1RM' }, { value: 'rm3', label: '3RM' }, { value: 'rm10', label: '10RM' },
-  { value: 'heaviest', label: 'Heaviest Weight' }, { value: 'totalVolume', label: 'Total Volume' },
-  { value: 'bestSetVolume', label: 'Best Set Volume' }, { value: 'totalReps', label: 'Total Reps' },
-  { value: 'bestSetReps', label: 'Best Set Reps' }, { value: 'totalSets', label: 'Total Sets' },
+  { value: 'heaviest', label: de.stats.heaviest }, { value: 'totalVolume', label: de.stats.totalVolume },
+  { value: 'bestSetVolume', label: de.stats.bestSetVolume }, { value: 'totalReps', label: de.stats.totalReps },
+  { value: 'bestSetReps', label: de.stats.bestSetReps }, { value: 'totalSets', label: de.stats.totalSets },
 ]
 
 const CARDIO_METRICS: { value: CardioMetric; label: string }[] = [
@@ -49,7 +50,7 @@ export function ExerciseStatsPage() {
   const settings = useSettings()
   const [metric, setMetric] = useState<ExerciseMetric>('rm1')
   const ex = exerciseById(id, all)
-  const daily = useMemo(() => exerciseDaily(sessions, id, metric, volumeFactor(exerciseById(id, all))), [sessions, id, metric, all])
+  const daily = useMemo(() => exerciseDaily(sessions, id, metric, volumeFactor(exerciseById(id, all)), noLoadStats(exerciseById(id, all))), [sessions, id, metric, all])
   const unit = METRIC_UNIT[metric]
   const fmt = (v: number) =>
     unit === 'weight' ? `${Math.round(kgToDisplay(v, settings.weightUnit) * 10) / 10} ${settings.weightUnit}`
@@ -81,7 +82,7 @@ export function MuscleStatsPage() {
     : `${Math.round(kgToDisplay(v, settings.weightUnit))} ${settings.weightUnit}`
   return (
     <Page title={muscleLabel(id as MuscleId)} back={() => nav(-1)}>
-      <StatsView metrics={[{ value: 'sets', label: 'Sets' }, { value: 'volume', label: 'Volumen' }]}
+      <StatsView metrics={[{ value: 'sets', label: de.common.sets }, { value: 'volume', label: 'Volumen' }]}
         metric={metric} onMetric={setMetric} daily={daily} bar showAveraging fmt={fmt} />
     </Page>
   )

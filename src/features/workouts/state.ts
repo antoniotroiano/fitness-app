@@ -11,6 +11,10 @@ export interface Row {
   km: string
   /** Gewicht von Hand geändert: wird von der RIR-Anpassung nicht überschrieben */
   manual?: boolean
+  /** Geplantes Gewicht (kg), Wdh. und RIR dieses Arbeitssatzes: Grundlage der RIR-Anpassung (fehlt bei älteren Workouts) */
+  planKg?: number | null
+  planReps?: number
+  planRir?: number
 }
 
 /** Laufendes Workout, wird in der DB zwischengespeichert (übersteht Reload). */

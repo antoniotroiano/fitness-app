@@ -6,6 +6,7 @@ import { saveExerciseOverride, useExerciseOverrides, useSettings } from '../../d
 import { REST_LABEL, formatRest, restCategory } from '../../engine/rest'
 import { ExerciseInfoSheet } from '../workouts/ExerciseInfoSheet'
 import { AutomationSheet, ListRow, NoteSheet, RestOverrideSheet, SchemeEditor, SchemeTable, automationLabel, schemeSummary } from '../workouts/sheets'
+import { de } from '../../i18n/de'
 
 function SubPage({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const [mounted, setMounted] = useState(open)
@@ -62,35 +63,35 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
   return (
     <SlideOver open={ex !== null} onClose={onClose} title={cur.name}>
       <section className="space-y-2">
-        <h2 className="text-xs uppercase tracking-wide text-muted px-1">General</h2>
+        <h2 className="text-xs uppercase tracking-wide text-muted px-1">{de.common.general}</h2>
         <Card className="divide-y divide-line !py-1">
-          <ListRow icon="guide" label="Info" value="Instructions, Details, History" onClick={() => setInfo(true)} />
-          <ListRow icon="note" label="Exercise Note" value={ov?.note || 'Keine Notiz'} onClick={() => setNote(true)} />
+          <ListRow icon="guide" label="Info" value={de.exercise.infoValue} onClick={() => setInfo(true)} />
+          <ListRow icon="note" label={de.exercise.note} value={ov?.note || 'Keine Notiz'} onClick={() => setNote(true)} />
         </Card>
       </section>
 
       {!noWarm && (
         <section className="space-y-2">
-          <h2 className="text-xs uppercase tracking-wide text-muted px-1">Exercise Overrides</h2>
+          <h2 className="text-xs uppercase tracking-wide text-muted px-1">{de.exercise.overrides}</h2>
           <Card className="divide-y divide-line !py-1">
-            <ListRow icon="blocks" label="Warm-Up Scheme" value={ov?.warmupScheme ? `Override · ${schemeSummary(scheme)}` : 'Default'}
+            <ListRow icon="blocks" label={de.warmup.scheme} value={ov?.warmupScheme ? `${de.warmup.custom} · ${schemeSummary(scheme)}` : de.common.default}
               onClick={() => setSub(true)} />
-            <ListRow icon="automation" label="Warm-Up Automation" value={automationLabel(ov?.warmupMode)} action="Edit" onClick={() => setAuto(true)}
-              hint={!ov?.warmupMode || ov.warmupMode === 'default' ? 'Warm-Up Automation will default to app level Settings.'
-                : ov.warmupMode === 'none' ? 'Warm-ups will not be automatically added to your workout.' : undefined} />
-            <ListRow icon="timer" label="Rest Timer" value={ov?.restSeconds ? formatRest(ov.restSeconds) : 'Default'} action="Edit" onClick={() => setRestEdit(true)}
-              hint={ov?.restSeconds ? undefined : `Rest Timer will default to the setting of this exercise group (${formatRest(defaultRest)}).`} />
+            <ListRow icon="automation" label={de.warmup.automation} value={automationLabel(ov?.warmupMode)} action={de.common.change} onClick={() => setAuto(true)}
+              hint={!ov?.warmupMode || ov.warmupMode === 'default' ? de.warmup.hintAppLevel
+                : ov.warmupMode === 'none' ? de.warmup.hintNone : undefined} />
+            <ListRow icon="timer" label={de.warmup.restTimer} value={ov?.restSeconds ? formatRest(ov.restSeconds) : de.common.default} action={de.common.change} onClick={() => setRestEdit(true)}
+              hint={ov?.restSeconds ? undefined : de.warmup.hintRest(formatRest(defaultRest))} />
           </Card>
         </section>
       )}
 
-      <SubPage open={sub} onClose={() => setSub(false)} title="Warm-Up Scheme">
+      <SubPage open={sub} onClose={() => setSub(false)} title={de.warmup.scheme}>
         <Card className="space-y-1">
-          <div className="text-sm font-semibold">{ov?.warmupScheme ? 'Override' : 'Default'}</div>
-          <div className="text-xs text-muted">{ov?.warmupScheme ? 'Eigenes Schema nur für diese Übung.' : `Standardschema: ${REST_LABEL[cat]}`}</div>
+          <div className="text-sm font-semibold">{ov?.warmupScheme ? de.warmup.custom : de.common.default}</div>
+          <div className="text-xs text-muted">{ov?.warmupScheme ? de.warmup.customOnly : `Standardschema: ${REST_LABEL[cat]}`}</div>
         </Card>
         <Card><SchemeTable steps={scheme} editable={false} /></Card>
-        <Button className="w-full" onClick={() => setEditScheme(true)}>Override</Button>
+        <Button className="w-full" onClick={() => setEditScheme(true)}>{de.warmup.custom} bearbeiten</Button>
         {ov?.warmupScheme && (
           <Button variant="ghost" className="w-full" onClick={() => void saveExerciseOverride(cur.id, { warmupScheme: undefined })}>Zurück zum Default</Button>
         )}
@@ -99,7 +100,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
       <ExerciseInfoSheet ex={cur} open={info} onClose={() => setInfo(false)} />
       <NoteSheet open={note} onClose={() => setNote(false)} ex={cur} scopes={['exercise']} initialScope="exercise"
         values={{ exercise: ov?.note }} onSave={(_, t) => void saveExerciseOverride(cur.id, { note: t || undefined })} />
-      <SchemeEditor open={editScheme} onClose={() => setEditScheme(false)} title="Warm-Up Scheme" steps={scheme}
+      <SchemeEditor open={editScheme} onClose={() => setEditScheme(false)} title={de.warmup.scheme} steps={scheme}
         onSave={(steps) => void saveExerciseOverride(cur.id, { warmupScheme: steps })}
         onReset={ov?.warmupScheme ? () => void saveExerciseOverride(cur.id, { warmupScheme: undefined }) : undefined} resetLabel="Zurück zum Default" />
       <RestOverrideSheet open={restEdit} onClose={() => setRestEdit(false)} defaultSec={defaultRest} override={ov?.restSeconds}

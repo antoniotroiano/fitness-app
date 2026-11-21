@@ -295,9 +295,32 @@ const rows: Row[] = [
   ['cable-standing-crunch', 'Cable Crunch stehend', ['abs'], ['obliques'], 'cable', 'core', false],
 ]
 
-export const EXERCISES: Exercise[] = rows.map(([id, name, primary, secondary, equipment, pattern, compound]) => ({
-  id, name, primary, secondary, equipment, pattern, compound,
-}))
+/** Übungen, bei denen das eingetragene Gewicht eine Unterstützung ist (weniger Gewicht = schwerer). */
+const ASSISTED = new Set(['assisted-pullup'])
+
+/** Zeitbasierte Übungen (Halten/Tragen): kein Wiederholungs-Range, der Generator plant sie nur auf ausdrücklichen Wunsch ein. */
+export const TIME_BASED = new Set(['plank', 'side-plank', 'copenhagen-plank', 'dead-hang', 'suitcase-carry', 'farmers-carry'])
+
+/**
+ * Lastart bei Kurzhantel und Kettlebell. Default aus dem Equipment: Kurzhantel = je Seite (zwei Hanteln bzw. beide Seiten),
+ * Kettlebell = ein Gerät. Ausnahmen stehen hier ausdrücklich (ein Gerät mit beiden Händen bzw. Kettlebell einarmig je Seite).
+ */
+const LOAD_SINGLE = new Set([
+  'goblet-squat', 'db-overhead-ext', 'db-pullover', 'svend-press', 'neck-curl-plate', 'russian-twist', 'db-side-bend',
+  'db-hip-thrust', 'dumbbell-bar-grip-sumo-squat', 'dumbbell-lying-femoral', 'db-tibialis-raise', 'dumbbell-seated-calf-raise',
+])
+const LOAD_PER_SIDE = new Set(['kb-floor-press', 'kb-ohp', 'kb-row', 'kb-curl', 'kb-windmill', 'suitcase-carry'])
+
+const loadOf = (id: string, equipment: Equipment): Exercise['load'] => {
+  if (equipment === 'dumbbell') return LOAD_SINGLE.has(id) ? 'single' : 'perSide'
+  if (equipment === 'kettlebell') return LOAD_PER_SIDE.has(id) ? 'perSide' : 'single'
+  return undefined
+}
+
+export const EXERCISES: Exercise[] = rows.map(([id, name, primary, secondary, equipment, pattern, compound]) => {
+  const load = loadOf(id, equipment)
+  return { id, name, primary, secondary, equipment, pattern, compound, ...(ASSISTED.has(id) ? { assisted: true } : {}), ...(load ? { load } : {}), ...(TIME_BASED.has(id) ? { metric: 'time' as const } : {}) }
+})
 
 const cardio = (id: string, name: string): Exercise => ({
   id, name, primary: [], secondary: [], equipment: 'cardio', pattern: 'cardio', compound: false, cardio: true,

@@ -61,6 +61,9 @@ export const getSettings = () => getKV<Settings & { warmupsEnabled?: boolean }>(
   warmupMode: s.warmupMode ?? (s.warmupsEnabled === false ? 'off' : 'smart'),
 }))
 export const saveSettings = (s: Settings) => setKV('settings', s)
+/** Einstellungen atomar ändern: liest den aktuellen Stand aus der DB, nie aus einem (evtl. noch ladenden) Hook-Wert. */
+export const patchSettings = (p: Partial<Settings>) =>
+  db.transaction('rw', db.kv, async () => { await saveSettings({ ...(await getSettings()), ...p }) })
 export const getWeekState = () => getKV<WeekState>('weekState', emptyWeek())
 export const loadActiveWorkout = <T>() => db.kv.get(ACTIVE_WORKOUT_KEY).then((r) => (r?.value as T | undefined) ?? null)
 export const saveActiveWorkout = (v: unknown) => setKV(ACTIVE_WORKOUT_KEY, v)
@@ -93,6 +96,14 @@ export function useProgramByParam(param: string): Program | undefined {
 }
 export function usePrograms(): Program[] {
   return useLiveQuery(() => db.programs.toArray(), [], []) ?? []
+}
+/** undefined = lädt noch */
+export function useSessionsLoaded(): Session[] | undefined {
+  return useLiveQuery(() => db.sessions.orderBy('date').toArray(), [])
+}
+/** undefined = lädt noch */
+export function useWeekStateLoaded(): WeekState | undefined {
+  return useLiveQuery(getWeekState, [])
 }
 export function useSessions(): Session[] {
   return useLiveQuery(() => db.sessions.orderBy('date').toArray(), [], []) ?? []
@@ -170,28 +181,86 @@ export async function importAll(json: string) {
   })
 }
 
-/** Gewichtswerte aus einem Apple-Health-Export (export.xml) oder CSV (date,kg) lesen. */
-export function parseWeightImport(text: string): { date: string; kg: number }[] {
+const KG_PER_LB = 0.45359237
+const RECORD_OPEN = '<Record'
+
+/**
+ * Inkrementeller Leser für Apple-Health-`export.xml`: nimmt beliebig geschnittene Textstücke entgegen und hält nur
+ * den Rest eines noch nicht vollständigen `<Record …>`-Tags vor. So braucht eine mehrere hundert MB große Datei
+ * kaum Speicher. Nur Körpergewicht (HKQuantityTypeIdentifierBodyMass) wird ausgewertet.
+ */
+export function weightXmlReader() {
   const out = new Map<string, number>()
-  if (text.includes('<Record')) {
-    const re = /<Record[^>]*type="HKQuantityTypeIdentifierBodyMass"[^>]*>/g
-    for (const m of text.match(re) ?? []) {
-      const val = Number(/value="([\d.]+)"/.exec(m)?.[1])
-      const unit = /unit="(\w+)"/.exec(m)?.[1]
-      const date = /startDate="(\d{4}-\d{2}-\d{2})/.exec(m)?.[1]
-      if (!date || !val) continue
-      out.set(date, unit === 'lb' ? val * 0.45359237 : val)
-    }
-  } else {
-    for (const line of text.split(/\r?\n/)) {
-      // Datum steht vorn (yyyy-mm-dd), danach Trenner, danach der Wert (auch mit Dezimalkomma)
-      const m = /^\s*(\d{4}-\d{2}-\d{2})\s*[;,]\s*([\d.,]+)/.exec(line)
-      const kg = Number(m?.[2].replace(',', '.'))
-      if (m && kg > 0) out.set(m[1], kg)
-    }
+  let carry = ''
+  const take = (tag: string) => {
+    if (!tag.includes('HKQuantityTypeIdentifierBodyMass')) return
+    if (!/type="HKQuantityTypeIdentifierBodyMass"/.test(tag)) return
+    const val = Number(/value="([\d.]+)"/.exec(tag)?.[1])
+    const unit = /unit="(\w+)"/.exec(tag)?.[1]
+    const date = /startDate="(\d{4}-\d{2}-\d{2})/.exec(tag)?.[1]
+    if (!date || !val) return
+    out.set(date, unit === 'lb' ? val * KG_PER_LB : val)
+  }
+  return {
+    push(chunk: string) {
+      const text = carry + chunk
+      let pos = 0
+      for (;;) {
+        const open = text.indexOf(RECORD_OPEN, pos)
+        if (open < 0) {
+          // Ein am Ende abgeschnittenes "<Recor" nicht verlieren
+          carry = text.slice(Math.max(pos, text.length - (RECORD_OPEN.length - 1)))
+          return
+        }
+        const close = text.indexOf('>', open)
+        if (close < 0) { carry = text.slice(open); return } // Tag reicht ins nächste Stück
+        take(text.slice(open, close + 1))
+        pos = close + 1
+      }
+    },
+    result: () => [...out.entries()].map(([date, kg]) => ({ date, kg: Math.round(kg * 10) / 10 })),
+  }
+}
+
+function parseWeightCsv(text: string): { date: string; kg: number }[] {
+  const out = new Map<string, number>()
+  for (const line of text.split(/\r?\n/)) {
+    // Datum steht vorn (yyyy-mm-dd), danach Trenner, danach der Wert (auch mit Dezimalkomma)
+    const m = /^\s*(\d{4}-\d{2}-\d{2})\s*[;,]\s*([\d.,]+)/.exec(line)
+    const kg = Number(m?.[2].replace(',', '.'))
+    if (m && kg > 0) out.set(m[1], kg)
   }
   return [...out.entries()].map(([date, kg]) => ({ date, kg: Math.round(kg * 10) / 10 }))
 }
+
+/** Gewichtswerte aus einem Text (Apple-Health-XML oder CSV `date,kg`) lesen. Für große Dateien `parseWeightFile` nutzen. */
+export function parseWeightImport(text: string): { date: string; kg: number }[] {
+  if (!text.includes(RECORD_OPEN)) return parseWeightCsv(text)
+  const reader = weightXmlReader()
+  reader.push(text)
+  return reader.result()
+}
+
+/** Wie `parseWeightImport`, liest XML-Dateien aber als Stream (kein String der ganzen Datei im Speicher). */
+export async function parseWeightFile(file: File): Promise<{ date: string; kg: number }[]> {
+  if (!/\.xml$/i.test(file.name) && !file.type.includes('xml')) return parseWeightCsv(await file.text())
+  const reader = weightXmlReader()
+  const stream = file.stream().pipeThrough(new TextDecoderStream())
+  const r = stream.getReader()
+  for (;;) {
+    const { done, value } = await r.read()
+    if (done) break
+    reader.push(value)
+  }
+  return reader.result()
+}
+
+/** Einstellungen auf Standard zurücksetzen, das Profil (Name, Geburtstag, Geschlecht, Größe) bleibt erhalten. */
+export function settingsResetKeepingProfile(s: Settings): Settings {
+  return { ...DEFAULT_SETTINGS, name: s.name, birthday: s.birthday, sex: s.sex, heightCm: s.heightCm }
+}
+export const resetSettings = () =>
+  db.transaction('rw', db.kv, async () => { await saveSettings(settingsResetKeepingProfile(await getSettings())) })
 
 
 // ---- Übungs-Überschreibungen und Notizen (kv, Teil des Backups) ----
@@ -207,7 +276,9 @@ export function useExerciseOverrides(): Record<string, ExerciseOverride> {
 }
 
 /** Überschreibung zusammenführen; `null` löscht sie, leere Felder (undefined) werden entfernt. */
-export async function saveExerciseOverride(id: string, patch: ExerciseOverride | null) {
+export const saveExerciseOverride = (id: string, patch: ExerciseOverride | null) =>
+  db.transaction('rw', db.kv, () => saveExerciseOverrideTx(id, patch))
+async function saveExerciseOverrideTx(id: string, patch: ExerciseOverride | null) {
   const all = await getKV<Record<string, ExerciseOverride>>(OVERRIDES_KEY, {})
   const merged = patch === null ? undefined : { ...all[id], ...patch }
   const next = { ...all }
@@ -223,7 +294,9 @@ export function useProgramNotes(): Record<string, string> {
   return useLiveQuery(() => getKV<Record<string, string>>(PROGRAM_NOTES_KEY, {}), [], {}) ?? {}
 }
 
-export async function saveProgramNote(programId: number | null | undefined, exerciseId: string, text: string) {
+export const saveProgramNote = (programId: number | null | undefined, exerciseId: string, text: string) =>
+  db.transaction('rw', db.kv, () => saveProgramNoteTx(programId, exerciseId, text))
+async function saveProgramNoteTx(programId: number | null | undefined, exerciseId: string, text: string) {
   const all = await getKV<Record<string, string>>(PROGRAM_NOTES_KEY, {})
   const key = programNoteKey(programId, exerciseId)
   const next = { ...all }
@@ -243,13 +316,16 @@ export async function activateProgram(id: number) {
 }
 
 export async function deleteProgram(id: number) {
-  await db.transaction('rw', db.programs, db.kv, async () => {
+  await db.transaction('rw', db.programs, db.sessions, db.kv, async () => {
     const program = await db.programs.get(id)
     await db.programs.delete(id)
     if (program?.active) {
       const next = await db.programs.orderBy('id').last()
-      if (next?.id !== undefined) await db.programs.update(next.id, { active: true })
-      await saveWeekState(emptyWeek())
+      if (next?.id !== undefined) {
+        await db.programs.update(next.id, { active: true })
+        const sessions = await db.sessions.toArray()
+        await saveWeekState(jumpToWeek(next, sessions, maxReachedWeek(next, sessions, 0)))
+      } else await saveWeekState(emptyWeek())
     }
   })
 }

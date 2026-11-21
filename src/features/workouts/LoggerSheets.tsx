@@ -3,11 +3,12 @@ import type { MuscleId } from '../../types'
 import { BottomSheet, Button, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { MuscleDetail } from '../../components/MuscleFigure'
+import { de } from '../../i18n/de'
 
 function MenuItem({ icon, label, onClick, danger }: { icon: IconName; label: string; onClick: () => void; danger?: boolean }) {
   return (
     <button onClick={onClick}
-      className={cx('w-full flex items-center gap-3 rounded-xl bg-surface2 px-4 py-3.5 text-left text-sm font-medium active:opacity-70', danger && 'text-red-500')}>
+      className={cx('w-full flex items-center gap-3 rounded-xl bg-surface2 px-4 py-3.5 text-left text-sm font-medium active:opacity-70', danger && 'text-danger')}>
       <Icon name={icon} size={20} />{label}
     </button>
   )
@@ -23,10 +24,10 @@ export function WorkoutMenuSheet({ open, onClose, paused, onPause, onMinimize, o
   return (
     <BottomSheet open={open} onClose={close} title="Workout">
       <div className="space-y-2">
-        <MenuItem icon={paused ? 'play' : 'pause'} label={paused ? 'Resume Workout' : 'Pause Workout'} onClick={() => { onPause(); close() }} />
-        <MenuItem icon="minimize" label="Minimize Workout" onClick={() => { close(); onMinimize() }} />
-        <MenuItem icon="flag" label="Finish Workout" onClick={() => { close(); onFinish() }} />
-        <MenuItem icon="trash" danger label={confirm ? 'Wirklich verwerfen? Nichts wird gespeichert' : 'Discard Workout'}
+        <MenuItem icon={paused ? 'play' : 'pause'} label={paused ? de.logger.resume : de.logger.pause} onClick={() => { onPause(); close() }} />
+        <MenuItem icon="minimize" label={de.logger.minimize} onClick={() => { close(); onMinimize() }} />
+        <MenuItem icon="flag" label={de.logger.finish} onClick={() => { close(); onFinish() }} />
+        <MenuItem icon="trash" danger label={confirm ? 'Wirklich verwerfen? Nichts wird gespeichert' : de.logger.discard}
           onClick={() => (confirm ? (close(), onDiscard()) : setConfirm(true))} />
       </div>
     </BottomSheet>
@@ -42,9 +43,9 @@ export function FinishChoiceSheet({ open, onClose, doneCount, openCount, onChoos
     <BottomSheet open={open} onClose={onClose} title="Workout beenden">
       <p className="text-sm text-muted mb-4">{doneCount} Sätze abgehakt, {openCount} offen. Was soll gespeichert werden?</p>
       <div className="space-y-2">
-        <Button className="w-full" onClick={() => onChoose('completed')}>Log only Completed Sets</Button>
-        <Button variant="ghost" className="w-full" disabled={openCount === 0} onClick={() => onChoose('all')}>Log All Sets</Button>
-        <p className="text-xs text-muted px-1">„All“ übernimmt auch nicht abgehakte Sätze mit den eingetragenen Werten.</p>
+        <Button className="w-full" onClick={() => onChoose('completed')}>{de.logger.logCompleted}</Button>
+        <Button variant="ghost" className="w-full" disabled={openCount === 0} onClick={() => onChoose('all')}>{de.logger.logAll}</Button>
+        <p className="text-xs text-muted px-1">{de.logger.logAllHint}</p>
         <Button variant="ghost" className="w-full" onClick={onClose}>Zurück zum Workout</Button>
       </div>
     </BottomSheet>
@@ -76,7 +77,7 @@ export function CompleteSheet({ open, onClose, primary, secondary, stats, onSave
   stats: { label: string; value: string }[]; onSave: () => void
 }): ReactNode {
   return (
-    <BottomSheet open={open} onClose={onClose} title="Complete Workout">
+    <BottomSheet open={open} onClose={onClose} title={de.logger.complete}>
       <div className="relative">
         {open && <Confetti />}
         <p className="text-sm text-muted text-center mb-3">Stark! Alle Übungen sind abgeschlossen.</p>

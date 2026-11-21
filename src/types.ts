@@ -27,6 +27,12 @@ export interface Exercise {
   compound: boolean
   cardio?: boolean
   custom?: boolean
+  /** Assistierte Übung: das Gewicht ist die Unterstützung (weniger = schwerer), kein 1RM/Volumen */
+  assisted?: boolean
+  /** Kurzhantel/Kettlebell: je Seite (zwei Geräte bzw. beide Seiten, Volumen ×2) oder ein einzelnes Gerät. Fehlt bei anderem Equipment. */
+  load?: 'single' | 'perSide'
+  /** Messgröße: Wiederholungen (Default) oder Zeit in Sekunden (Halten/Tragen). Zeitübungen: Progression +5 s, kein 1RM/Volumen. */
+  metric?: 'reps' | 'time'
 }
 
 export type Goal = 'hypertrophy' | 'strength' | 'both'
@@ -48,6 +54,8 @@ export interface ProgramConfig {
   experience: Experience
   /** Verfügbares Equipment; undefined = alles */
   equipment?: Equipment[]
+  /** Ausdrücklich gewählte Übungen (IDs); nur so plant der Generator zeitbasierte Übungen ein */
+  includeExercises?: string[]
   name: string
   icon: string
   color: string

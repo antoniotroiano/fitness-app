@@ -1,6 +1,6 @@
 import type { Settings } from '../types'
 
-const KG_PER_LB = 0.45359237
+export const KG_PER_LB = 0.45359237
 const round = (v: number, d = 1) => Math.round(v * 10 ** d) / 10 ** d
 
 export const kgToDisplay = (kg: number, unit: Settings['weightUnit']) => round(unit === 'lb' ? kg / KG_PER_LB : kg)

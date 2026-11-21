@@ -3,6 +3,7 @@ import type { Exercise, WarmupOverrideMode, WarmupStep } from '../../types'
 import { BottomSheet, Button, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { formatRest } from '../../engine/rest'
+import { de } from '../../i18n/de'
 
 export const NOTE_MAX = 300
 
@@ -29,13 +30,13 @@ export function SchemeTable({ steps, onChange, editable, weights }: {
   return (
     <div className={cx(!editable && 'opacity-60')}>
       <div className="grid grid-cols-[2rem_1fr_1fr_3.5rem] gap-2 text-xs text-muted pb-2 border-b border-line">
-        <span>Set</span><span className="text-center">% Arbeitsgewicht</span><span className="text-center">Wdh.</span>
+        <span>{de.logger.set}</span><span className="text-center">% Arbeitsgewicht</span><span className="text-center">Wdh.</span>
         <span className="text-right">{weights ? 'Gewicht' : ''}</span>
       </div>
       {steps.length === 0 && <p className="py-4 text-sm text-muted text-center">Keine Aufwärmsätze</p>}
       {steps.map((s, i) => (
         <div key={i} className="grid grid-cols-[2rem_1fr_1fr_3.5rem] gap-2 items-center py-1.5 border-b border-line/60">
-          <span className="text-sm font-semibold text-amber-500">W{i + 1}</span>
+          <span className="text-sm font-semibold text-warn">W{i + 1}</span>
           {editable ? (
             <>
               <Stepper label="Prozent" value={s.pct} min={10} max={95} step={5} suffix="%" onChange={(v) => set(i, { pct: v })} />
@@ -80,24 +81,24 @@ export function SchemeEditor({ open, onClose, title, steps, onSave, onReset, res
 }
 
 export const AUTOMATION_OPTIONS: { value: WarmupOverrideMode; label: string; icon: IconName; desc: string }[] = [
-  { value: 'default', label: 'Default', icon: 'sliders', desc: 'Warm-Up Automation folgt der App-Einstellung (More › Workouts › Aufwärmen).' },
-  { value: 'smart', label: 'Smart Warm-Up', icon: 'sparkles', desc: 'Warm-ups werden automatisch passend zur Frische der Muskeln und zur Schwere des Gewichts hinzugefügt.' },
-  { value: 'scheme', label: 'Scheme Warm-Up', icon: 'blocks', desc: 'Warm-ups folgen einem festen Schema aus Prozent und Wiederholungen (Standard der Kategorie oder eigener Override).' },
-  { value: 'none', label: 'None', icon: 'ban', desc: 'Warm-ups werden nicht automatisch zu deinem Workout hinzugefügt.' },
+  { value: 'default', label: de.warmup.optDefault, icon: 'sliders', desc: de.warmup.descDefault },
+  { value: 'smart', label: de.warmup.optSmart, icon: 'sparkles', desc: de.warmup.descSmart },
+  { value: 'scheme', label: de.warmup.optScheme, icon: 'blocks', desc: de.warmup.descScheme },
+  { value: 'none', label: de.warmup.optNone, icon: 'ban', desc: de.warmup.descNone },
 ]
 
 export const automationLabel = (m: WarmupOverrideMode | undefined) =>
-  AUTOMATION_OPTIONS.find((o) => o.value === (m ?? 'default'))?.label ?? 'Default'
+  AUTOMATION_OPTIONS.find((o) => o.value === (m ?? 'default'))?.label ?? de.warmup.optDefault
 
-/** Auswahl der Warm-Up Automation. `appLevel`: ohne "Default" (App-weite Einstellung). */
+/** Auswahl der Aufwärm-Automatik. `appLevel`: ohne "Default" (App-weite Einstellung). */
 export function AutomationSheet({ open, onClose, value, onPick, appLevel }: {
   open: boolean; onClose: () => void; value: WarmupOverrideMode | undefined; onPick: (m: WarmupOverrideMode) => void; appLevel?: boolean
 }) {
   const cur = value ?? 'default'
   const options = appLevel ? AUTOMATION_OPTIONS.filter((o) => o.value !== 'default') : AUTOMATION_OPTIONS
   return (
-    <BottomSheet open={open} onClose={onClose} title="Warm-Up Automation">
-      <ul className="space-y-2" role="radiogroup" aria-label="Warm-Up Automation">
+    <BottomSheet open={open} onClose={onClose} title={de.warmup.automation}>
+      <ul className="space-y-2" role="radiogroup" aria-label={de.warmup.automation}>
         {options.map((o) => (
           <li key={o.value}>
             <button role="radio" aria-checked={cur === o.value} onClick={() => { onPick(o.value); onClose() }}
@@ -122,8 +123,8 @@ export function RestOverrideSheet({ open, onClose, defaultSec, override, onSave 
   useEffect(() => { if (open) setV(override ?? defaultSec) }, [open, override, defaultSec])
   const btn = 'w-11 h-11 rounded-xl bg-surface2 border border-line text-xl'
   return (
-    <BottomSheet open={open} onClose={onClose} title="Rest Timer">
-      <p className="text-xs text-muted mb-4">Pause nach Arbeitssätzen dieser Übung. Default ihrer Gruppe: {formatRest(defaultSec)}.</p>
+    <BottomSheet open={open} onClose={onClose} title={de.warmup.restTimer}>
+      <p className="text-xs text-muted mb-4">Pause nach Arbeitssätzen dieser Übung. Standard ihrer Gruppe: {formatRest(defaultSec)}.</p>
       <div className="flex items-center justify-center gap-5 mb-5">
         <button className={btn} aria-label="Kürzer" onClick={() => setV(Math.max(15, v - 15))}>−</button>
         <span className="w-24 text-center text-2xl font-bold tabular-nums">{formatRest(v)}</span>
@@ -142,7 +143,7 @@ export const schemeSummary = (steps: WarmupStep[]) =>
 
 /**
  * Listenzeile mit Icon, Titel, Sub Header und optional Hinweistext. Mit `action` ist nur der
- * Knopf (z. B. "Edit") bedienbar, sonst die ganze Zeile.
+ * Knopf (z. B. "Ändern") bedienbar, sonst die ganze Zeile.
  */
 export function ListRow({ icon, label, value, hint, onClick, action }: {
   icon?: IconName; label: string; value?: string; hint?: string; onClick?: () => void; action?: string
@@ -172,10 +173,10 @@ export function ListRow({ icon, label, value, hint, onClick, action }: {
 }
 
 export type NoteScope = 'session' | 'exercise' | 'program'
-const SCOPE_LABEL: Record<NoteScope, string> = { session: 'Session', exercise: 'Exercise', program: 'Programm' }
+const SCOPE_LABEL: Record<NoteScope, string> = { session: de.notes.session, exercise: de.notes.exercise, program: de.notes.program }
 export const scopeLabel = (s: NoteScope) => SCOPE_LABEL[s]
 
-/** Notiz-Sheet mit Geltungsbereich (Session, Exercise, Programm) und 300-Zeichen-Zähler. */
+/** Notiz-Sheet mit Geltungsbereich (Einheit, Übung, Programm) und 300-Zeichen-Zähler. */
 export function NoteSheet({ open, onClose, ex, scopes, initialScope, values, onSave }: {
   open: boolean; onClose: () => void; ex: Exercise | null
   scopes: NoteScope[]; initialScope: NoteScope; values: Partial<Record<NoteScope, string>>

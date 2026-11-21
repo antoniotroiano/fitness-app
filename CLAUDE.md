@@ -1,6 +1,6 @@
 # Lift Lab
 
-Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. **Ausnahme (bewusste Entscheidung):** Übungsbilder und ausgewählte Texte aus `free-exercise-db-with-videos` (MIT), siehe `THIRD_PARTY.md`, `docs/PLAN-3.md`. Ausführliche Planung: `docs/PLAN-1.md` (Grundplan) und `docs/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard).
+Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. **Ausnahme (bewusste Entscheidung):** Übungsbilder und ausgewählte Texte aus `free-exercise-db-with-videos` (MIT), siehe `THIRD_PARTY.md`, `docs/PLAN-3.md`. Ausführliche Planung: `docs/PLAN-1.md` (Grundplan) und `docs/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard), `docs/PLAN-5.md` (geplant: Gerätegewichte, Wizard-Überarbeitung).
 
 ## Befehle
 ```bash
@@ -12,7 +12,7 @@ npm run build      # tsc -b + Vite-Build + PWA
 Vor jedem Abschluss: `npm run typecheck && npm test && npm run build`.
 
 ## Stack
-Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Parameter-Properties), Tailwind CSS v4, Dexie (IndexedDB), react-router-dom (HashRouter), Recharts, vite-plugin-pwa, Vitest.
+Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Parameter-Properties), Tailwind CSS v4, Dexie (IndexedDB), react-router-dom (HashRouter), eigene SVG-Diagramme (kein Chart-Paket), vite-plugin-pwa, Vitest.
 
 ## Struktur (`src/`)
 - `types.ts`: alle Domänentypen (Program, Session, ProgramConfig, Settings …)
@@ -24,7 +24,7 @@ Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Paramete
 - `db/db.ts`: Dexie-Schema, Hooks (`useSessions` …), Backup Export/Import, Gewichts-Import (Apple-Health-XML/CSV)
 - `features/`: `wizard`, `workouts` (Wochenplan, Vorschau, Logger mit Timer/Satztabelle/Numpad/Info-Sheet), `dashboard`, `stats`, `body` (Gewicht, Maße), `more`
 - `data/media/`: `map.json` (App-ID → Repo-Slug), `manifest.json` (vorhandene Poster, erzeugt von `scripts/build-media.mjs`), `index.ts` (`posterUrl`). Bilder in `public/exercise-media/poster/`. Videos: nur Idee, `docs/IDEAS-VIDEOS.md`.
-- `data/instructions.ts` (+ `data/instr/*`): eigene Anleitungen pro Übungs-ID. `components/MuscleFigure.tsx`: eigene SVG-Muskelfigur (kein Fremd-Asset).
+- `data/instructions.ts` (+ `data/instr/*`): eigene Anleitungen pro Übungs-ID (Info-Sheet lädt sie per dynamischem Import; Seiten in `App.tsx` per `React.lazy`). `components/MuscleFigure.tsx`: eigene SVG-Muskelfigur (kein Fremd-Asset).
 - `components/ui.tsx`: gemeinsame UI-Bausteine; `utils/`: Datum und Einheiten
 
 ## Konventionen und Invarianten
@@ -32,8 +32,13 @@ Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Paramete
 - Datumsangaben sind lokale Strings `yyyy-mm-dd` (`utils/dates.ts`), keine UTC-ISO-Strings.
 - Neue Logik gehört in `engine/` (rein, mit Test in `engine.test.ts`), nicht in Komponenten.
 - Muskel-Sets/Volumen: primäre Muskeln voll, sekundäre mit `SECONDARY_WEIGHT` (0,5). Cardio zählt nie mit.
-- **Kurzhantel-Übungen** (`isPerSide`, `engine/stats.ts`): Gewicht/Wdh. werden je Seite gespeichert, Volumen zählt × 2 (`volumeFactor`); 1RM/Heaviest bleiben je Hantel. Ausnahme: `db-pullover`.
+- **Je Seite** (`isPerSide`, `engine/stats.ts`): liest `Exercise.load` (`'single' | 'perSide'`, bei jeder Kurzhantel-/Kettlebell-Übung explizit in `data/exercises.ts`). Gewicht/Wdh. werden je Seite gespeichert, Volumen zählt × 2 (`volumeFactor`); 1RM/Heaviest bleiben je Gerät. Ohne Feld (eigene Übungen) gilt Kurzhantel = je Seite.
+- **Generator**: Zeitbudget (`SESSION_SET_CAP`) gilt für die Spitzenwoche (`PEAK_SETS_FACTOR`). Zeitbasierte Übungen (`TIME_BASED`) nur über `config.includeExercises`, Band nur bei gewähltem Band-Equipment.
 - **Warm-up**: `engine/warmup.ts`. Modus Smart (Schwere + Frische des Muskels), Scheme (5 Kategorie-Schemata in `Settings.warmupSchemes`) oder aus; pro Übung überschreibbar über `kv['exerciseOverrides']` (`warmupMode`, `warmupScheme`, `note`). Programm-Notizen in `kv['programNotes']`, Session-Notizen in `Session.notes`.
+- **Körpergewicht/Assistiert**: Sätze mit `weight 0` zählen für Sätze/Wdh. (`stats.ts` `work()`), nicht für 1RM/Volumen (`loaded()`); Progression dort rein über Wiederholungen. `Exercise.assisted` (Gewicht = Unterstützung): Progression senkt das Gewicht, keine 1RM-/Volumenwerte.
+- **e1RM**: `progression.ts` `e1rm`/`weightForReps` (Epley, ab 12 effektiven Wdh. gedämpft, 1 Wdh. = Gewicht). Fehlendes RIR überall `FALLBACK_RIR` (2). Plateau-Erkennung nutzt `sessionPerformance` (ohne RIR-Korrektur), sonst wertet ein exakt befolgter Plan als Stillstand.
+- **Zeitübungen**: `Exercise.metric === 'time'` (`TIME_BASED`): `reps` sind Sekunden, Range `TIME_RANGE`, Progression +`TIME_STEP` s, kein Aufwärmen, kein 1RM/Volumen (`noLoadStats` in `stats.ts`, gilt auch für assistiert).
+- **Plateau**: `isStalled` startet nach einem e1RM-Abfall (> 2 %) neu, Deload-Einheiten sind ausgeschlossen (`deloadSessionOf`). RIR-Anpassung im Logger (`adaptNextWeight`) vergleicht den Satz mit seinem Plan (`Row.planKg/planReps/planRir`).
 - **Mehrere Programme**: `activateProgram` rekonstruiert den Wochenstand aus den Sessions. Der Wochenkalender zeigt nur Tage mit geloggten Workouts.
 - **Aufwärmsätze** (`LoggedSet.warmup`) zählen nie in Volumen, Sets, e1RM, Progression oder Wochenfortschritt (Filter in `stats.ts` `work()`, `suggestNext`, `sessionE1rm`, `weekProgress`). Sie werden zur Laufzeit aus dem Arbeitsgewicht berechnet, nicht im Plan gespeichert.
 - Das laufende Workout liegt in `kv['activeWorkout']` (Reload-fest, nicht im Backup). Timer ist zeitstempelbasiert (`workoutClock.ts`).

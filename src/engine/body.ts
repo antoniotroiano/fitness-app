@@ -6,16 +6,16 @@ export type RatioId = 'waistHip' | 'waistChest' | 'waistShoulders' | 'bicepsSym'
 export type BodyKey = 'weight' | 'bodyFat' | MeasureSite | RatioId
 
 export const MEASURE_GROUPS: { id: 'upper' | 'arms' | 'legs'; title: string; items: { id: MeasureSite; label: string }[] }[] = [
-  { id: 'upper', title: 'Upper Body', items: [
-    { id: 'neck', label: 'Hals' }, { id: 'shoulders', label: 'Schultern' }, { id: 'bust', label: 'Bust' },
+  { id: 'upper', title: 'Oberkörper', items: [
+    { id: 'neck', label: 'Hals' }, { id: 'shoulders', label: 'Schultern' }, { id: 'bust', label: 'Brustumfang' },
     { id: 'chest', label: 'Brust' }, { id: 'waist', label: 'Taille' },
   ] },
-  { id: 'arms', title: 'Arms', items: [
+  { id: 'arms', title: 'Arme', items: [
     { id: 'bicepsL', label: 'Bizeps links' }, { id: 'bicepsR', label: 'Bizeps rechts' },
     { id: 'forearmL', label: 'Unterarm links' }, { id: 'forearmR', label: 'Unterarm rechts' },
     { id: 'wristL', label: 'Handgelenk links' }, { id: 'wristR', label: 'Handgelenk rechts' },
   ] },
-  { id: 'legs', title: 'Legs', items: [
+  { id: 'legs', title: 'Beine', items: [
     { id: 'hips', label: 'Hüfte' },
     { id: 'thighL', label: 'Oberschenkel links' }, { id: 'thighR', label: 'Oberschenkel rechts' },
     { id: 'calfL', label: 'Wade links' }, { id: 'calfR', label: 'Wade rechts' },
@@ -37,8 +37,8 @@ export function isRatio(key: string): key is RatioId {
 }
 
 export function bodyLabel(key: BodyKey): string {
-  if (key === 'weight') return 'Scale weight'
-  if (key === 'bodyFat') return 'Body fat'
+  if (key === 'weight') return 'Körpergewicht'
+  if (key === 'bodyFat') return 'Körperfett'
   const r = RATIOS.find((x) => x.id === key)
   if (r) return r.label
   return MEASURE_GROUPS.flatMap((g) => g.items).find((i) => i.id === key)?.label ?? key

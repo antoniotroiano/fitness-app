@@ -18,7 +18,7 @@ export function WorkoutHeader({ clock, onBack, onMenu }: { clock: ClockState; on
       <button onClick={onBack} aria-label="Zurück" className="text-2xl text-muted w-9 text-left">‹</button>
       <div className="text-center">
         <div role="timer" aria-label="Workout-Dauer" className="text-base font-semibold tabular-nums leading-none">{formatClock(sec)}</div>
-        {paused && <div className="text-[10px] text-amber-500 mt-0.5">Pausiert</div>}
+        {paused && <div className="text-[11px] text-warn mt-0.5">Pausiert</div>}
       </div>
       <button onClick={onMenu} aria-label="Workout-Menü" aria-haspopup="dialog"
         className="w-9 h-9 rounded-full bg-surface2 flex items-center justify-center text-fg active:opacity-70"><Icon name="menu" size={20} /></button>

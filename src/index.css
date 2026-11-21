@@ -11,18 +11,21 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 :root {
   --bg: #f5f6f8; --surface: #ffffff; --surface2: #eceef2; --line: #dfe2e8;
-  --fg: #0f172a; --muted: #64748b; --accent: #111111; --accent-fg: #ffffff;
+  --fg: #0f172a; --muted: #586579; /* >= 4,5:1 auf bg, surface und surface2 */ --accent: #111111; --accent-fg: #ffffff;
   --chart-line: #0d9488; --chart-bar: #64748b; --muscle: #0d9488;
 }
 .dark {
-  --bg: #0b1020; --surface: #141b2e; --surface2: #1c2540; --line: #27304d;
-  --fg: #e8ecf5; --muted: #8a94ad; --accent: #f5f5f5; --accent-fg: #0b1020;
-  --chart-line: #2dd4bf; --chart-bar: #8da2b8; --muscle: #2dd4bf;
+  --bg: #0e0f11; --surface: #17181b; --surface2: #212226; --line: #2f3035;
+  --fg: #ececee; --muted: #9a9ca3; --accent: #f5f5f5; --accent-fg: #0e0f11;
+  --chart-line: #2dd4bf; --chart-bar: #9aa3ad; --muscle: #2dd4bf;
 }
 
 html, body, #root { height: 100%; }
@@ -44,9 +47,13 @@ body::before {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
 
-/* RIR-Farben: 0-1 rot, 2-3 gelb, 4-5 grün, 6+ blau */
-:root { --rir-red: #dc2626; --rir-yellow: #ca8a04; --rir-green: #16a34a; --rir-blue: #2563eb; }
-.dark { --rir-red: #f87171; --rir-yellow: #facc15; --rir-green: #4ade80; --rir-blue: #60a5fa; }
+/* RIR-Farben: rot nur für RIR 0, sonst neutral (geplanter RIR 1-2 ist gewollt, kein Fehler) */
+:root { --rir-red: #b91c1c; --rir-neutral: #475569; }
+.dark { --rir-red: #f87171; --rir-neutral: #cbd5e1; }
+
+/* Status-Farben (Kontrast >= 4,5:1 auf surface/surface2) */
+:root { --warn: #a14a0a; --danger: #b91c1c; --danger-fg: #ffffff; }
+.dark { --warn: #fbbf24; --danger: #f87171; --danger-fg: #0e0f11; }
 
 /* Dashboard: Ringe und Gewohnheiten */
 :root { --ring-sets: #14b8a6; --ring-muscles: #8b5cf6; --ring-ex: #ec4899; --habit-weight: #22c55e; --habit-workout: #f97316; }
