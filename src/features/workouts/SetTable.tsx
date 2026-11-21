@@ -13,22 +13,24 @@ import { SET_BADGE } from './SetTypeSheet'
 import { de } from '../../i18n/de'
 
 export type PadField = 'weight' | 'reps'
+/** Seite eines links/rechts getrennten Satzes (Felder der rechten Seite: `Row.right`) */
+export type Side = 'l' | 'r'
 
 interface Props {
   view: PlannedView
   rows: Row[]
   settings: Settings
-  activePad: { rowId: string; field: PadField } | null
+  activePad: { rowId: string; field: PadField; side?: Side } | null
   onPatch: (rowId: string, p: Partial<Row>) => void
-  onToggleDone: (row: Row) => void
+  onToggleDone: (row: Row, side?: Side) => void
   onToggleAll: () => void
   onAdd: () => void
   onDelete: (rowId: string) => void
   onType: (rowId: string) => void
-  onPad: (rowId: string, field: PadField) => void
+  onPad: (rowId: string, field: PadField, side?: Side) => void
 }
 
-function previousText(s: LoggedSet | undefined, cardio: boolean, settings: Settings): string {
+function previousText(s: Pick<LoggedSet, 'weight' | 'reps' | 'partial' | 'minutes' | 'km'> | undefined, cardio: boolean, settings: Settings): string {
   if (!s) return '–'
   if (cardio) return `${s.minutes ?? 0} min${s.km ? ` · ${kmToDisplay(s.km, settings.distanceUnit)} ${settings.distanceUnit}` : ''}`
   return `${kgToDisplay(s.weight, settings.weightUnit)} ${settings.weightUnit} × ${s.reps}${s.partial ? ` +${s.partial}T` : ''}`
@@ -90,19 +92,30 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
         }
         const prev = warm ? view.previous.warmups[warmIdx] : seg ? undefined : view.previous.work[workIdx]
         const badge = warm ? SET_BADGE.warmup : seg ? SET_BADGE[r.type as 'drop' | 'myo'] : r.failure ? SET_BADGE.failure : workIdx + 1
-        const partial = Number(r.partial) || 0
-        const rirN = r.rir === '' ? null : Number(r.rir)
-        const padOn = (f: PadField) => activePad?.rowId === r.id && activePad.field === f
-        return (
-          <SwipeRow key={r.id} onDelete={() => onDelete(r.id)}>
-            <div data-row-id={r.id} className={cx('grid gap-1.5 px-1 py-1 items-center border-b border-line/60 transition-colors', COLS, r.done && 'bg-surface2/60')}>
-              <button onClick={() => onType(r.id)} aria-label={seg ? `${r.type === 'drop' ? 'Drop' : 'Myo'}-Segment, Optionen` : 'Satztyp ändern'}
-                className={cx('justify-self-center rounded-full text-xs font-semibold flex items-center justify-center active:opacity-70',
-                  seg ? 'w-6 h-6 ml-2 bg-accent/15 text-accent' : 'w-7 h-7',
-                  warm ? 'bg-warn/15 text-warn' : seg ? '' : r.failure ? 'bg-danger/15 text-danger' : 'bg-surface2 text-fg', r.done && 'opacity-40')}>
-                {badge}
-              </button>
-              <span className={cx('text-xs text-muted text-center truncate', r.done && 'opacity-50')}>{seg ? (r.type === 'drop' ? '↳ Drop' : '↳ Myo') : previousText(prev, cardio, settings)}</span>
+        /** Eine Zeile: ganzer Satz oder eine Seite (`side`) eines links/rechts getrennten Satzes */
+        const line = (side?: Side) => {
+          const v = side === 'r' && r.right ? r.right : r
+          const done = side === 'l' ? !!r.leftDone : side === 'r' ? !!r.right?.done : r.done
+          const partial = Number(v.partial) || 0
+          const rirN = v.rir === '' ? null : Number(v.rir)
+          const padOn = (f: PadField) => activePad?.rowId === r.id && activePad.field === f && (activePad.side === 'r') === (side === 'r')
+          const prevSide = side && prev?.sides ? prev.sides[side] : prev
+          const sideLabel = side === 'l' ? 'Links' : side === 'r' ? 'Rechts' : ''
+          return (
+            <div data-row-id={side === 'r' ? `${r.id}-r` : r.id} className={cx('grid gap-1.5 px-1 py-1 items-center transition-colors', COLS,
+              side === 'l' ? 'border-b border-line/30' : 'border-b border-line/60', done && 'bg-surface2/60')}>
+              {side === 'r' ? <span aria-hidden /> : (
+                <button onClick={() => onType(r.id)} aria-label={seg ? `${r.type === 'drop' ? 'Drop' : 'Myo'}-Segment, Optionen` : 'Satztyp ändern'}
+                  className={cx('justify-self-center rounded-full text-xs font-semibold flex items-center justify-center active:opacity-70',
+                    seg ? 'w-6 h-6 ml-2 bg-accent/15 text-accent' : 'w-7 h-7',
+                    warm ? 'bg-warn/15 text-warn' : seg ? '' : r.failure ? 'bg-danger/15 text-danger' : 'bg-surface2 text-fg', r.done && 'opacity-40')}>
+                  {badge}
+                </button>
+              )}
+              <span className={cx('text-xs text-muted text-center truncate', done && 'opacity-50')}>
+                {side && <span className="font-semibold text-fg mr-1">{side === 'l' ? 'L' : 'R'}</span>}
+                {seg ? (r.type === 'drop' ? '↳ Drop' : '↳ Myo') : previousText(prevSide, cardio, settings)}
+              </span>
               {cardio ? (
                 <>
                   <input inputMode="decimal" className={cx(cell, 'w-full outline-none', r.done && 'opacity-40')} value={r.minutes}
@@ -112,10 +125,12 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
                 </>
               ) : (
                 <>
-                  <button onClick={() => onPad(r.id, 'weight')} className={cx(cell, r.done && 'opacity-40', padOn('weight') && 'ring-2 ring-accent !opacity-100')}>{r.weight || '–'}</button>
-                  <button onClick={() => onPad(r.id, 'reps')} aria-label={rirN !== null && !warm ? `${r.reps || '–'}${r.failure ? ' oder mehr, bis zum Versagen' : ''}, Ziel-RIR ${rirN}` : undefined}
-                    className={cx(cell, 'relative', r.done && 'opacity-40', padOn('reps') && 'ring-2 ring-accent !opacity-100')}>
-                    {r.reps || '–'}{r.failure && !warm && r.reps ? '+' : ''}
+                  <button onClick={() => onPad(r.id, 'weight', side === 'r' ? 'r' : undefined)} aria-label={sideLabel ? `Gewicht ${sideLabel}` : undefined}
+                    className={cx(cell, done && 'opacity-40', padOn('weight') && 'ring-2 ring-accent !opacity-100')}>{v.weight || '–'}</button>
+                  <button onClick={() => onPad(r.id, 'reps', side === 'r' ? 'r' : undefined)}
+                    aria-label={rirN !== null && !warm ? `${sideLabel ? `${sideLabel}: ` : ''}${v.reps || '–'}${r.failure ? ' oder mehr, bis zum Versagen' : ''}, Ziel-RIR ${rirN}` : sideLabel ? `Wiederholungen ${sideLabel}` : undefined}
+                    className={cx(cell, 'relative', done && 'opacity-40', padOn('reps') && 'ring-2 ring-accent !opacity-100')}>
+                    {v.reps || '–'}{r.failure && !warm && v.reps ? '+' : ''}
                     {partial > 0 && <span className="absolute bottom-0.5 left-1.5 text-[10px] font-semibold leading-none text-muted" aria-label={`plus ${partial} Teilwiederholungen`}>+{partial}T</span>}
                     {rirN !== null && !warm && (
                       <span className="absolute bottom-0.5 right-1.5 text-[10px] font-bold leading-none" style={{ color: rirColor(rirN) }}>{rirN}</span>
@@ -123,11 +138,17 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
                   </button>
                 </>
               )}
-              <button role="checkbox" aria-checked={r.done} aria-label="Satz abhaken" onClick={() => { if (warm && !r.done) setOpenFor(null); onToggleDone(r) }}
+              <button role="checkbox" aria-checked={done} aria-label={sideLabel ? `Seite ${sideLabel} abhaken` : 'Satz abhaken'}
+                onClick={() => { if (warm && !r.done) setOpenFor(null); onToggleDone(r, side) }}
                 className="h-9 flex items-center justify-center active:opacity-70">
-                <Check state={r.done} />
+                <Check state={done} />
               </button>
             </div>
+          )
+        }
+        return (
+          <SwipeRow key={r.id} onDelete={() => onDelete(r.id)}>
+            {r.right ? <div>{line('l')}{line('r')}</div> : line()}
           </SwipeRow>
         )
       })}

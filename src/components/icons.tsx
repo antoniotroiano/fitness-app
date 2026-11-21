@@ -58,6 +58,7 @@ const PATHS = {
   kettlebell: <><path d="M9 9V7a3 3 0 0 1 6 0v2" /><circle cx="12" cy="15" r="6" /></>,
   band: <><path d="M5 8a4 4 0 0 1 8 0v8a4 4 0 0 0 8 0" /></>,
   pushup: <><circle cx="6" cy="9" r="1.8" /><path d="M8 11l11 4M8 11l-2 6M19 15v4M4 19h16" /></>,
+  sides: <><path d="M12 4v16" /><path d="m8 8-4 4 4 4M16 8l4 4-4 4" /></>,
   phone: <><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></>,
 } satisfies Record<string, ReactNode>
 

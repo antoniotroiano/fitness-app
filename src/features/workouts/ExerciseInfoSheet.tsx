@@ -7,7 +7,7 @@ import { ExerciseHero } from '../../components/ExerciseMedia'
 import type { MediaTips } from '../../data/media/types'
 import { EQUIPMENT_LABEL } from '../../data/exercises'
 import { muscleLabel } from '../../data/muscles'
-import { usePrograms, useSessions, useSettings } from '../../db/db'
+import { saveExerciseOverride, useExerciseOverrides, usePrograms, useSessions, useSettings } from '../../db/db'
 import { formatDate } from '../../utils/dates'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
 import { de } from '../../i18n/de'
@@ -137,9 +137,27 @@ function InfoSheet({ ex, open, onClose, tab, setTab }: { ex: Exercise; open: boo
             <div className="flex gap-2"><dt className="text-muted w-24">Sekundär</dt><dd>{ex.secondary.map(muscleLabel).join(', ') || '–'}</dd></div>
             <div className="flex gap-2"><dt className="text-muted w-24">Equipment</dt><dd>{EQUIPMENT_LABEL[ex.equipment]}</dd></div>
           </dl>
+          <NeverRecommend id={ex.id} />
         </div>
       )}
       {tab === 'history' && <History ex={ex} />}
     </BottomSheet>
+  )
+}
+
+/** Schalter „Nie empfehlen“: Generator und Tauschvorschläge lassen die Übung weg */
+function NeverRecommend({ id }: { id: string }) {
+  const on = !!useExerciseOverrides()[id]?.neverRecommend
+  return (
+    <label className="flex items-center gap-3 border-t border-line pt-4">
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium">Nie empfehlen</span>
+        <span className="block text-xs text-muted">Neue Pläne und Tauschvorschläge lassen die Übung weg. Bestehende Pläne bleiben, von Hand kannst du sie weiter wählen.</span>
+      </span>
+      <button role="switch" aria-checked={on} aria-label="Nie empfehlen" onClick={() => void saveExerciseOverride(id, { neverRecommend: on ? undefined : true })}
+        className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', on ? 'bg-accent' : 'bg-line')}>
+        <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', on ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
+      </button>
+    </label>
   )
 }

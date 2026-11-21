@@ -330,6 +330,15 @@ const LOAD_SINGLE = new Set([
 ])
 const LOAD_PER_SIDE = new Set(['kb-floor-press', 'kb-ohp', 'kb-row', 'kb-curl', 'kb-windmill', 'suitcase-carry'])
 
+/** Einseitige Übungen (eine Seite nach der anderen): links/rechts standardmäßig getrennt erfassen. Wechselnde Ausfallschritte nicht. */
+export const UNILATERAL = new Set([
+  'db-row', 'single-arm-cable-row', 'single-arm-pulldown', 'concentration-curl', 'cable-one-arm-curl', 'single-arm-pushdown',
+  'cable-kickback-tri', 'dumbbell-one-arm-triceps-extension', 'dumbbell-one-arm-lateral-raise', 'cable-one-arm-lateral-raise',
+  'bulgarian', 'smith-split-squat', 'step-up', 'single-leg-rdl', 'dumbbell-single-leg-squat', 'db-calf-raise',
+  'dumbbell-single-leg-calf-raise', 'cable-kickback', 'machine-glute-kickback', 'side-plank', 'copenhagen-plank',
+  'suitcase-carry', 'kb-windmill',
+])
+
 const loadOf = (id: string, equipment: Equipment): Exercise['load'] => {
   if (equipment === 'dumbbell') return LOAD_SINGLE.has(id) ? 'single' : 'perSide'
   if (equipment === 'kettlebell') return LOAD_PER_SIDE.has(id) ? 'perSide' : 'single'
@@ -338,7 +347,7 @@ const loadOf = (id: string, equipment: Equipment): Exercise['load'] => {
 
 export const EXERCISES: Exercise[] = rows.map(([id, name, primary, secondary, equipment, pattern, compound]) => {
   const load = loadOf(id, equipment)
-  return { id, name, primary, secondary, equipment, pattern, compound, ...(ASSISTED.has(id) ? { assisted: true } : {}), ...(load ? { load } : {}), ...(TIME_BASED.has(id) ? { metric: 'time' as const } : {}), ...(BODYWEIGHT_SHARE[id] ? { bodyweight: BODYWEIGHT_SHARE[id] } : {}) }
+  return { id, name, primary, secondary, equipment, pattern, compound, ...(ASSISTED.has(id) ? { assisted: true } : {}), ...(load ? { load } : {}), ...(TIME_BASED.has(id) ? { metric: 'time' as const } : {}), ...(BODYWEIGHT_SHARE[id] ? { bodyweight: BODYWEIGHT_SHARE[id] } : {}), ...(UNILATERAL.has(id) ? { unilateral: true } : {}) }
 })
 
 const cardio = (id: string, name: string): Exercise => ({

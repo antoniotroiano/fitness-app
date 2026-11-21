@@ -7,13 +7,13 @@ import { Icon } from '../../components/icons'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { rirColor } from '../../components/rir'
 import { progressionNote } from './progressionNote'
-import { db, useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useWeights } from '../../db/db'
+import { db, saveWeekState, useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useWeights } from '../../db/db'
 import { muscleLabel } from '../../data/muscles'
 import { exerciseTargets, neutralWeek, plannedSets, setWeekTarget, weekPlan } from '../../engine/periodization'
 import { WeekTargetSheet } from './WeekTargetSheet'
 import { weekLabel } from '../../engine/weekCycle'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
-import { historyUpTo, maxReachedWeek } from '../../engine/weekCycle'
+import { historyUpTo, isSlotSkipped, maxReachedWeek, skipSlot, unmarkSlot } from '../../engine/weekCycle'
 import { targetMuscles } from '../../engine/targetMuscles'
 import { de } from '../../i18n/de'
 
@@ -30,6 +30,11 @@ export default function WorkoutPreview() {
   const running = useActiveWorkoutParam()
   const overrides = useExerciseOverrides()
   const [focus, setFocus] = useState<string | null>(null)
+  // Überspringen: nur Slots des aktiven Programms, offen und ohne laufendes Workout
+  const slotOf = /^(?:p\d+-)?s(\d+)$/.exec(param)
+  const ownSlot = !!program?.active && slotOf ? Number(slotOf[1]) : null
+  const skipped = ownSlot !== null && isSlotSkipped(week, ownSlot)
+  const canSkip = ownSlot !== null && !week.done[ownSlot] && running !== param
   /** Index der Übung im Trainingstag, deren Wochenziele bearbeitet werden */
   const [editIdx, setEditIdx] = useState<number | null>(null)
 
@@ -140,10 +145,21 @@ export default function WorkoutPreview() {
         onSave={saveWeek} />
 
       <BottomBar>
-          <Button className="w-full" onClick={() => nav(`/workout/${param}`)}>
-            {running === param ? 'Workout fortsetzen' : 'Workout starten'}
-          </Button>
-        </BottomBar>
+        <div className="flex gap-2">
+          {canSkip && (
+            <Button variant="ghost" className="shrink-0" onClick={async () => { await saveWeekState(skipSlot(week, ownSlot!)); nav('/workouts') }}>
+              Überspringen
+            </Button>
+          )}
+          {skipped ? (
+            <Button variant="ghost" className="w-full" onClick={() => saveWeekState(unmarkSlot(week, ownSlot!))}>Nicht mehr überspringen</Button>
+          ) : (
+            <Button className="w-full" onClick={() => nav(`/workout/${param}`)}>
+              {running === param ? 'Workout fortsetzen' : 'Workout starten'}
+            </Button>
+          )}
+        </div>
+      </BottomBar>
     </Page>
   )
 }

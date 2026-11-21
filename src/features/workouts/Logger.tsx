@@ -12,6 +12,8 @@ import { DEFAULT_SETTINGS } from '../../db/db'
 import { smartSteps, resolveWarmup, effectiveMode, dedupeWarmups } from '../../engine/warmup'
 import { restCategory } from '../../engine/rest'
 import { noLoadStats, volumeFactor } from '../../engine/stats'
+import { mergeSides, splitsSides, weakerSide } from '../../engine/sides'
+import { prefillSets } from '../../engine/prefill'
 import { usesBodyweight } from '../../engine/bodyweight'
 
 import type { PlannedView } from '../../engine/plannedDay'
@@ -28,36 +30,50 @@ import { fmt, todayStr } from '../../utils/dates'
 import { ExerciseStrip } from './ExerciseStrip'
 import { NumpadSheet } from './NumpadSheet'
 import { RestChip, RestSheet, type RestState } from './RestTimer'
-import { SetTable, type PadField } from './SetTable'
+import { SetTable, type PadField, type Side } from './SetTable'
 import { SetTypeSheet, type SetTypeChoice } from './SetTypeSheet'
 import { WorkoutHeader } from './WorkoutHeader'
 import { ExerciseInfoSheet } from './ExerciseInfoSheet'
 import { CompleteSheet, FinishChoiceSheet, SupersetSheet, WorkoutMenuSheet } from './LoggerSheets'
 import { NoteSheet, scopeLabel, type NoteScope } from './sheets'
 import { WarmupSheet } from './WarmupSheet'
-import { isSegment, uid, type ActiveWorkout, type Row } from './state'
+import { isSegment, uid, withSides, type ActiveWorkout, type Row, type SideRow } from './state'
 import { de } from '../../i18n/de'
 import { progressionNote } from './progressionNote'
+
+/** Werte einer Seite (Anzeige-Strings) als gespeicherte Seite */
+function sideSet(v: Pick<Row, 'weight' | 'reps' | 'rir' | 'partial'>, wl: Settings['weightUnit']) {
+  const partial = num(v.partial ?? '')
+  return { weight: displayToKg(num(v.weight), wl), reps: num(v.reps), ...(v.rir === '' ? {} : { rir: Number(v.rir) }), ...(partial > 0 ? { partial } : {}) }
+}
 
 /** Körperlast für die Anzeige (eine Nachkommastelle) */
 const fmtLoad = (n: number) => (Math.round(n * 10) / 10).toLocaleString('de-DE')
 
 const num = (s: string) => Number(s.replace(',', '.')) || 0
 /** Startzeilen einer Übung: Aufwärmsätze und Arbeitssätze aus der Planung. */
-function buildRows(v: PlannedView, wl: Settings['weightUnit']): Row[] {
+function buildRows(v: PlannedView, wl: Settings['weightUnit'], sides = false, mode: Settings['prefillMode'] = 'suggestion'): Row[] {
+  const fill = prefillSets(v.ex.cardio ? 'suggestion' : mode, v.sug, v.sets, v.previous.work)
   const blank = { weight: '', reps: '', rir: '', done: false, minutes: '', km: '' }
   const warm: Row[] = v.warmups.map((w) => ({
     ...blank, id: uid(), type: 'warmup', weight: w.weight == null ? '' : String(kgToDisplay(w.weight, wl)), reps: String(w.reps),
   }))
   const work: Row[] = Array.from({ length: v.sets }, (_, i) => ({
     ...blank, id: uid(), type: 'work',
-    weight: v.sug.weight == null ? '' : String(kgToDisplay(v.sug.weight, wl)),
-    reps: v.ex.cardio ? '' : String(v.sug.reps),
+    weight: fill[i].weight == null ? '' : String(kgToDisplay(fill[i].weight!, wl)),
+    reps: v.ex.cardio ? '' : String(fill[i].reps),
     rir: v.ex.cardio ? '' : String(v.setRirs[i]),
-    ...(v.ex.cardio ? {} : { planKg: v.sug.weight, planReps: v.sug.reps, planRir: v.setRirs[i] }),
+    ...(v.ex.cardio ? {} : { planKg: fill[i].weight, planReps: fill[i].reps, planRir: v.setRirs[i] }),
     ...(i === v.failureIdx ? { failure: true } : {}),
   }))
-  return [...warm, ...work]
+  return [...warm, ...work.map((r, i) => {
+    const row = withSides(r, sides)
+    // Letzte Werte mit Seiten: beide Seiten wie zuletzt
+    const sd = fill[i].sides
+    if (!row.right || !sd) return row
+    return { ...row, weight: String(kgToDisplay(sd.l.weight, wl)), reps: String(sd.l.reps),
+      right: { ...row.right, weight: String(kgToDisplay(sd.r.weight, wl)), reps: String(sd.r.reps) } }
+  })]
 }
 
 const isComplete = (rs: Row[]) => rs.length > 0 && rs.every((r) => r.done)
@@ -95,7 +111,7 @@ export default function Logger() {
   const [rest, setRest] = useState<RestState | null>(null)
   const [restOpen, setRestOpen] = useState(false)
   const endRest = useCallback(() => setRest(null), [])
-  const [pad, setPad] = useState<{ rowId: string; field: PadField } | null>(null)
+  const [pad, setPad] = useState<{ rowId: string; field: PadField; side?: Side } | null>(null)
   const [typeRow, setTypeRow] = useState<string | null>(null)
   const [finishOpen, setFinishOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -145,9 +161,9 @@ export default function Logger() {
     if (stored && stored.param === param && stored.programId === (program.id ?? null)) { setActive(stored); return }
     if (stored) return // anderes Workout läuft, siehe Hinweiskarte
     const rows: Record<string, Row[]> = {}
-    for (const v of views) rows[v.pe.exerciseId] = buildRows(v, settings.weightUnit)
+    for (const v of views) rows[v.pe.exerciseId] = buildRows(v, settings.weightUnit, splitsSides(v.ex, overrides[v.pe.exerciseId]?.sides), settings.prefillMode)
     setActive({ param, programId: program.id ?? null, clock: startClock(Date.now()), rows, current: views[0].pe.exerciseId })
-  }, [stored, active, closed, program, views, param, settings.weightUnit, settingsLoaded, overridesLoaded, dataLoaded])
+  }, [stored, active, closed, program, views, param, settings.weightUnit, settingsLoaded, overridesLoaded, dataLoaded, overrides, settings.prefillMode])
 
   // Zwischenspeichern, damit Reload oder App-Wechsel nichts verlieren
   useEffect(() => { if (active && !closed) void saveActiveWorkout(active) }, [active, closed])
@@ -167,7 +183,7 @@ export default function Logger() {
 
   // Numpad offen: das bearbeitete Feld sichtbar halten (nicht hinter dem Numpad oder der Kopfzeile)
   const headerRef = useRef<HTMLDivElement>(null)
-  const padRowId = pad?.rowId
+  const padRowId = pad ? (pad.side === 'r' ? `${pad.rowId}-r` : pad.rowId) : undefined
   const padField = pad?.field
   useEffect(() => {
     if (!padRowId) return
@@ -214,13 +230,27 @@ export default function Logger() {
 
   const current = views.find((v) => v.pe.exerciseId === active.current) ?? views[0]
   const rows = active.rows[current.pe.exerciseId] ?? []
+  // Links/rechts getrennt: Einstellung der Übung (neue Arbeitssätze und Satztyp-Wechsel folgen ihr)
+  const sidesOn = splitsSides(current.ex, overrides[current.pe.exerciseId]?.sides)
   const paused = active.clock.pausedAt != null
   const wl = settings.weightUnit
 
   const setRows = (id: string, fn: (r: Row[]) => Row[]) =>
     setActive((a) => (a ? { ...a, rows: { ...a.rows, [id]: fn(a.rows[id] ?? []) } } : a))
   const patch = (rowId: string, p: Partial<Row>) =>
-    setRows(current.pe.exerciseId, (rs) => rs.map((r) => (r.id === rowId ? { ...r, ...p, ...(p.weight !== undefined || p.reps !== undefined ? { manual: true } : {}) } : r)))
+    setRows(current.pe.exerciseId, (rs) => rs.map((r) => (r.id === rowId ? { ...r, ...p, ...syncRight(r, p), ...(p.weight !== undefined || p.reps !== undefined ? { manual: true } : {}) } : r)))
+  /** Links geändert: die offene rechte Seite übernimmt den Wert, solange sie noch den alten linken Wert hatte */
+  const syncRight = (r: Row, p: Partial<Row>): Partial<Row> => {
+    if (!r.right || r.right.done) return {}
+    const right = { ...r.right }
+    for (const k of ['weight', 'reps', 'rir'] as const) if (p[k] !== undefined && right[k] === r[k]) right[k] = p[k]
+    return { right }
+  }
+
+  /** Felder der rechten Seite ändern (Gewicht/Wdh. zählen als von Hand geändert) */
+  const patchRight = (rowId: string, p: Partial<SideRow>) =>
+    setRows(current.pe.exerciseId, (rs) => rs.map((r) => (r.id === rowId && r.right
+      ? { ...r, right: { ...r.right, ...p }, ...(p.weight !== undefined || p.reps !== undefined ? { manual: true } : {}) } : r)))
 
   /**
    * Nach einem abgehakten Arbeitssatz: Gewicht und Wdh. der noch offenen, nicht von Hand geänderten Folgesätze
@@ -230,8 +260,11 @@ export default function Logger() {
   const adaptFollowing = (rs: Row[], doneRow: Row): Row[] => {
     if (doneRow.type !== 'work' || current.ex.cardio || current.ex.assisted || current.ex.metric === 'time' || doneRow.rir === '' || doneRow.planReps === undefined) return rs
     const idx = rs.findIndex((r) => r.id === doneRow.id)
+    // Links/rechts getrennt: die schwächere Seite bestimmt die Folgesätze
+    const src = doneRow.right && doneRow.right.rir !== ''
+      && weakerSide(sideSet(doneRow, wl), sideSet(doneRow.right, wl), false, current.bodyLoad) === 'r' ? doneRow.right : doneRow
     const done = {
-      weight: displayToKg(num(doneRow.weight), wl), reps: num(doneRow.reps), rir: num(doneRow.rir),
+      weight: displayToKg(num(src.weight), wl), reps: num(src.reps), rir: num(src.rir),
       planWeight: doneRow.planKg, planReps: doneRow.planReps, planRir: doneRow.planRir ?? num(doneRow.rir),
     }
     // Alle folgenden Arbeitssätze zählen für den Abstand; angepasst werden nur offene, nicht von Hand geänderte
@@ -245,14 +278,35 @@ export default function Logger() {
       const next = byId.get(r.id)
       if (!next) return r
       // Neue Erwartung für diesen Satz: Vergleichsbasis, wenn er abgehakt wird
-      return { ...r, weight: String(kgToDisplay(next.weight, wl)), reps: String(next.reps), planKg: next.weight, planReps: next.reps }
+      const weight = String(kgToDisplay(next.weight, wl))
+      const reps = String(next.reps)
+      return { ...r, weight, reps, planKg: next.weight, planReps: next.reps, ...(r.right && !r.right.done ? { right: { ...r.right, weight, reps } } : {}) }
     })
   }
 
-  const toggleDone = (row: Row) => {
+  /**
+   * Haken setzen/entfernen. Links/rechts getrennt (`side`): eine Seite abhaken startet die Seitenpause, erst mit beiden
+   * Seiten gilt der Satz als erledigt (dann wie ein normaler Satz: Anpassung, Supersatz, Pause).
+   */
+  const toggleDone = (row: Row, side?: Side) => {
+    if (!side || !row.right) {
+      toggleWhole(row, row.right ? { leftDone: !row.done, right: { ...row.right, done: !row.done } } : {})
+      return
+    }
+    const l = side === 'l' ? !row.leftDone : !!row.leftDone
+    const r = side === 'r' ? !row.right.done : row.right.done
+    const flags = { leftDone: l, right: { ...row.right, done: r } }
+    if ((l && r) !== row.done) { toggleWhole(row, flags); return }
+    setRows(current.pe.exerciseId, (rs) => rs.map((x) => (x.id === row.id ? { ...x, ...flags } : x)))
+    if (side === 'l' ? l : r) {
+      setPad(null)
+      setRest(settings.sideRest > 0 ? { endsAt: Date.now() + settings.sideRest * 1000, total: settings.sideRest } : null)
+    }
+  }
+  const toggleWhole = (row: Row, extra: Partial<Row>) => {
     const turningOn = !row.done
     const id = current.pe.exerciseId
-    const toggled = rows.map((r) => (r.id === row.id ? { ...r, done: !r.done } : r))
+    const toggled = rows.map((r) => (r.id === row.id ? { ...r, done: !r.done, ...extra } : r))
     const completes = turningOn && isComplete(toggled)
     const work = turningOn && row.type !== 'warmup'
     // Drop-/Myo-Segment direkt danach: ohne Übungswechsel weiter (Drop sofort, Myo nach kurzer Pause)
@@ -265,7 +319,7 @@ export default function Logger() {
       : null
     setActive((a) => {
       if (!a) return a
-      const mine = (a.rows[id] ?? []).map((r) => (r.id === row.id ? { ...r, done: !r.done } : r))
+      const mine = (a.rows[id] ?? []).map((r) => (r.id === row.id ? { ...r, done: !r.done, ...extra } : r))
       const nextRows = { ...a.rows, [id]: turningOn ? adaptFollowing(mine, row) : mine }
       let cur = a.current
       if (ss?.next) cur = ss.next
@@ -295,7 +349,9 @@ export default function Logger() {
     setActive((a) => {
       if (!a) return a
       const id = current.pe.exerciseId
-      const nextRows = { ...a.rows, [id]: (a.rows[id] ?? []).map((r) => ({ ...r, done: !allDone })) }
+      const nextRows = { ...a.rows, [id]: (a.rows[id] ?? []).map((r) => ({
+        ...r, done: !allDone, ...(r.right ? { leftDone: !allDone, right: { ...r.right, done: !allDone } } : {}),
+      })) }
       let cur = a.current
       if (!allDone) {
         const open = views.find((v) => !isComplete(nextRows[v.pe.exerciseId] ?? []))
@@ -308,7 +364,8 @@ export default function Logger() {
   const addSet = () => setRows(current.pe.exerciseId, (rs) => {
     const last = [...rs].reverse().find((r) => r.type === 'work') ?? rs.at(-1)
     const base: Row = last ?? { id: '', type: 'work', weight: '', reps: '', rir: '', done: false, minutes: '', km: '' }
-    return [...rs, { ...base, id: uid(), type: 'work', done: false, partial: undefined }]
+    const row = withSides({ ...base, id: uid(), type: 'work', done: false, partial: undefined, leftDone: false }, sidesOn)
+    return [...rs, row.right ? { ...row, right: { ...row.right, done: false, partial: undefined } } : row]
   })
   /** Zeile löschen; bei einem Arbeitssatz auch seine Drop-/Myo-Segmente */
   const deleteRow = (rowId: string) => {
@@ -322,12 +379,18 @@ export default function Logger() {
     const row = rows.find((r) => r.id === typeRow)
     setTypeRow(null)
     if (!row) return
-    if (t === 'warmup') { patch(row.id, { type: 'warmup', rir: '', failure: undefined }); return }
+    // Aufwärmsätze sind nie links/rechts getrennt, Arbeitssätze nach Einstellung der Übung
+    const typed = (p: Partial<Row>) => setRows(current.pe.exerciseId, (rs) => rs.map((r) => {
+      if (r.id !== row.id) return r
+      const next = withSides({ ...r, ...p }, sidesOn)
+      return next.right && p.rir !== undefined ? { ...next, right: { ...next.right, rir: p.rir } } : next
+    }))
+    if (t === 'warmup') { typed({ type: 'warmup', rir: '', failure: undefined }); return }
     if (t === 'work') {
-      patch(row.id, { type: 'work', failure: undefined, rir: row.type === 'warmup' || row.failure || row.rir === '' ? String(row.planRir ?? current.rir) : row.rir })
+      typed({ type: 'work', failure: undefined, rir: row.type === 'warmup' || row.failure || row.rir === '' ? String(row.planRir ?? current.rir) : row.rir })
       return
     }
-    if (t === 'failure') { patch(row.id, { type: 'work', failure: true, rir: '0' }); return }
+    if (t === 'failure') { typed({ type: 'work', failure: true, rir: '0' }); return }
     // Drop/Myo: neues Segment hinter dem Satz bzw. hinter seinem letzten Segment
     const kind = t === 'addSegment' ? (row.type === 'myo' ? 'myo' : 'drop') : t
     const { snap } = loadSteps(current.ex.equipment, wl, overrides[current.pe.exerciseId]?.weightScale)
@@ -360,7 +423,7 @@ export default function Logger() {
 
   const padRow = pad ? rows.find((r) => r.id === pad.rowId) : undefined
   const onConfirmPad = () => {
-    if (pad?.field === 'weight' && padRow) setPad({ rowId: pad.rowId, field: 'reps' })
+    if (pad?.field === 'weight' && padRow) setPad({ rowId: pad.rowId, field: 'reps', side: pad.side })
     else setPad(null)
   }
 
@@ -372,7 +435,7 @@ export default function Logger() {
     const [view] = plannedDay({ ...day, exercises: [pe] }, plan, historyUpTo(sessions, program.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), todayStr(), bodyweights)
     if (!view) return
     setPad(null)
-    setActive((a) => (a ? { ...a, added: [...(a.added ?? []), pe], rows: { ...a.rows, [ex.id]: buildRows(view, wl) }, current: ex.id } : a))
+    setActive((a) => (a ? { ...a, added: [...(a.added ?? []), pe], rows: { ...a.rows, [ex.id]: buildRows(view, wl, splitsSides(ex, overrides[ex.id]?.sides), settings.prefillMode) }, current: ex.id } : a))
   }
   const togglePause = () => setActive((a) => {
     if (!a) return a
@@ -416,6 +479,14 @@ export default function Logger() {
   }
   const modeNow = effectiveMode(ov?.warmupMode, settings.warmupMode)
 
+  // ---- Links/rechts getrennt (je Übung, Standard aus der Übung) ----
+  const toggleSides = () => {
+    const on = !sidesOn
+    void saveExerciseOverride(current.pe.exerciseId, { sides: on === !!current.ex.unilateral ? undefined : on })
+    setRows(current.pe.exerciseId, (rs) => rs.map((r) => withSides(r, on)))
+    setPad((p) => (p?.side === 'r' ? null : p))
+  }
+
   // ---- Notizen ----
   const pKey = programNoteKey(program.id, current.pe.exerciseId)
   const noteValues: Partial<Record<NoteScope, string>> = {
@@ -446,7 +517,9 @@ export default function Logger() {
         ? { reps: 0, weight: 0, minutes: num(r.minutes), km: displayToKm(num(r.km), settings.distanceUnit) }
         : r.type === 'warmup'
           ? { weight: displayToKg(num(r.weight), wl), reps: num(r.reps), warmup: true }
-          : {
+          : r.type === 'work' && r.right
+            ? mergeSides(sideSet(r, wl), sideSet(r.right, wl), r.failure ? { failure: true } : {}, v.ex.metric === 'time', v.bodyLoad)
+            : {
             weight: displayToKg(num(r.weight), wl), reps: num(r.reps),
             rir: isSegment(r) || r.rir === '' ? undefined : Number(r.rir),
             ...(r.type === 'work' && r.failure ? { failure: true } : {}),
@@ -500,7 +573,10 @@ export default function Logger() {
   // Sätze ohne Drop-/Myo-Segmente, Volumen mit
   const loggedDone = trained.flatMap((v) => (active.rows[v.pe.exerciseId] ?? []).filter((r) => r.done && r.type !== 'warmup').map((r) => ({ r, f: volumeFactor(v.ex), e: v.ex, b: v.bodyLoad })))
   const workDone = loggedDone.filter(({ r }) => r.type === 'work')
-  const volumeKg = loggedDone.filter(({ e }) => !noLoadStats(e)).reduce((a, { r, f, b }) => a + (displayToKg(num(r.weight), wl) + b) * num(r.reps) * f, 0)
+  const volumeKg = loggedDone.filter(({ e }) => !noLoadStats(e)).reduce((a, { r, f, b }) => {
+    const vol = (v: Pick<Row, 'weight' | 'reps'>) => (displayToKg(num(v.weight), wl) + b) * num(v.reps)
+    return a + (r.right ? vol(r) + vol(r.right) : vol(r)) * f
+  }, 0)
   const durMin = Math.round(elapsedMs(active.clock, paused ? (active.clock.pausedAt as number) : Date.now()) / 60000)
   const noteBoxes = (['session', 'exercise', 'program'] as const).filter((sc) => noteValues[sc])
 
@@ -522,6 +598,9 @@ export default function Logger() {
             {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
           </div>
           {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
+          {settings.prefillMode === 'last' && !current.ex.cardio && current.previous.work.length > 0 && current.sug.weight != null && (
+            <p className="text-xs text-muted mt-0.5">Vorschlag: {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString('de-DE')} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : ' Wdh.'}</p>
+          )}
           {progressionNote(current.sug, current.range, wl, current.bodyLoad) && (
             <p className="text-xs text-warn mt-1">{progressionNote(current.sug, current.range, wl, current.bodyLoad)}</p>
           )}
@@ -542,13 +621,14 @@ export default function Logger() {
             <ActionPill icon="guide" label="Info" onClick={() => setInfoOpen(true)} />
             {!current.ex.cardio && <ActionPill icon="warmup" label={de.logger.warmup} onClick={() => setWarmupOpen(true)} active={modeNow !== 'none'} />}
             <ActionPill icon="note" label={de.common.note} onClick={() => setNoteScope(noteBoxes[0] ?? 'session')} active={noteBoxes.length > 0} />
+            {!current.ex.cardio && <ActionPill icon="sides" label="Links/Rechts" onClick={toggleSides} active={sidesOn} />}
             {dayList.length > 1 && <ActionPill icon="link" label="Supersatz" onClick={() => setSupersetOpen(true)} active={members.length > 0} />}
           </div>
         </div>
 
         <SetTable view={current} rows={rows} settings={settings} activePad={pad}
           onPatch={patch} onToggleDone={toggleDone} onToggleAll={toggleAll} onAdd={addSet} onDelete={deleteRow}
-          onType={setTypeRow} onPad={(rowId, field) => setPad({ rowId, field })} />
+          onType={setTypeRow} onPad={(rowId, field, side) => setPad({ rowId, field, side })} />
 
         {noteBoxes.length > 0 && (
           <div className="mt-4 space-y-2" aria-label="Notizen">
@@ -562,14 +642,21 @@ export default function Logger() {
         )}
       </div>
 
-      {pad && padRow && (
-        <NumpadSheet key={`${pad.rowId}-${pad.field}`} field={pad.field}
-          label={pad.field === 'weight' ? `Gewicht (${wl})` : 'Wiederholungen'}
-          value={pad.field === 'weight' ? padRow.weight : padRow.reps} rir={padRow.rir} showRir={!isSegment(padRow)}
-          partial={padRow.partial ?? ''} onPartial={(v) => patch(padRow.id, { partial: v })}
-          onValue={(v) => patch(padRow.id, pad.field === 'weight' ? { weight: v } : { reps: v })}
-          onRir={(v) => patch(padRow.id, { rir: v })} onConfirm={onConfirmPad} onClose={() => setPad(null)} />
-      )}
+      {pad && padRow && (() => {
+        // Rechte Seite eines links/rechts getrennten Satzes: eigene Werte in `right`
+        const r = pad.side === 'r' ? padRow.right : undefined
+        const vals = r ?? padRow
+        const set = (p: Partial<SideRow>) => (r ? patchRight(padRow.id, p) : patch(padRow.id, p))
+        const sideLabel = !padRow.right ? '' : r ? ' · rechts' : ' · links'
+        return (
+          <NumpadSheet key={`${pad.rowId}-${pad.side ?? ''}-${pad.field}`} field={pad.field}
+            label={`${pad.field === 'weight' ? `Gewicht (${wl})` : 'Wiederholungen'}${sideLabel}`}
+            value={pad.field === 'weight' ? vals.weight : vals.reps} rir={vals.rir} showRir={!isSegment(padRow)}
+            partial={vals.partial ?? ''} onPartial={(v) => set({ partial: v })}
+            onValue={(v) => set(pad.field === 'weight' ? { weight: v } : { reps: v })}
+            onRir={(v) => set({ rir: v })} onConfirm={onConfirmPad} onClose={() => setPad(null)} />
+        )
+      })()}
 
       <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title="Übung hinzufügen" />
 

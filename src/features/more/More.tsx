@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { Equipment, Exercise, MuscleId, Settings } from '../../types'
 import { BottomSheet, Button, Card, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
 import { TrainingImportCard } from './TrainingImport'
-import { exportAll, importAll, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
+import { DEFAULT_SETTINGS, exportAll, importAll, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
 import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
@@ -143,15 +143,15 @@ function useSettingsForm() {
   return { s, update }
 }
 
-function Stepper({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function Stepper({ label, value, onChange, min = 15, step = 15 }: { label: string; value: number; onChange: (v: number) => void; min?: number; step?: number }) {
   const btn = 'w-9 h-9 rounded-lg bg-surface2 text-lg'
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-sm">{label}</span>
       <div className="flex items-center gap-2">
-        <button className={btn} aria-label={`${label} kürzer`} onClick={() => onChange(Math.max(15, value - 15))}>−</button>
-        <span className="w-16 text-center text-sm tabular-nums">{formatRest(value)}</span>
-        <button className={btn} aria-label={`${label} länger`} onClick={() => onChange(Math.min(600, value + 15))}>+</button>
+        <button className={btn} aria-label={`${label} kürzer`} onClick={() => onChange(Math.max(min, value - step))}>−</button>
+        <span className="w-16 text-center text-sm tabular-nums">{value === 0 ? 'aus' : formatRest(value)}</span>
+        <button className={btn} aria-label={`${label} länger`} onClick={() => onChange(Math.min(600, value + step))}>+</button>
       </div>
     </div>
   )
@@ -198,6 +198,20 @@ export function WorkoutSettingsPage() {
               : 'Klassische Double Progression: Wdh. bis zur Obergrenze, dann mehr Gewicht und zurück an die Untergrenze.'}
           </span>
         </div>
+        <div className="py-3.5 space-y-2">
+          <span className="block text-sm font-medium">Sätze im Workout vorbelegen mit</span>
+          <div role="radiogroup" aria-label="Vorbelegung" className="grid grid-cols-2 gap-1 rounded-xl bg-surface2 p-1">
+            {([['suggestion', 'Vorschlag'], ['last', 'Letzten Werten']] as const).map(([v, label]) => (
+              <button key={v} role="radio" aria-checked={s.prefillMode === v} onClick={() => update({ prefillMode: v })}
+                className={cx('rounded-lg py-2 text-sm font-medium', s.prefillMode === v ? 'bg-surface shadow text-fg' : 'text-muted')}>{label}</button>
+            ))}
+          </div>
+          <span className="block text-xs text-muted">
+            {s.prefillMode === 'last'
+              ? 'Gewicht und Wdh. wie in der letzten Einheit, Satz für Satz. Der Progressionsvorschlag steht über der Tabelle.'
+              : 'Gewicht und Wdh. aus der Progression: so steigerst du dich Schritt für Schritt.'}
+          </span>
+        </div>
         {s.progressionTarget === 'mid' && (
           <SwitchRow icon="dumbbell" label="Weight Match" desc="Gewicht halten, solange die Wdh. damit im Bereich bleiben. Aus: das Gewicht passt sich öfter an, die Wdh. bleiben nahe der Mitte."
             checked={s.weightMatch} onChange={(v) => update({ weightMatch: v })} />
@@ -227,8 +241,9 @@ export function RestSettingsPage() {
         ))}
         <Stepper label="Zwischen Aufwärmsätzen" value={s.warmupRestBetween} onChange={(v) => update({ warmupRestBetween: v })} />
         <Stepper label="Nach letztem Aufwärmsatz" value={s.warmupRestLast} onChange={(v) => update({ warmupRestLast: v })} />
+        <Stepper label="Zwischen den Seiten" min={0} step={5} value={s.sideRest} onChange={(v) => update({ sideRest: v })} />
         <p className="text-xs text-muted">Richtwerte aus der Studienlage: Verbundübungen 2-3 min, Isolation 1-2 min. Längere Pausen halten bei schweren Übungen Leistung und Volumen.</p>
-        <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST })}>Standard wiederherstellen</Button>
+        <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST, sideRest: DEFAULT_SETTINGS.sideRest })}>Standard wiederherstellen</Button>
       </Card>
     </Page>
   )
