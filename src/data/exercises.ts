@@ -13,19 +13,18 @@ const rows: Row[] = [
   ['machine-chest', 'Brustpresse (Maschine)', ['chest'], ['triceps', 'frontDelts'], 'machine', 'horizontalPush', true],
   ['machine-incline-chest', 'Schrägbrustpresse (Maschine)', ['chest'], ['frontDelts', 'triceps'], 'machine', 'horizontalPush', true],
   ['pec-deck', 'Pec-Deck-Fly (Butterfly)', ['chest'], [], 'machine', 'isolation', false],
-  ['cable-fly', 'Kabel-Fly', ['chest'], [], 'cable', 'isolation', false],
+  ['cable-fly', 'Kabel-Fly (horizontal)', ['chest'], [], 'cable', 'isolation', false],
   ['cable-fly-low', 'Kabel-Fly von unten', ['chest'], ['frontDelts'], 'cable', 'isolation', false],
   ['db-fly', 'Fliegende (Kurzhantel)', ['chest'], [], 'dumbbell', 'isolation', false],
   ['pushup', 'Liegestütze', ['chest'], ['triceps', 'frontDelts'], 'bodyweight', 'horizontalPush', true],
   ['dips-chest', 'Dips (Brust)', ['chest'], ['triceps', 'frontDelts'], 'bodyweight', 'horizontalPush', true],
   // Schultern
-  ['bb-ohp', 'Schulterdrücken (Langhantel)', ['frontDelts', 'sideDelts'], ['triceps'], 'barbell', 'verticalPush', true],
+  ['bb-ohp', 'Schulterdrücken stehend (Langhantel)', ['frontDelts', 'sideDelts'], ['triceps'], 'barbell', 'verticalPush', true],
   ['db-ohp', 'Schulterdrücken (Kurzhantel)', ['frontDelts', 'sideDelts'], ['triceps'], 'dumbbell', 'verticalPush', true],
   ['machine-ohp', 'Schulterpresse (Maschine)', ['frontDelts', 'sideDelts'], ['triceps'], 'machine', 'verticalPush', true],
   ['smith-ohp', 'Schulterdrücken (Smith)', ['frontDelts', 'sideDelts'], ['triceps'], 'smith', 'verticalPush', true],
   ['bb-ohp-close', 'Schulterdrücken (Langhantel, enger Griff)', ['frontDelts', 'sideDelts'], ['triceps'], 'barbell', 'verticalPush', true],
   ['bb-ohp-wide', 'Schulterdrücken (Langhantel, weiter Griff)', ['sideDelts', 'frontDelts'], ['triceps'], 'barbell', 'verticalPush', true],
-  ['bb-behind-neck', 'Nackendrücken sitzend (Langhantel)', ['sideDelts', 'frontDelts'], ['triceps', 'traps'], 'barbell', 'verticalPush', true],
   ['db-lateral', 'Seitheben (Kurzhantel)', ['sideDelts'], [], 'dumbbell', 'isolation', false],
   ['cable-lateral', 'Seitheben (Kabel)', ['sideDelts'], [], 'cable', 'isolation', false],
   ['machine-lateral', 'Seitheben (Maschine)', ['sideDelts'], [], 'machine', 'isolation', false],
@@ -344,6 +343,7 @@ export const ALL_EXERCISES: Exercise[] = [...EXERCISES, ...CARDIO]
 
 /** Zusätzliche Suchbegriffe (Alltagsnamen und Varianten), damit Übungen auch unter anderen Bezeichnungen gefunden werden. */
 const SEARCH_ALIASES: Record<string, string> = {
+  'cable-fly': 'kabelzug fly horizontal brusthöhe crossover brust',
   'pec-deck': 'fly butterfly brustmaschine brust maschine',
   'reverse-pec-deck': 'reverse fly butterfly hintere schulter maschine',
   'straight-arm-pulldown': 'latzug gerade arme gestreckte arme stange straight arm pulldown',
@@ -355,7 +355,6 @@ const SEARCH_ALIASES: Record<string, string> = {
   'bb-ohp': 'schulterdrücken langhantel military press überkopfdrücken',
   'bb-ohp-close': 'schulterdrücken langhantel enger griff schmaler griff',
   'bb-ohp-wide': 'schulterdrücken langhantel breiter griff weiter griff',
-  'bb-behind-neck': 'nackendrücken hinter dem kopf behind the neck press',
 }
 
 /** Text, in dem die Suche nach einer Übung sucht: Name plus Alias-Begriffe (klein geschrieben). */
