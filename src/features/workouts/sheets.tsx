@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { Exercise, WarmupOverrideMode, WarmupStep } from '../../types'
+import type { Equipment, Exercise, Settings, WarmupOverrideMode, WarmupStep, WeightScale } from '../../types'
 import { BottomSheet, Button, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { formatRest } from '../../engine/rest'
+import { incrementKg } from '../../engine/progression'
+import { isValidScale, normalizeWeights } from '../../engine/weightScale'
+import { displayToKg, kgToDisplay } from '../../utils/units'
 import { de } from '../../i18n/de'
 
 export const NOTE_MAX = 300
@@ -135,6 +138,148 @@ export function RestOverrideSheet({ open, onClose, defaultSec, override, onSave 
         {override !== undefined && <Button variant="ghost" className="w-full" onClick={() => { onSave(undefined); onClose() }}>Zurück zum Default</Button>}
       </div>
     </BottomSheet>
+  )
+}
+
+/** Kurzhantel/Kettlebell: Einzelgewichte (Liste), sonst Bereich mit Schrittweite */
+export const usesWeightList = (eq: Equipment) => eq === 'dumbbell' || eq === 'kettlebell'
+
+const r3 = (n: number) => Math.round(n * 1000) / 1000
+
+/** Kurzfassung der Gerätegewichte für die Listenzeile */
+export function scaleSummary(s: WeightScale | undefined, unit: Settings['weightUnit']): string {
+  if (!s) return de.common.default
+  const d = (kg: number) => kgToDisplay(kg, unit)
+  if (s.kind === 'range') return `${d(s.min)}–${d(s.max)} ${unit} · ${d(s.step)} ${unit}`
+  const l = normalizeWeights(s.weights).map(d)
+  return l.length > 4 ? `${l.slice(0, 3).join(', ')} … ${l[l.length - 1]} ${unit}` : `${l.join(', ')} ${unit}`
+}
+
+function NumField({ label, value, onChange, step, suffix }: { label: string; value: string; onChange: (v: string) => void; step: number; suffix: string }) {
+  const btn = 'w-9 h-9 rounded-lg bg-surface2 border border-line text-base'
+  const bump = (d: number) => onChange(String(Math.max(0, r3((Number(value.replace(',', '.')) || 0) + d))))
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex-1 text-sm">{label}</span>
+      <button className={btn} aria-label={`${label} weniger`} onClick={() => bump(-step)}>−</button>
+      <input value={value} onChange={(e) => onChange(e.target.value)} inputMode="decimal" aria-label={label}
+        className="w-16 h-9 rounded-lg bg-surface2 border border-line text-center text-sm tabular-nums" />
+      <button className={btn} aria-label={`${label} mehr`} onClick={() => bump(step)}>+</button>
+      <span className="w-6 text-xs text-muted">{suffix}</span>
+    </div>
+  )
+}
+
+const toNum = (v: string) => Number(v.replace(',', '.'))
+
+/** Gerätegewichte als Bereich (Kabel, Maschine, Smith, Langhantel): Anfang, Ende, Schrittweite. */
+export function WeightScaleSheet({ open, onClose, scale, unit, onSave }: {
+  open: boolean; onClose: () => void; scale: WeightScale | undefined; unit: Settings['weightUnit']
+  onSave: (s: WeightScale | undefined) => void
+}) {
+  const init = (): [string, string, string] => {
+    if (scale?.kind === 'range') return [scale.min, scale.max, scale.step].map((v) => String(kgToDisplay(v, unit))) as [string, string, string]
+    return [0, 250, 5].map((v) => String(kgToDisplay(v, unit))) as [string, string, string]
+  }
+  const [min, setMin] = useState('0'); const [max, setMax] = useState('250'); const [step, setStep] = useState('5')
+  useEffect(() => { if (open) { const [a, b, c] = init(); setMin(a); setMax(b); setStep(c) } }, [open, scale, unit]) // eslint-disable-line react-hooks/exhaustive-deps
+  const draft: WeightScale = { kind: 'range', min: r3(displayToKg(toNum(min) || 0, unit)), max: r3(displayToKg(toNum(max) || 0, unit)), step: r3(displayToKg(toNum(step) || 0, unit)) }
+  const valid = isValidScale(draft)
+  const inc = unit === 'lb' ? 5 : 2.5
+  return (
+    <BottomSheet open={open} onClose={onClose} title={de.exercise.weightScale}>
+      <p className="text-xs text-muted mb-4">{de.exercise.scaleRangeIntro}</p>
+      <div className="space-y-3 mb-3">
+        <NumField label={de.exercise.rangeStart} value={min} onChange={setMin} step={inc} suffix={unit} />
+        <NumField label={de.exercise.rangeEnd} value={max} onChange={setMax} step={inc} suffix={unit} />
+        <NumField label={de.exercise.rangeStep} value={step} onChange={setStep} step={unit === 'lb' ? 1.25 : 0.5} suffix={unit} />
+      </div>
+      {!valid && <p className="text-xs text-danger mb-3" role="alert">{de.exercise.scaleInvalid}</p>}
+      <div className="space-y-2">
+        <Button className="w-full" disabled={!valid} onClick={() => { onSave(draft); onClose() }}>Speichern</Button>
+        {scale && <Button variant="ghost" className="w-full" onClick={() => { onSave(undefined); onClose() }}>{de.exercise.resetDefault}</Button>}
+      </div>
+    </BottomSheet>
+  )
+}
+
+/** Standard-Kandidaten der Liste: bisherige Schritte des Equipments (bis 40 kg) plus 5-kg-Schritte bis 50 kg */
+const listDefaultKg = (equipment: Equipment): number[] => {
+  const inc = incrementKg(equipment) || 2
+  const own = Array.from({ length: Math.floor(40 / inc) }, (_, i) => (i + 1) * inc)
+  const fives = Array.from({ length: 10 }, (_, i) => (i + 1) * 5)
+  return [...new Set([...own, ...fives])].sort((a, b) => a - b)
+}
+
+/**
+ * Gerätegewichte als Liste (Kurzhanteln, Kettlebells): Gewichte per Checkbox an-/abwählen.
+ * „+“ oben rechts öffnet ein eigenes Sheet, um ein weiteres Gewicht anzulegen.
+ */
+export function WeightListSheet({ open, onClose, equipment, scale, unit, onSave }: {
+  open: boolean; onClose: () => void; equipment: Equipment; scale: WeightScale | undefined; unit: Settings['weightUnit']
+  onSave: (s: WeightScale | undefined) => void
+}) {
+  const [all, setAll] = useState<number[]>([])
+  const [checked, setChecked] = useState<number[]>([])
+  const [adding, setAdding] = useState(false)
+  const [text, setText] = useState('')
+  useEffect(() => {
+    if (!open) return
+    const d = (kg: number) => kgToDisplay(kg, unit)
+    const own = scale?.kind === 'list' ? normalizeWeights(scale.weights).map(d) : []
+    const base = listDefaultKg(equipment).map(d)
+    setAll([...new Set([...base, ...own])].sort((a, b) => a - b))
+    setChecked(scale?.kind === 'list' ? own : base)
+    setAdding(false); setText('')
+  }, [open, scale, unit, equipment])
+  const v = toNum(text)
+  const canAdd = text.trim() !== '' && Number.isFinite(v) && v > 0
+  const add = () => {
+    if (!canAdd) return
+    const w = r3(v)
+    setAll((l) => (l.includes(w) ? l : [...l, w].sort((a, b) => a - b)))
+    setChecked((l) => (l.includes(w) ? l : [...l, w]))
+    setAdding(false); setText('')
+  }
+  const toggle = (w: number) => setChecked((l) => (l.includes(w) ? l.filter((x) => x !== w) : [...l, w]))
+  const header = (
+    <div className="flex items-center gap-3 min-h-8">
+      <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{de.exercise.weightScale}</h2>
+      <button type="button" onClick={() => setAdding(true)} aria-label={de.exercise.addWeight}
+        className="w-8 h-8 shrink-0 rounded-full bg-surface2 flex items-center justify-center text-lg leading-none">+</button>
+      <button type="button" onClick={onClose} aria-label="Schließen"
+        className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
+    </div>
+  )
+  return (
+    <>
+      <BottomSheet open={open} onClose={onClose} tall header={header} title={de.exercise.weightScale}>
+        <p className="text-xs text-muted mb-3">{de.exercise.scaleListIntro}</p>
+        <ul className="divide-y divide-line mb-4">
+          {all.map((w) => (
+            <li key={w}>
+              <label className="flex items-center gap-3 py-3 cursor-pointer">
+                <input type="checkbox" checked={checked.includes(w)} onChange={() => toggle(w)} className="w-5 h-5 accent-[var(--accent)]" />
+                <span className="flex-1 text-sm tabular-nums">{w} {unit}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        <div className="space-y-2">
+          <Button className="w-full" disabled={checked.length === 0}
+            onClick={() => { onSave({ kind: 'list', weights: normalizeWeights(checked.map((w) => displayToKg(w, unit))) }); onClose() }}>Speichern</Button>
+          {scale && <Button variant="ghost" className="w-full" onClick={() => { onSave(undefined); onClose() }}>{de.exercise.resetDefault}</Button>}
+        </div>
+      </BottomSheet>
+      <BottomSheet open={open && adding} onClose={() => setAdding(false)} title={de.exercise.addWeight}>
+        <div className="relative mb-4">
+          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} inputMode="decimal"
+            placeholder="Gewicht" aria-label="Gewicht" autoFocus className="w-full h-12 rounded-xl bg-surface2 border border-line pl-4 pr-12 text-base" />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none">{unit.toUpperCase()}</span>
+        </div>
+        <Button className="w-full" disabled={!canAdd} onClick={add}>Speichern</Button>
+      </BottomSheet>
+    </>
   )
 }
 

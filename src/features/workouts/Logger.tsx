@@ -185,7 +185,7 @@ export default function Logger() {
     }
     return rs.map((r, i) => {
       if (i <= idx || r.type !== 'work' || r.done || r.manual) return r
-      const kg = adaptNextWeight(done, r.planKg ?? null, current.ex.equipment, wl)
+      const kg = adaptNextWeight(done, r.planKg ?? null, current.ex.equipment, wl, overrides[current.pe.exerciseId]?.weightScale)
       return kg === null ? r : { ...r, weight: String(kgToDisplay(kg, wl)) }
     })
   }
@@ -416,7 +416,7 @@ export default function Logger() {
       <ExerciseInfoSheet ex={current.ex} open={infoOpen} onClose={() => setInfoOpen(false)} />
 
       <WarmupSheet open={warmupOpen} onClose={() => setWarmupOpen(false)} mode={modeNow} smart={smart} scheme={schemeSteps}
-        hasOverride={!!ov?.warmupScheme} workWeight={workKg} equipment={current.ex.equipment} unit={wl}
+        hasOverride={!!ov?.warmupScheme} workWeight={workKg} equipment={current.ex.equipment} unit={wl} scale={ov?.weightScale}
         onMode={pickWarmupMode} onScheme={editScheme} onResetScheme={resetScheme} />
 
       <NoteSheet open={noteScope !== null} onClose={() => setNoteScope(null)} ex={current.ex}

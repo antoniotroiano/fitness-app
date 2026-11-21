@@ -5,7 +5,7 @@ import { SlideOver } from '../../components/SlideOver'
 import { saveExerciseOverride, useExerciseOverrides, useSettings } from '../../db/db'
 import { REST_LABEL, formatRest, restCategory } from '../../engine/rest'
 import { ExerciseInfoSheet } from '../workouts/ExerciseInfoSheet'
-import { AutomationSheet, ListRow, NoteSheet, RestOverrideSheet, SchemeEditor, SchemeTable, automationLabel, schemeSummary } from '../workouts/sheets'
+import { AutomationSheet, ListRow, NoteSheet, RestOverrideSheet, SchemeEditor, SchemeTable, WeightListSheet, WeightScaleSheet, automationLabel, scaleSummary, schemeSummary, usesWeightList } from '../workouts/sheets'
 import { de } from '../../i18n/de'
 
 function SubPage({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
@@ -46,11 +46,12 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
   const [editScheme, setEditScheme] = useState(false)
   const [auto, setAuto] = useState(false)
   const [restEdit, setRestEdit] = useState(false)
+  const [scaleEdit, setScaleEdit] = useState(false)
   // Beim Wechsel der Übung Unterseiten zurücksetzen
   const [last, setLast] = useState<Exercise | null>(ex)
   if (ex && ex !== last) setLast(ex)
   const cur = ex ?? last
-  useEffect(() => { if (!ex) { setSub(false); setInfo(false); setNote(false); setEditScheme(false); setAuto(false); setRestEdit(false) } }, [ex])
+  useEffect(() => { if (!ex) { setSub(false); setInfo(false); setNote(false); setEditScheme(false); setAuto(false); setRestEdit(false); setScaleEdit(false) } }, [ex])
   if (!cur) return null
 
   const ov = overrides[cur.id]
@@ -81,6 +82,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
                 : ov.warmupMode === 'none' ? de.warmup.hintNone : undefined} />
             <ListRow icon="timer" label={de.warmup.restTimer} value={ov?.restSeconds ? formatRest(ov.restSeconds) : de.common.default} action={de.common.change} onClick={() => setRestEdit(true)}
               hint={ov?.restSeconds ? undefined : de.warmup.hintRest(formatRest(defaultRest))} />
+            <ListRow icon="scale" label={de.exercise.weightScale} value={scaleSummary(ov?.weightScale, settings.weightUnit)} action={de.common.change} onClick={() => setScaleEdit(true)} />
           </Card>
         </section>
       )}
@@ -105,6 +107,11 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
         onReset={ov?.warmupScheme ? () => void saveExerciseOverride(cur.id, { warmupScheme: undefined }) : undefined} resetLabel="Zurück zum Default" />
       <RestOverrideSheet open={restEdit} onClose={() => setRestEdit(false)} defaultSec={defaultRest} override={ov?.restSeconds}
         onSave={(sec) => void saveExerciseOverride(cur.id, { restSeconds: sec })} />
+      {usesWeightList(cur.equipment)
+        ? <WeightListSheet open={scaleEdit} onClose={() => setScaleEdit(false)} equipment={cur.equipment} scale={ov?.weightScale} unit={settings.weightUnit}
+            onSave={(s) => void saveExerciseOverride(cur.id, { weightScale: s })} />
+        : <WeightScaleSheet open={scaleEdit} onClose={() => setScaleEdit(false)} scale={ov?.weightScale} unit={settings.weightUnit}
+            onSave={(s) => void saveExerciseOverride(cur.id, { weightScale: s })} />}
       <AutomationSheet open={auto} onClose={() => setAuto(false)} value={ov?.warmupMode}
         onPick={(m) => void saveExerciseOverride(cur.id, { warmupMode: m === 'default' ? undefined : m })} />
     </SlideOver>

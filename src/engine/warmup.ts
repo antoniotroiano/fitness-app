@@ -1,6 +1,7 @@
-import type { Equipment, Exercise, RestCategory, Settings, WarmupOverrideMode, WarmupStep } from '../types'
+import type { Equipment, Exercise, RestCategory, Settings, WarmupOverrideMode, WarmupStep, WeightScale } from '../types'
 import { KG_PER_LB } from '../utils/units'
 import { incrementKg, roundTo } from './progression'
+import { snapToScale } from './weightScale'
 
 /**
  * Aufwärmsätze (Heuristik). Studienlage: Ein spezifisches Aufwärmen (leichtere Sätze derselben Übung)
@@ -73,14 +74,16 @@ export function smartSteps(c: WarmupContext): WarmupStep[] {
 }
 
 /** Schritte in Gewichte umrechnen (gerundet, Stange als Untergrenze, ohne Doppelte). */
-export function stepsToSets(steps: WarmupStep[], workWeight: number | null, equipment: Equipment, unit: Settings['weightUnit'] = 'kg'): WarmupSet[] {
+export function stepsToSets(steps: WarmupStep[], workWeight: number | null, equipment: Equipment, unit: Settings['weightUnit'] = 'kg', scale?: WeightScale): WarmupSet[] {
   if (steps.length === 0 || NO_WARMUP.includes(equipment)) return []
   if (workWeight == null || workWeight <= 0) return steps.map((s) => ({ weight: null, reps: s.reps }))
   const inc = incrementKg(equipment, unit) || 1
   const floor = (unit === 'lb' && MIN_LOAD_LB[equipment] ? MIN_LOAD_LB[equipment] * KG_PER_LB : MIN_LOAD[equipment]) ?? inc
   const out: WarmupSet[] = []
   for (const s of steps) {
-    const weight = Math.max(floor, roundTo((workWeight * s.pct) / 100, inc))
+    const raw = (workWeight * s.pct) / 100
+    // Mit Gerätegewichten: nur real einstellbare Werte, der Mindestwert der Stange bleibt Untergrenze
+    const weight = scale ? snapToScale(Math.max(floor, raw), scale) : Math.max(floor, roundTo(raw, inc))
     if (weight >= workWeight) continue
     if (out.some((o) => o.weight === weight)) continue
     out.push({ weight, reps: s.reps })
@@ -96,6 +99,8 @@ export interface ResolveInput {
   workWeight: number | null
   /** Anzeige-Einheit für die Rundung der Gewichte (Standard kg) */
   unit?: Settings['weightUnit']
+  /** Verfügbare Gerätegewichte (Override) */
+  scale?: WeightScale
 }
 
 export function resolveWarmupSteps({ mode, scheme, ctx }: Pick<ResolveInput, 'mode' | 'scheme' | 'ctx'>): WarmupStep[] {
@@ -104,7 +109,7 @@ export function resolveWarmupSteps({ mode, scheme, ctx }: Pick<ResolveInput, 'mo
 }
 
 export function resolveWarmup(i: ResolveInput): WarmupSet[] {
-  return stepsToSets(resolveWarmupSteps(i), i.workWeight, i.ctx.equipment, i.unit)
+  return stepsToSets(resolveWarmupSteps(i), i.workWeight, i.ctx.equipment, i.unit, i.scale)
 }
 
 /**

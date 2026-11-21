@@ -28,8 +28,8 @@ export function RingStat({ label, done, total, color, big, shown }: { label: str
   const num = shown ?? Math.round(done * 10) / 10
   const left = Math.max(0, total - num)
   return (
-    <div className="flex flex-col items-center gap-1.5" role="img" aria-label={`${label}: ${num} von ${total}, ${left} übrig`}>
-      <Ring done={done} total={total} color={color} size={big ? 132 : 84} stroke={big ? 11 : 8}>
+    <div className="flex flex-col items-center gap-3.5" role="img" aria-label={`${label}: ${num} von ${total}, ${left} übrig`}>
+      <Ring done={done} total={total} color={color} size={big ? 136 : 88} stroke={big ? 7 : 5}>
         <span className={cx('font-bold tabular-nums', big ? 'text-3xl' : 'text-xl')}>{num}</span>
         <span className={cx('text-muted', big ? 'text-xs' : 'text-[11px]')}>{left} übrig</span>
       </Ring>
