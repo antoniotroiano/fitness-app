@@ -11,6 +11,10 @@ describe('Übungsdatenbank', () => {
     const names = ALL_EXERCISES.map((e) => e.name.toLowerCase())
     expect(new Set(names).size).toBe(names.length)
   })
+  it('jede Kurzhantel- und Kettlebell-Übung hat einen expliziten Lastwert (A6)', () => {
+    const missing = EXERCISES.filter((e) => (e.equipment === 'dumbbell' || e.equipment === 'kettlebell') && !e.load).map((e) => e.id)
+    expect(missing).toEqual([])
+  })
   it('hat mindestens 150 Kraftübungen', () => {
     expect(EXERCISES.length).toBeGreaterThanOrEqual(150)
   })

@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { LoggedExercise, LoggedSet, MuscleId, WarmupStep } from '../../types'
 import { Button, Card, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import {
   clearActiveWorkout, db, loadActiveWorkout, programNoteKey, saveActiveWorkout, saveExerciseOverride, saveProgramNote, saveWeekState,
-  useProgramByParam, useAllExercises, useExerciseOverridesLoaded, useProgramNotes, useSessions, useSettingsLoaded, useWeekState,
+  useProgramByParam, useAllExercises, useExerciseOverridesLoaded, useProgramNotes, useSessions, useSessionsLoaded, useSettingsLoaded, useWeekState, useWeekStateLoaded,
 } from '../../db/db'
 import { DEFAULT_SETTINGS } from '../../db/db'
-import { smartSteps, resolveWarmup, effectiveMode } from '../../engine/warmup'
+import { smartSteps, resolveWarmup, effectiveMode, dedupeWarmups } from '../../engine/warmup'
 import { restCategory } from '../../engine/rest'
-import { volumeFactor } from '../../engine/stats'
+import { noLoadStats, volumeFactor } from '../../engine/stats'
 import type { PlannedView } from '../../engine/plannedDay'
-import { plannedDay } from '../../engine/plannedDay'
-import { adaptWeight } from '../../engine/progression'
+import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
+import { adaptNextWeight } from '../../engine/progression'
 import { weekPlan } from '../../engine/periodization'
 import { restSecondsFor } from '../../engine/rest'
 import { historyUpTo, markSlot, maxReachedWeek } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
 import { displayToKg, displayToKm, kgToDisplay } from '../../utils/units'
-import { todayStr } from '../../utils/dates'
+import { fmt } from '../../utils/dates'
 import { ExerciseStrip } from './ExerciseStrip'
 import { NumpadSheet } from './NumpadSheet'
 import { RestBar, type RestState } from './RestBar'
@@ -31,6 +31,7 @@ import { CompleteSheet, FinishChoiceSheet, WorkoutMenuSheet } from './LoggerShee
 import { NoteSheet, scopeLabel, type NoteScope } from './sheets'
 import { WarmupSheet } from './WarmupSheet'
 import { uid, type ActiveWorkout, type Row } from './state'
+import { de } from '../../i18n/de'
 
 const num = (s: string) => Number(s.replace(',', '.')) || 0
 const isComplete = (rs: Row[]) => rs.length > 0 && rs.every((r) => r.done)
@@ -49,6 +50,10 @@ export default function Logger() {
   const program = useProgramByParam(param)
   const week = useWeekState()
   const sessions = useSessions()
+  // Der Start wartet, bis Verlauf und Wochenstand geladen sind (sonst fehlen Vorschlagsgewichte nach einem Reload)
+  const sessionsLoaded = useSessionsLoaded()
+  const weekLoaded = useWeekStateLoaded()
+  const dataLoaded = sessionsLoaded !== undefined && weekLoaded !== undefined
   const settingsLoaded = useSettingsLoaded()
   const settings = settingsLoaded ?? DEFAULT_SETTINGS
   const overridesLoaded = useExerciseOverridesLoaded()
@@ -69,6 +74,8 @@ export default function Logger() {
   const [completeOpen, setCompleteOpen] = useState(false)
   const [celebrated, setCelebrated] = useState(false)
   const [closed, setClosed] = useState(false)
+  const saving = useRef(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
 
   const local = param.replace(/^p\d+-/, '')
@@ -85,15 +92,15 @@ export default function Logger() {
   )
   const lookup = useCallback((id: string) => all.find((e) => e.id === id), [all])
   const views = useMemo(
-    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides) : []),
-    [day, plan, sessions, program?.id, curWeek, lookup, settings, overrides],
+    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program)) : []),
+    [day, plan, sessions, program, curWeek, lookup, settings, overrides],
   )
 
   useEffect(() => { loadActiveWorkout<ActiveWorkout>().then(setStored) }, [])
 
   // Start oder Wiederaufnahme
   useEffect(() => {
-    if (stored === undefined || active || closed || !program || !views.length || !settingsLoaded || !overridesLoaded) return
+    if (stored === undefined || active || closed || !program || !views.length || !settingsLoaded || !overridesLoaded || !dataLoaded) return
     if (stored && stored.param === param && stored.programId === (program.id ?? null)) { setActive(stored); return }
     if (stored) return // anderes Workout läuft, siehe Hinweiskarte
     const wl = settings.weightUnit
@@ -108,11 +115,12 @@ export default function Logger() {
         weight: v.sug.weight == null ? '' : String(kgToDisplay(v.sug.weight, wl)),
         reps: v.ex.cardio ? '' : String(v.sug.reps),
         rir: v.ex.cardio ? '' : String(v.setRirs[i]),
+        ...(v.ex.cardio ? {} : { planKg: v.sug.weight, planReps: v.sug.reps, planRir: v.setRirs[i] }),
       }))
       rows[v.pe.exerciseId] = [...warm, ...work]
     }
     setActive({ param, programId: program.id ?? null, clock: startClock(Date.now()), rows, current: views[0].pe.exerciseId })
-  }, [stored, active, closed, program, views, param, settings.weightUnit, settingsLoaded, overridesLoaded])
+  }, [stored, active, closed, program, views, param, settings.weightUnit, settingsLoaded, overridesLoaded, dataLoaded])
 
   // Zwischenspeichern, damit Reload oder App-Wechsel nichts verlieren
   useEffect(() => { if (active && !closed) void saveActiveWorkout(active) }, [active, closed])
@@ -164,14 +172,20 @@ export default function Logger() {
   const patch = (rowId: string, p: Partial<Row>) =>
     setRows(current.pe.exerciseId, (rs) => rs.map((r) => (r.id === rowId ? { ...r, ...p, ...(p.weight !== undefined ? { manual: true } : {}) } : r)))
 
-  /** Nach einem abgehakten Arbeitssatz: Gewicht der noch offenen, nicht von Hand geänderten Folgesätze neu berechnen. */
+  /**
+   * Nach einem abgehakten Arbeitssatz: Gewicht der noch offenen, nicht von Hand geänderten Folgesätze relativ zur
+   * Planung anpassen (lief der Satz wie geplant, bleibt alles unverändert). Assistierte Übungen werden nicht angepasst.
+   */
   const adaptFollowing = (rs: Row[], doneRow: Row): Row[] => {
-    if (doneRow.type !== 'work' || current.ex.cardio || doneRow.rir === '') return rs
+    if (doneRow.type !== 'work' || current.ex.cardio || current.ex.assisted || current.ex.metric === 'time' || doneRow.rir === '' || doneRow.planReps === undefined) return rs
     const idx = rs.findIndex((r) => r.id === doneRow.id)
-    const w = displayToKg(num(doneRow.weight), wl)
+    const done = {
+      weight: displayToKg(num(doneRow.weight), wl), reps: num(doneRow.reps), rir: num(doneRow.rir),
+      planWeight: doneRow.planKg, planReps: doneRow.planReps, planRir: doneRow.planRir ?? num(doneRow.rir),
+    }
     return rs.map((r, i) => {
       if (i <= idx || r.type !== 'work' || r.done || r.manual) return r
-      const kg = adaptWeight({ weight: w, reps: num(doneRow.reps), rir: num(doneRow.rir) }, { reps: num(r.reps), rir: num(r.rir) }, current.ex.equipment)
+      const kg = adaptNextWeight(done, r.planKg ?? null, current.ex.equipment, wl)
       return kg === null ? r : { ...r, weight: String(kgToDisplay(kg, wl)) }
     })
   }
@@ -251,14 +265,16 @@ export default function Logger() {
   const firstWork = rows.find((r) => r.type === 'work')
   const workKg = firstWork && num(firstWork.weight) > 0 ? displayToKg(num(firstWork.weight), wl) : current.sug.weight
   const regenWarmups = (v: PlannedView, mode: 'smart' | 'scheme' | 'none', scheme: WarmupStep[]) => {
-    const sets = resolveWarmup({ mode, scheme, ctx: v.warmupCtx, workWeight: workKg })
-    const fresh: Row[] = sets.map((w) => ({
-      id: uid(), type: 'warmup', weight: w.weight == null ? '' : String(kgToDisplay(w.weight, wl)), reps: String(w.reps),
-      rir: '', done: false, minutes: '', km: '',
-    }))
+    const sets = resolveWarmup({ mode, scheme, ctx: v.warmupCtx, workWeight: workKg, unit: wl })
     setRows(v.pe.exerciseId, (rs) => {
       const keep = rs.filter((r) => r.type === 'work' || r.done)
-      return [...keep.filter((r) => r.type === 'warmup'), ...fresh, ...keep.filter((r) => r.type === 'work')]
+      const keptWarm = keep.filter((r) => r.type === 'warmup')
+      // Abgehakte Aufwärmsätze bleiben; neue mit gleichem Gewicht entfallen
+      const fresh: Row[] = dedupeWarmups(sets, keptWarm.map((r) => ({ weight: r.weight === '' ? null : displayToKg(num(r.weight), wl) }))).map((w) => ({
+        id: uid(), type: 'warmup', weight: w.weight == null ? '' : String(kgToDisplay(w.weight, wl)), reps: String(w.reps),
+        rir: '', done: false, minutes: '', km: '',
+      }))
+      return [...keptWarm, ...fresh, ...keep.filter((r) => r.type === 'work')]
     })
   }
   const pickWarmupMode = (m: 'smart' | 'scheme') => {
@@ -295,6 +311,9 @@ export default function Logger() {
 
   const close = async () => { setClosed(true); await clearActiveWorkout() }
   const finish = async (mode: 'completed' | 'all') => {
+    if (saving.current) return
+    saving.current = true
+    setSaveError(null)
     const exercises: LoggedExercise[] = []
     for (const v of views) {
       const take = (r: Row) => (mode === 'completed' ? r.done : v.ex.cardio ? num(r.minutes) > 0 : num(r.reps) > 0)
@@ -302,20 +321,31 @@ export default function Logger() {
         ? { reps: 0, weight: 0, minutes: num(r.minutes), km: displayToKm(num(r.km), settings.distanceUnit) }
         : r.type === 'warmup'
           ? { weight: displayToKg(num(r.weight), wl), reps: num(r.reps), warmup: true }
-          : { weight: displayToKg(num(r.weight), wl), reps: num(r.reps), rir: Number(r.rir) })
+          : { weight: displayToKg(num(r.weight), wl), reps: num(r.reps), rir: r.rir === '' ? undefined : Number(r.rir) })
       if (sets.length) exercises.push({ exerciseId: v.pe.exerciseId, sets })
     }
-    await close()
-    if (exercises.length) {
-      const date = todayStr()
+    setClosed(true)
+    try {
       const now = Date.now()
+      const date = fmt(new Date(active.clock.startedAt))
       const notes = Object.fromEntries(Object.entries(active.notes ?? {}).filter(([id, t]) => t && exercises.some((e) => e.exerciseId === id)))
-      await db.sessions.add({
-        programId: program.id ?? null, dayIndex: dayIdx, date, finishedAt: now, week: curWeek, exercises,
-        startedAt: active.clock.startedAt, durationSec: Math.floor(elapsedMs(active.clock, now) / 1000),
-        ...(Object.keys(notes).length ? { notes } : {}),
+      // Einheit, Wochenstand und Löschen des laufenden Workouts atomar: schlägt etwas fehl, bleibt das Training erhalten.
+      await db.transaction('rw', db.sessions, db.kv, async () => {
+        if (exercises.length) {
+          await db.sessions.add({
+            programId: program.id ?? null, dayIndex: dayIdx, date, finishedAt: now, week: curWeek, exercises,
+            startedAt: active.clock.startedAt, durationSec: Math.floor(elapsedMs(active.clock, now) / 1000),
+            ...(Object.keys(notes).length ? { notes } : {}),
+          })
+          if (slotIdx !== null && !foreign) await saveWeekState(markSlot(week, slotIdx, date))
+        }
+        await clearActiveWorkout()
       })
-      if (slotIdx !== null) await saveWeekState(markSlot(week, slotIdx, date))
+    } catch (e) {
+      setClosed(false)
+      saving.current = false
+      setSaveError(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : 'unbekannter Fehler'}. Das Training bleibt erhalten.`)
+      return
     }
     nav('/workouts', { replace: true })
   }
@@ -325,13 +355,14 @@ export default function Logger() {
   const trained = views.filter((v) => !v.ex.cardio && (active.rows[v.pe.exerciseId] ?? []).some((r) => r.done && r.type === 'work'))
   const primaryDone = [...new Set(trained.flatMap((v) => v.ex.primary))] as MuscleId[]
   const secondaryDone = [...new Set(trained.flatMap((v) => v.ex.secondary))].filter((m) => !primaryDone.includes(m)) as MuscleId[]
-  const workDone = trained.flatMap((v) => (active.rows[v.pe.exerciseId] ?? []).filter((r) => r.done && r.type === 'work').map((r) => ({ r, f: volumeFactor(v.ex) })))
-  const volumeKg = workDone.reduce((a, { r, f }) => a + displayToKg(num(r.weight), wl) * num(r.reps) * f, 0)
+  const workDone = trained.flatMap((v) => (active.rows[v.pe.exerciseId] ?? []).filter((r) => r.done && r.type === 'work').map((r) => ({ r, f: volumeFactor(v.ex), e: v.ex })))
+  const volumeKg = workDone.filter(({ e }) => !noLoadStats(e)).reduce((a, { r, f }) => a + displayToKg(num(r.weight), wl) * num(r.reps) * f, 0)
   const durMin = Math.round(elapsedMs(active.clock, paused ? (active.clock.pausedAt as number) : Date.now()) / 60000)
   const noteBoxes = (['session', 'exercise', 'program'] as const).filter((sc) => noteValues[sc])
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-8" style={{ paddingBottom: pad ? '22rem' : undefined }}>
+      {saveError && <div role="alert" className="mb-3 rounded-xl bg-danger/15 text-danger text-sm p-3">{saveError}</div>}
       <div className="sticky top-0 z-30 bg-bg -mx-4 px-4 pt-2 pb-2 safe-top border-b border-line">
         <WorkoutHeader clock={active.clock} onBack={() => nav('/workouts')} onMenu={() => setMenuOpen(true)} />
         {rest && !paused && (
@@ -347,12 +378,14 @@ export default function Logger() {
         <div className="mt-2 mb-4">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-lg font-bold">{current.ex.name}</h1>
-            {plan.isDeload && <span className="text-xs rounded-full bg-amber-500/20 text-amber-500 px-2 py-1">Deload</span>}
+            {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
           </div>
+          {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
+          {current.ex.assisted && <p className="text-xs text-muted mt-1">Das Gewicht ist die Unterstützung: weniger Gewicht ist schwerer.</p>}
           <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar">
             <ActionPill icon="guide" label="Info" onClick={() => setInfoOpen(true)} />
-            {!current.ex.cardio && <ActionPill icon="warmup" label="Warm-up" onClick={() => setWarmupOpen(true)} active={modeNow !== 'none'} />}
-            <ActionPill icon="note" label="Note" onClick={() => setNoteScope(noteBoxes[0] ?? 'session')} active={noteBoxes.length > 0} />
+            {!current.ex.cardio && <ActionPill icon="warmup" label={de.logger.warmup} onClick={() => setWarmupOpen(true)} active={modeNow !== 'none'} />}
+            <ActionPill icon="note" label={de.common.note} onClick={() => setNoteScope(noteBoxes[0] ?? 'session')} active={noteBoxes.length > 0} />
           </div>
         </div>
 

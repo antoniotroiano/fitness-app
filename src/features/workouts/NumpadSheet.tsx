@@ -46,7 +46,7 @@ export function NumpadSheet({ field, label, value, rir, onValue, onRir, onConfir
             <span className="text-xs text-muted mr-1">RIR</span>
             {['0', '1', '2', '3', '4', '5', '6'].map((n) => (
               <button key={n} onClick={() => onRir(n)} aria-label={`RIR ${n === '6' ? '6 oder mehr' : n}`}
-                className={cx('flex-1 h-9 rounded-lg text-sm font-semibold border', rir === n ? 'text-slate-900' : 'border-line bg-surface2')}
+                className={cx('flex-1 h-9 rounded-lg text-sm font-semibold border', rir === n ? 'text-accent-fg' : 'border-line bg-surface2')}
                 style={rir === n ? { background: rirColor(Number(n)), borderColor: rirColor(Number(n)) } : { color: rirColor(Number(n)) }}>
                 {n === '6' ? '6+' : n}
               </button>

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { WeightEntry } from '../../types'
 import { BottomSheet, Button, cx } from '../../components/ui'
+import { Icon } from '../../components/icons'
 import { NumberPad, applyKey } from '../../components/NumberPad'
 import { deleteBodyEntry, saveBodyEntry } from '../../db/db'
 import { displayToKg, kgToDisplay } from '../../utils/units'
 import { formatDate } from '../../utils/dates'
+import { de } from '../../i18n/de'
 
 /** Sheet zum Bearbeiten von Gewicht und Körperfett eines Tages (Vergangenheit/heute). */
 export function EntrySheet({ date, today, entry, unit, onClose }: {
@@ -64,7 +66,7 @@ export function EntrySheet({ date, today, entry, unit, onClose }: {
       </h2>
       <button type="button" onClick={remove} disabled={future || !entry} aria-label="Eintrag löschen"
         className={cx('w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-sm',
-          confirmDel ? 'bg-red-500 text-white' : 'bg-red-500/15 text-red-500', (future || !entry) && 'opacity-30')}>🗑</button>
+          confirmDel ? 'bg-danger text-danger-fg' : 'bg-danger/15 text-danger', (future || !entry) && 'opacity-30')}><Icon name="trash" size={16} /></button>
     </div>
   )
 
@@ -91,10 +93,10 @@ export function EntrySheet({ date, today, entry, unit, onClose }: {
   return (
     <BottomSheet open={open} onClose={onClose} header={header} height="75%">
       <div className="space-y-3">
-        {confirmDel && <p className="text-xs text-red-500 text-center">Nochmal auf 🗑 tippen, um den Eintrag endgültig zu löschen.</p>}
+        {confirmDel && <p className="text-xs text-danger text-center">Nochmal auf das Papierkorb-Symbol tippen, um den Eintrag endgültig zu löschen.</p>}
         <div className="flex gap-2">
-          {box('kg', 'Weight', kg, unit)}
-          {box('bf', 'Body fat', bf, '%')}
+          {box('kg', de.common.weight, kg, unit)}
+          {box('bf', de.common.bodyFat, bf, '%')}
         </div>
         <Button className="w-full" onClick={save} disabled={!canSave}>Speichern</Button>
         <NumberPad onDigit={press} onComma={() => press(',')} onBack={() => press('back')} />

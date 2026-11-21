@@ -4,7 +4,8 @@ import { effectiveSets, weekPlan } from './periodization'
 export interface WeekProgress {
   exercises: { done: number; total: number }
   sets: { done: number; total: number }
-  muscles: { done: number; total: number }
+  /** done = anteilig (Ring), full = vollständig erledigte Muskeln (Ganzzahl für die Anzeige) */
+  muscles: { done: number; total: number; full: number }
 }
 
 /** Fortschritt der aktuellen Programmwoche (nur geplante Workout-Slots, primäre Muskeln). */
@@ -42,6 +43,10 @@ export function weekProgress(
     exercises: { done: exDone, total: exTotal },
     sets: { done: setDone, total: setTotal },
     // Anteilig: ein Muskel mit 2 von 4 geplanten Sätzen zählt 0,5 (vorher erst bei 100 % der ganzen Woche, daher meist 0)
-    muscles: { done: muscleIds.reduce((n, m) => n + Math.min(1, (doneSets[m] ?? 0) / (plannedSets[m] || 1)), 0), total: muscleIds.length },
+    muscles: {
+      done: muscleIds.reduce((n, m) => n + Math.min(1, (doneSets[m] ?? 0) / (plannedSets[m] || 1)), 0),
+      total: muscleIds.length,
+      full: muscleIds.filter((m) => (doneSets[m] ?? 0) >= (plannedSets[m] ?? 0)).length,
+    },
   }
 }

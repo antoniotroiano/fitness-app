@@ -4,8 +4,9 @@ import { MUSCLES } from '../data/muscles'
 /**
  * Pausen-Defaults in Sekunden (alle in den Einstellungen änderbar).
  * Grundlage: Schoenfeld et al. 2016 (3 vs. 1 min: mehr Kraft und Hypertrophie bei Trainierten),
- * Refalo 2023 / Singer 2024 (Hypertrophie ab ca. 60-90 s ähnlich, längere Pausen erhalten bei
- * Verbundübungen das Volumen), ACSM: 2-3 min Hauptübungen, 1-2 min Assistenzübungen.
+ * Singer et al. 2024, "Give it a rest" (Frontiers in Sports and Active Living: kleiner Vorteil für Pausen > 60 s,
+ * ab > 90 s für Hypertrophie kein weiterer Unterschied; längere Pausen erhalten bei Verbundübungen das Volumen),
+ * ACSM: 2-3 min Hauptübungen, 1-2 min Assistenzübungen.
  */
 export const DEFAULT_REST: Record<RestCategory, number> = {
   compoundUpper: 150,

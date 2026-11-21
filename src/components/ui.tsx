@@ -15,11 +15,23 @@ export function Button({
   const v = {
     primary: 'bg-accent text-accent-fg font-semibold',
     ghost: 'bg-surface2 text-fg',
-    danger: 'bg-red-500/15 text-red-500',
+    danger: 'bg-danger/15 text-danger',
   }[variant]
   return (
     <button type={type} disabled={disabled} onClick={onClick} aria-label={ariaLabel}
       className={cx('rounded-xl px-4 py-3 text-sm active:opacity-70 disabled:opacity-40', v, className)}>
+      {children}
+    </button>
+  )
+}
+
+/** Einheitlicher Text-Link/Aktion („Alle anzeigen“, „Satz hinzufügen“ …): feste Größe, Farbe, Gewicht. */
+export function LinkButton({ children, onClick, className, 'aria-expanded': expanded }: {
+  children: ReactNode; onClick?: () => void; className?: string; 'aria-expanded'?: boolean
+}) {
+  return (
+    <button type="button" onClick={onClick} aria-expanded={expanded}
+      className={cx('text-sm font-medium text-accent min-h-8 inline-flex items-center gap-1.5 active:opacity-60', className)}>
       {children}
     </button>
   )

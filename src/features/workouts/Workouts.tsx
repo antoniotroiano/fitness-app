@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Page, cx } from '../../components/ui'
+import { Button, Card, LinkButton, Page, cx } from '../../components/ui'
+import { ProgramBadge } from '../../components/icons'
 import { activateProgram, deleteProgram, saveWeekState, useActiveProgram, useActiveWorkoutParam, usePrograms, useSessions, useSettings, useWeekState } from '../../db/db'
 import { sessionDates } from '../../engine/habits'
 import { formatTime } from '../../utils/units'
 import { jumpToWeek, markSlot, maxReachedWeek, unmarkSlot } from '../../engine/weekCycle'
 import { WeekSheet } from './WeekSheet'
 import { weekPlan } from '../../engine/periodization'
-import { WEEKDAYS, addDays, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
+import { WEEKDAYS, addDays, fmt, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
+import { de } from '../../i18n/de'
 
 function WeekStrip({ marked }: { marked: Set<string> }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -59,7 +61,7 @@ export default function Workouts() {
     return (
       <Page title="Workouts">
         <Card className="text-center space-y-3 py-8">
-          <div className="text-4xl">🏋️</div>
+          <div className="flex justify-center"><ProgramBadge size={56} /></div>
           <div className="font-semibold">Noch kein Programm</div>
           <p className="text-sm text-muted">Erstelle dein erstes Programm – automatisch oder selbst.</p>
           <Button onClick={() => nav('/new')}>Programm erstellen</Button>
@@ -84,8 +86,8 @@ export default function Workouts() {
 
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-xs uppercase tracking-wide text-muted">Active Program</div>
-          <div className="font-semibold">{program.icon} {program.name}</div>
+          <div className="text-xs uppercase tracking-wide text-muted">{de.workouts.activeProgram}</div>
+          <div className="font-semibold flex items-center gap-2"><ProgramBadge icon={program.icon} color={program.color} size={28} />{program.name}</div>
         </div>
         <button onClick={() => setWeekSheet(true)} aria-haspopup="dialog"
           className="rounded-xl bg-surface2 px-3 py-2 text-sm font-semibold active:opacity-70">
@@ -110,7 +112,7 @@ export default function Workouts() {
           if (slot === 'rest') {
             return (
               <Card key={i} className="flex items-center justify-between !py-3">
-                <div><div className="text-sm font-medium">Rest Day</div><div className="text-xs text-muted">Tag {i + 1}</div></div>
+                <div><div className="text-sm font-medium">{de.common.restDay}</div><div className="text-xs text-muted">Tag {i + 1}</div></div>
                 <button onClick={() => toggleRest(i)}
                   className={cx('w-8 h-8 rounded-full border flex items-center justify-center', done ? 'bg-accent border-accent text-accent-fg' : 'border-line text-transparent')}
                   aria-label="Ruhetag abhaken">✓</button>
@@ -155,13 +157,13 @@ export default function Workouts() {
         </div>
       )}
       {others.length > 0 && (
-        <section className="space-y-2 pt-2" aria-label="Workouts Library">
+        <section className="space-y-2 pt-2" aria-label={de.workouts.library}>
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Workouts Library</h2>
-            <button className="text-sm text-accent font-medium"
+            <h2 className="font-semibold">{de.workouts.library}</h2>
+            <LinkButton
               onClick={() => setExpanded(allOpen ? {} : Object.fromEntries(others.map((p) => [p.id as number, true])))}>
-              {allOpen ? 'Collapse' : 'Expand'}
-            </button>
+              {allOpen ? de.workouts.collapse : de.workouts.expand}
+            </LinkButton>
           </div>
           {others.map((p) => {
             const id = p.id as number
@@ -170,11 +172,10 @@ export default function Workouts() {
               <Card key={id} className="!p-0 overflow-hidden">
                 <button className="w-full flex items-center gap-3 px-4 py-3 text-left" aria-expanded={open}
                   onClick={() => setExpanded((x) => ({ ...x, [id]: !open }))}>
-                  <span className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-lg"
-                    style={{ background: `${p.color}33`, border: `2px solid ${p.color}` }}>{p.icon}</span>
+                  <ProgramBadge icon={p.icon} color={p.color} size={36} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate">{p.name}</span>
-                    <span className="block text-xs text-muted">{p.days.length} Workouts · {formatDate(new Date(p.createdAt).toISOString().slice(0, 10))}</span>
+                    <span className="block text-xs text-muted">{p.days.length} Workouts · {formatDate(fmt(new Date(p.createdAt)))}</span>
                   </span>
                   <span className={cx('text-muted transition-transform', open && 'rotate-90')}>›</span>
                 </button>
@@ -185,7 +186,7 @@ export default function Workouts() {
                         if (slot === 'rest') {
                           return (
                             <div key={i} className="rounded-xl bg-surface2/60 px-4 py-3">
-                              <div className="text-sm font-medium">Rest Day</div><div className="text-xs text-muted">Tag {i + 1}</div>
+                              <div className="text-sm font-medium">{de.common.restDay}</div><div className="text-xs text-muted">Tag {i + 1}</div>
                             </div>
                           )
                         }

@@ -3,6 +3,7 @@ import { BottomSheet, Button, cx } from '../../components/ui'
 import { stepsToSets } from '../../engine/warmup'
 import { kgToDisplay } from '../../utils/units'
 import { SchemeTable } from './sheets'
+import { de } from '../../i18n/de'
 
 /** "Set Calculator": Aufwärmsätze der Übung, umschaltbar zwischen Smart (berechnet) und Scheme (editierbar). */
 export function WarmupSheet({ open, onClose, mode, smart, scheme, hasOverride, workWeight, equipment, unit, onMode, onScheme, onResetScheme }: {
@@ -24,9 +25,9 @@ export function WarmupSheet({ open, onClose, mode, smart, scheme, hasOverride, w
   )
   const header = (
     <div className="flex items-center gap-3 min-h-8">
-      <h2 className="font-bold text-lg flex-1 min-w-0 truncate">Set Calculator</h2>
+      <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{de.logger.calculator}</h2>
       <div role="tablist" aria-label="Aufwärm-Modus" className="flex gap-1 p-1 rounded-xl bg-surface2">
-        {seg('smart', 'Smart')}{seg('scheme', 'Scheme')}
+        {seg('smart', 'Smart')}{seg('scheme', de.common.scheme)}
       </div>
       <button type="button" onClick={onClose} aria-label="Schließen"
         className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>

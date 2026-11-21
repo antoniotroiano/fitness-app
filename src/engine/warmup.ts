@@ -1,5 +1,6 @@
-import type { Equipment, Exercise, RestCategory, WarmupOverrideMode, WarmupStep } from '../types'
-import { INCREMENT, roundTo } from './progression'
+import type { Equipment, Exercise, RestCategory, Settings, WarmupOverrideMode, WarmupStep } from '../types'
+import { KG_PER_LB } from '../utils/units'
+import { incrementKg, roundTo } from './progression'
 
 /**
  * Aufwärmsätze (Heuristik). Studienlage: Ein spezifisches Aufwärmen (leichtere Sätze derselben Übung)
@@ -12,13 +13,19 @@ import { INCREMENT, roundTo } from './progression'
  */
 export interface WarmupSet { weight: number | null; reps: number }
 
-const DEFAULT_RAMP: WarmupStep[] = [{ pct: 40, reps: 5 }, { pct: 60, reps: 5 }, { pct: 80, reps: 3 }]
+/**
+ * Scheme-Defaults: Verbundübungen mit voller Rampe, Isolation (meist am Ende des Workouts) nur zwei leichte Sätze,
+ * Core ohne Aufwärmen. Die Studienlage stützt vor allem spezifisches Aufwärmen nahe an schweren Lasten.
+ */
+const COMPOUND_RAMP: WarmupStep[] = [{ pct: 40, reps: 5 }, { pct: 60, reps: 5 }, { pct: 80, reps: 3 }]
+const ISO_RAMP: WarmupStep[] = [{ pct: 50, reps: 10 }, { pct: 75, reps: 5 }]
+const copy = (steps: WarmupStep[]) => steps.map((x) => ({ ...x }))
 export const DEFAULT_WARMUP_SCHEMES: Record<RestCategory, WarmupStep[]> = {
-  compoundUpper: DEFAULT_RAMP.map((x) => ({ ...x })),
-  compoundLower: DEFAULT_RAMP.map((x) => ({ ...x })),
-  isoUpper: DEFAULT_RAMP.map((x) => ({ ...x })),
-  isoLower: DEFAULT_RAMP.map((x) => ({ ...x })),
-  core: DEFAULT_RAMP.map((x) => ({ ...x })),
+  compoundUpper: copy(COMPOUND_RAMP),
+  compoundLower: copy(COMPOUND_RAMP),
+  isoUpper: copy(ISO_RAMP),
+  isoLower: copy(ISO_RAMP),
+  core: [],
 }
 
 export const cloneSchemes = (s: Record<RestCategory, WarmupStep[]>): Record<RestCategory, WarmupStep[]> =>
@@ -27,6 +34,8 @@ export const cloneSchemes = (s: Record<RestCategory, WarmupStep[]>): Record<Rest
 const NO_WARMUP: Equipment[] = ['bodyweight', 'band', 'cardio']
 /** Leergewicht der Stange bzw. kleinste sinnvolle Last */
 const MIN_LOAD: Partial<Record<Equipment, number>> = { barbell: 20, smith: 15 }
+/** Leere Stange in lb-Ländern (45 lb) bzw. leere Smith-Maschine (35 lb) */
+const MIN_LOAD_LB: Partial<Record<Equipment, number>> = { barbell: 45, smith: 35 }
 
 export type Freshness = 'fresh' | 'partial' | 'primed'
 
@@ -64,11 +73,11 @@ export function smartSteps(c: WarmupContext): WarmupStep[] {
 }
 
 /** Schritte in Gewichte umrechnen (gerundet, Stange als Untergrenze, ohne Doppelte). */
-export function stepsToSets(steps: WarmupStep[], workWeight: number | null, equipment: Equipment): WarmupSet[] {
+export function stepsToSets(steps: WarmupStep[], workWeight: number | null, equipment: Equipment, unit: Settings['weightUnit'] = 'kg'): WarmupSet[] {
   if (steps.length === 0 || NO_WARMUP.includes(equipment)) return []
   if (workWeight == null || workWeight <= 0) return steps.map((s) => ({ weight: null, reps: s.reps }))
-  const inc = INCREMENT[equipment] || 1
-  const floor = MIN_LOAD[equipment] ?? inc
+  const inc = incrementKg(equipment, unit) || 1
+  const floor = (unit === 'lb' && MIN_LOAD_LB[equipment] ? MIN_LOAD_LB[equipment] * KG_PER_LB : MIN_LOAD[equipment]) ?? inc
   const out: WarmupSet[] = []
   for (const s of steps) {
     const weight = Math.max(floor, roundTo((workWeight * s.pct) / 100, inc))
@@ -85,6 +94,8 @@ export interface ResolveInput {
   scheme: WarmupStep[]
   ctx: WarmupContext
   workWeight: number | null
+  /** Anzeige-Einheit für die Rundung der Gewichte (Standard kg) */
+  unit?: Settings['weightUnit']
 }
 
 export function resolveWarmupSteps({ mode, scheme, ctx }: Pick<ResolveInput, 'mode' | 'scheme' | 'ctx'>): WarmupStep[] {
@@ -93,7 +104,25 @@ export function resolveWarmupSteps({ mode, scheme, ctx }: Pick<ResolveInput, 'mo
 }
 
 export function resolveWarmup(i: ResolveInput): WarmupSet[] {
-  return stepsToSets(resolveWarmupSteps(i), i.workWeight, i.ctx.equipment)
+  return stepsToSets(resolveWarmupSteps(i), i.workWeight, i.ctx.equipment, i.unit)
+}
+
+/**
+ * Neu berechnete Aufwärmsätze mit bereits vorhandenen (abgehakten) zusammenführen: Sätze, deren Gewicht schon
+ * vorkommt, entfallen, damit keine doppelten Gewichte entstehen. Sätze ohne Gewicht (null) bleiben unberührt.
+ */
+export function dedupeWarmups<T extends { weight: number | null }>(fresh: T[], kept: { weight: number | null }[]): T[] {
+  const seen = kept.flatMap((k) => (k.weight == null ? [] : [k.weight]))
+  const out: T[] = []
+  for (const f of fresh) {
+    if (f.weight != null) {
+      const w = f.weight
+      if (seen.some((x) => Math.abs(x - w) < 0.05)) continue
+      seen.push(w)
+    }
+    out.push(f)
+  }
+  return out
 }
 
 /** Modus der Übung: eigene Überschreibung, sonst App-Einstellung. */

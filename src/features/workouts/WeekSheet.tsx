@@ -1,6 +1,7 @@
 import { BottomSheet, cx } from '../../components/ui'
+import { de } from '../../i18n/de'
 
-/** Sheet zum Springen zwischen Programmwochen (0-basierte Woche intern, "Week N" in der Anzeige). */
+/** Sheet zum Springen zwischen Programmwochen (0-basierte Woche intern, "Woche N" in der Anzeige). */
 export function WeekSheet({ open, onClose, current, maxWeek, counts, onPick }: {
   open: boolean; onClose: () => void; current: number; maxWeek: number
   /** Anzahl geloggter Workouts je Woche (0-basiert) */
@@ -25,7 +26,7 @@ export function WeekSheet({ open, onClose, current, maxWeek, counts, onPick }: {
             <button type="button" onClick={() => onPick(w)} role="option" aria-selected={w === current}
               className={cx('w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left active:opacity-70',
                 w === current ? 'border-accent bg-accent/10' : 'border-line bg-surface2')}>
-              <span className="flex-1 text-sm font-medium">Week {w + 1}</span>
+              <span className="flex-1 text-sm font-medium">{de.workouts.week(w + 1)}</span>
               {counts[w] ? <span className="text-xs text-muted">{counts[w]} Workout{counts[w] > 1 ? 's' : ''}</span> : null}
               {w === current && <span className="text-accent font-bold" aria-label="Aktuelle Woche">●</span>}
             </button>

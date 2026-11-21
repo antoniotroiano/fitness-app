@@ -7,9 +7,10 @@ import { rirColor } from '../../components/rir'
 import { useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState } from '../../db/db'
 import { muscleLabel } from '../../data/muscles'
 import { weekPlan } from '../../engine/periodization'
-import { plannedDay } from '../../engine/plannedDay'
+import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
 import { historyUpTo, maxReachedWeek } from '../../engine/weekCycle'
 import { targetMuscles } from '../../engine/targetMuscles'
+import { de } from '../../i18n/de'
 
 /** Vorschau eines Workouts: Übungen, Sätze, Rep-Bereiche und Ziel-RIR. Start über den Button unten. */
 export default function WorkoutPreview() {
@@ -35,8 +36,8 @@ export default function WorkoutPreview() {
     [program, curWeek],
   )
   const views = useMemo(
-    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, curWeek), (id) => all.find((e) => e.id === id), settings, overrides) : []),
-    [day, plan, sessions, program?.id, curWeek, all, settings, overrides],
+    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, curWeek), (id) => all.find((e) => e.id === id), settings, overrides, deloadSessionOf(program)) : []),
+    [day, plan, sessions, program, curWeek, all, settings, overrides],
   )
 
   const targets = useMemo(() => targetMuscles(views.map((v) => ({ ex: v.ex, sets: v.sets }))), [views])
@@ -47,10 +48,10 @@ export default function WorkoutPreview() {
 
   return (
     <Page title={day.name} back={() => nav('/workouts')}
-      right={plan.isDeload ? <span className="text-xs rounded-full bg-amber-500/20 text-amber-500 px-2 py-1">Deload</span> : undefined}>
+      right={plan.isDeload ? <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span> : undefined}>
       {targets.length > 0 && (
-        <section className="space-y-2" aria-label="Target Muscles">
-          <h2 className="font-semibold">Target Muscles</h2>
+        <section className="space-y-2" aria-label={de.workouts.targetMuscles}>
+          <h2 className="font-semibold">{de.workouts.targetMuscles}</h2>
           <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 py-1">
             {targets.map((t) => (
               <button key={t.muscle} onClick={() => setFocus(focus === t.muscle ? null : t.muscle)} aria-pressed={focus === t.muscle}
@@ -78,11 +79,11 @@ export default function WorkoutPreview() {
             <div className="grid grid-cols-[64px_1fr_auto] gap-x-3 gap-y-1 items-center">
               <div style={{ gridRow: `1 / span ${lines + 2}` }} className="self-start"><ExercisePhoto ex={v.ex} size={64} /></div>
               <div className="font-semibold leading-tight">{v.ex.name}</div>
-              <div className="text-[10px] uppercase tracking-wide text-muted text-right">{v.ex.cardio ? '' : 'RIR'}</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted text-right">{v.ex.cardio ? '' : 'RIR'}</div>
               {Array.from({ length: lines }, (_, i) => (
                 <div key={i} className="contents">
                   <div className="text-sm text-muted">
-                    {v.ex.cardio ? 'Cardio' : `Satz ${i + 1} · ${v.range.min}–${v.range.max} Wdh`}
+                    {v.ex.cardio ? 'Cardio' : `Satz ${i + 1} · ${v.range.min}–${v.range.max} ${v.ex.metric === 'time' ? 'Sek' : 'Wdh'}`}
                   </div>
                   <div className="text-sm font-bold text-right tabular-nums" style={v.ex.cardio ? undefined : { color: rirColor(v.setRirs[i]) }}>
                     {v.ex.cardio ? '' : v.setRirs[i]}

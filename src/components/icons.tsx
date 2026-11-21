@@ -33,6 +33,14 @@ const PATHS = {
   sparkles: <><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></>,
   sliders: <><path d="M4 7h9M19 7h1M4 17h1M11 17h9" /><circle cx="16" cy="7" r="2.2" /><circle cx="8" cy="17" r="2.2" /></>,
   ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
+  bolt: <><path d="M13 2 5 14h6l-1 8 8-12h-6z" /></>,
+  target: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>,
+  run: <><circle cx="14" cy="4.5" r="1.8" /><path d="M9 21l3-6-3-3 2-4 4 2 3 2M7 11l4-4M12 15l3 6" /></>,
+  rocket: <><path d="M12 3c3 2 5 6 5 10l-2 3H9l-2-3c0-4 2-8 5-10zM9 16l-2 4 3-1M15 16l2 4-3-1" /><circle cx="12" cy="10" r="1.5" /></>,
+  brain: <><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 1V4a3 3 0 0 0-3 0zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 1" /></>,
+  shield: <><path d="M12 3l7 3v5c0 5-3 9-7 10-4-1-7-5-7-10V6z" /></>,
+  heart: <><path d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11z" /></>,
+  trophy: <><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4v1a3 3 0 0 0 4 3M16 6h4v1a3 3 0 0 1-4 3M12 13v4M8 21h8M10 17h4" /></>,
   phone: <><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></>,
 } satisfies Record<string, ReactNode>
 
@@ -42,5 +50,30 @@ export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">{PATHS[name]}</svg>
+  )
+}
+
+/** Auswählbare Programm-Symbole (gespeichert wird der Icon-Name). */
+export const PROGRAM_ICONS: IconName[] = ['workouts', 'warmup', 'bolt', 'target', 'run', 'rocket', 'brain', 'shield', 'heart', 'trophy']
+
+/** Ältere Programme speichern Emojis in `icon`: auf Linien-Icons abbilden, sonst Fallback. */
+const LEGACY: Record<string, IconName> = {
+  '🏋️': 'workouts', '🏋': 'workouts', '💪': 'workouts', '🔥': 'warmup', '⚡': 'bolt', '🎯': 'target',
+  '🦵': 'run', '🏃': 'run', '🚀': 'rocket', '🧠': 'brain', '🛡️': 'shield', '🛡': 'shield',
+}
+
+export function programIconName(value: string | undefined): IconName {
+  if (value && value in PATHS) return value as IconName
+  return (value && LEGACY[value]) || 'workouts'
+}
+
+/** Programm-Symbol als Linien-Icon in einem Farbkreis. */
+export function ProgramBadge({ icon, color, size = 40 }: { icon?: string; color?: string; size?: number }) {
+  const c = color || 'var(--accent)'
+  return (
+    <span className="shrink-0 rounded-full flex items-center justify-center"
+      style={{ width: size, height: size, background: `color-mix(in srgb, ${c} 20%, transparent)`, border: `2px solid ${c}`, color: c }}>
+      <Icon name={programIconName(icon)} size={Math.round(size * 0.5)} />
+    </span>
   )
 }

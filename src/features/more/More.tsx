@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Equipment, Exercise, MuscleId, Settings } from '../../types'
-import { BottomSheet, Button, Card, Page, Segmented, cx, inputCls } from '../../components/ui'
-import { DEFAULT_SETTINGS, exportAll, importAll, parseWeightImport, resetAllData, saveSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
+import { BottomSheet, Button, Card, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
+import { exportAll, importAll, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
 import { EQUIPMENT_LABEL } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
@@ -12,6 +12,7 @@ import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/library'
 import { DEFAULT_REST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
+import { de } from '../../i18n/de'
 
 export { WarmupSettingsPage } from './WarmupSettings'
 
@@ -55,14 +56,14 @@ function Option<T extends string>({ label, value, options, onChange, icon }: {
 }
 
 const THEME_TILES: { value: Settings['theme']; label: string; bg: string }[] = [
-  { value: 'system', label: 'System Default', bg: 'linear-gradient(135deg, #f5f6f8 50%, #0b1020 50%)' },
-  { value: 'light', label: 'Light', bg: '#f5f6f8' },
-  { value: 'dark', label: 'Dark', bg: '#0b1020' },
+  { value: 'system', label: de.more.themeSystem, bg: 'linear-gradient(135deg, #f5f6f8 50%, #0e0f11 50%)' },
+  { value: 'light', label: de.more.themeLight, bg: '#f5f6f8' },
+  { value: 'dark', label: de.more.themeDark, bg: '#0e0f11' },
 ]
 
 function ThemePicker({ value, onChange }: { value: Settings['theme']; onChange: (v: Settings['theme']) => void }) {
   return (
-    <div className="grid grid-cols-3 gap-3 py-3" role="radiogroup" aria-label="Theme">
+    <div className="grid grid-cols-3 gap-3 py-3" role="radiogroup" aria-label={de.more.theme}>
       {THEME_TILES.map((t) => (
         <button key={t.value} role="radio" aria-checked={value === t.value} aria-label={t.label} title={t.label} onClick={() => onChange(t.value)}
           className={cx('relative h-20 rounded-2xl border-2 overflow-hidden', value === t.value ? 'border-accent' : 'border-line')}
@@ -82,34 +83,34 @@ function ThemePicker({ value, onChange }: { value: Settings['theme']; onChange: 
 export default function More() {
   const { s, update } = useSettingsForm()
   return (
-    <Page title="More">
-      <Section title="General">
+    <Page title={de.more.title}>
+      <Section title={de.more.general}>
         <Row icon="profile" label="Profil" desc="Name, Geburtstag, Geschlecht, Größe" to="/more/profile" />
-        <Row icon="units" label="Units" desc={`${s.weightUnit}, ${s.lengthUnit === 'in' ? 'in / ft' : 'cm'}, ${s.distanceUnit}, ${s.clock === '12h' ? '12 h' : '24 h'}`} to="/more/units" />
-        <Option icon="language" label="Language" value={s.language} onChange={(v) => update({ language: v })}
+        <Row icon="units" label={de.more.units} desc={`${s.weightUnit}, ${s.lengthUnit === 'in' ? 'in / ft' : 'cm'}, ${s.distanceUnit}, ${s.clock === '12h' ? '12 h' : '24 h'}`} to="/more/units" />
+        <Option icon="language" label={de.more.language} value={s.language} onChange={(v) => update({ language: v })}
           options={[{ value: 'de', label: 'DE' }, { value: 'en', label: 'EN' }]} />
         {s.language === 'en' && <p className="py-2 text-xs text-muted">English ist noch nicht verfügbar, die App bleibt vorerst auf Deutsch.</p>}
       </Section>
 
-      <Section title="Feature Settings">
+      <Section title={de.more.features}>
         <Row icon="workouts" label="Workouts" desc="Pause, Aufwärmen" to="/more/workouts" />
         <Row icon="library" label="Übungen" desc="Übungsbibliothek durchsuchen" to="/more/library" />
       </Section>
 
       <section className="space-y-2">
-        <h2 className="text-xs uppercase tracking-wide text-muted px-1">Theme</h2>
+        <h2 className="text-xs uppercase tracking-wide text-muted px-1">{de.more.theme}</h2>
         <Card className="!py-1"><ThemePicker value={s.theme} onChange={(v) => update({ theme: v })} /></Card>
       </section>
 
-      <Section title="Data Management">
+      <Section title={de.more.data}>
         <Row icon="weight" label="Körpergewicht" to="/weight" />
         <Row icon="measures" label="Körpermaße" to="/measures" />
         <Row icon="data" label="Daten" desc="Backup, Import, Zurücksetzen" to="/more/data" />
       </Section>
 
-      <Section title="Other">
+      <Section title={de.more.other}>
         <Row icon="help" label="Hilfe" to="/more/help" />
-        <Row icon="about" label="About" to="/more/about" />
+        <Row icon="about" label={de.more.about} to="/more/about" />
       </Section>
     </Page>
   )
@@ -120,7 +121,7 @@ export function UnitsPage() {
   const nav = useNavigate()
   const { s, update } = useSettingsForm()
   return (
-    <Page title="Units" back={() => nav('/more')}>
+    <Page title={de.more.units} back={() => nav('/more')}>
       <Card className="divide-y divide-line !py-1">
         <Option label="Gewicht" value={s.weightUnit} onChange={(v) => update({ weightUnit: v })}
           options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]} />
@@ -137,7 +138,7 @@ export function UnitsPage() {
 
 function useSettingsForm() {
   const s = useSettings()
-  const update = (p: Partial<Settings>) => saveSettings({ ...s, ...p })
+  const update = (p: Partial<Settings>) => patchSettings(p)
   return { s, update }
 }
 
@@ -155,24 +156,24 @@ function Stepper({ label, value, onChange }: { label: string; value: number; onC
   )
 }
 
-/** Einstellungen › Workouts: General (Pause, Aufwärmen) und Display (Keep Alive). */
+/** Einstellungen › Workouts: General (Pause, Aufwärmen) und Display (Display aktiv halten). */
 export function WorkoutSettingsPage() {
   const nav = useNavigate()
   const { s, update } = useSettingsForm()
   return (
     <Page title="Workouts" back={() => nav('/more')}>
-      <Section title="General">
+      <Section title={de.more.general}>
         <Row icon="timer" label="Pause" desc="Rest-Timer je Übungstyp" to="/more/workouts/rest" />
         <Row icon="warmup" label="Aufwärmen" desc="Smart-Aufwärmen und Schemata" to="/more/workouts/warmup" />
       </Section>
-      <Section title="Display">
+      <Section title={de.common.display}>
         <div className="flex items-center gap-3 py-3.5">
           <Icon name="phone" />
           <span className="flex-1 min-w-0">
-            <span className="block text-sm font-medium">Keep Alive</span>
-            <span className="block text-xs text-muted">Keep your phone alive during active workout sessions.</span>
+            <span className="block text-sm font-medium">{de.more.keepAlive}</span>
+            <span className="block text-xs text-muted">{de.more.keepAliveDesc}</span>
           </span>
-          <button role="switch" aria-checked={s.keepAlive} aria-label="Keep Alive" onClick={() => update({ keepAlive: !s.keepAlive })}
+          <button role="switch" aria-checked={s.keepAlive} aria-label={de.more.keepAlive} onClick={() => update({ keepAlive: !s.keepAlive })}
             className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', s.keepAlive ? 'bg-accent' : 'bg-line')}>
             <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', s.keepAlive ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
           </button>
@@ -265,7 +266,7 @@ export function LibraryPage() {
               <span className={cx('rounded-2xl p-0.5 border-2', m === x.id ? 'border-accent' : 'border-transparent opacity-80')}>
                 <MuscleThumb primary={[x.id]} secondary={[]} size={46} />
               </span>
-              <span className={cx('text-[10px] leading-tight w-full text-center truncate', m === x.id ? 'text-fg font-semibold' : 'text-muted')}>{x.label}</span>
+              <span className={cx('text-[11px] leading-tight w-full text-center truncate', m === x.id ? 'text-fg font-semibold' : 'text-muted')}>{x.label}</span>
             </button>
           ))}
           <button onClick={() => setM(m === 'cardio' ? null : 'cardio')} title="Cardio" aria-label="Cardio" aria-pressed={m === 'cardio'}
@@ -273,7 +274,7 @@ export function LibraryPage() {
             <span className={cx('rounded-2xl p-0.5 border-2', m === 'cardio' ? 'border-accent' : 'border-transparent opacity-80')}>
               <span className="rounded-xl bg-surface border border-line flex items-center justify-center text-2xl" style={{ width: 46, height: 46 }}>🏃</span>
             </span>
-            <span className={cx('text-[10px] leading-tight w-full text-center truncate', m === 'cardio' ? 'text-fg font-semibold' : 'text-muted')}>Cardio</span>
+            <span className={cx('text-[11px] leading-tight w-full text-center truncate', m === 'cardio' ? 'text-fg font-semibold' : 'text-muted')}>Cardio</span>
           </button>
         </div>
 
@@ -286,9 +287,9 @@ export function LibraryPage() {
               <div className="flex items-baseline justify-between">
                 <h2 className="font-semibold">{g.label}</h2>
                 {rest > 0 && (
-                  <button onClick={() => setExpanded((x) => ({ ...x, [g.id]: !open }))} className="text-sm text-accent" aria-expanded={open}>
-                    {open ? 'See Less' : `See ${rest} More`}
-                  </button>
+                  <LinkButton onClick={() => setExpanded((x) => ({ ...x, [g.id]: !open }))} aria-expanded={open}>
+                    {open ? de.more.seeLess : de.more.seeMore(rest)}
+                  </LinkButton>
                 )}
               </div>
               <Card className="!py-1">
@@ -351,7 +352,7 @@ export function DataPage() {
   }
   const doHealth = async (f?: File) => {
     if (!f) return
-    const rows = parseWeightImport(await f.text())
+    const rows = await parseWeightFile(f)
     for (const r of rows) await setWeight(r.date, r.kg, 'import')
     setMsg(`${rows.length} Gewichtswerte importiert`)
   }
@@ -403,7 +404,7 @@ export function AboutPage() {
         <div className="font-semibold">Quellen</div>
         <p className="text-muted text-xs">Übungsbilder (und ausgewählte Texte) stammen aus dem Projekt „free-exercise-db-with-videos“ (MIT-Lizenz, © 2026 Arham Wani). Muskelfiguren und Anleitungen sind eigene Arbeit.</p>
       </Card>
-      <Button variant="danger" className="w-full" onClick={() => { saveSettings(DEFAULT_SETTINGS) }}>Einstellungen zurücksetzen</Button>
+      <Button variant="danger" className="w-full" onClick={() => { void resetSettings() }}>Einstellungen zurücksetzen</Button>
     </Page>
   )
 }
@@ -413,7 +414,7 @@ export function HelpPage() {
   const items: [string, string][] = [
     ['Was ist RIR?', 'Reps in Reserve: Wie viele Wiederholungen du am Satzende noch geschafft hättest. RIR 2 heißt: noch zwei saubere Wiederholungen möglich.'],
     ['Wie berechnet die App den nächsten Vorschlag?', 'Double Progression: Erreichst du in allen Sätzen das obere Ende des Wiederholungsbereichs, steigt das Gewicht und die Wiederholungen starten wieder unten. Sonst wird eine Wiederholung mehr vorgeschlagen. Trägst du etwas anderes ein, wird aus deinem geschätzten 1RM (Epley) neu gerechnet.'],
-    ['Was ist ein Deload?', 'Eine Entlastungswoche mit etwa halbem Satzvolumen und mehr Reserve, damit sich der Körper erholt. Kommt nach jeweils 4 Trainingswochen.'],
+    ['Was ist ein Deload?', 'Eine Entlastungswoche mit etwa halbem Satzvolumen und mehr Reserve, damit sich der Körper erholt. Kommt nach jeweils 4 Trainingswochen. Der Deload ist optional (im Programm abschaltbar): die Studienlage dafür ist schwach, eine Woche Pause brachte in einer Studie (Coleman et al. 2024) keinen Vorteil bei der Muskelgröße.'],
     ['Rep-Range-Verlauf', 'Static: gleich. Linear: Wiederholungen sinken, Gewichte steigen. Reverse Linear: umgekehrt. Undulating: wöchentlicher Wechsel zwischen schwer und leicht.'],
     ['Wochenzyklus', 'Hake Workouts durch Beenden und Ruhetage selbst ab. Sind alle 7 Tage erledigt, startet eine neue Woche bei Workout A mit neu berechneten Zielen.'],
     ['Apple Health / Health Connect', 'Direkter Zugriff ist in einer Web-App technisch nicht möglich. Importiere stattdessen den Health-Export (export.xml) oder eine CSV-Datei.'],

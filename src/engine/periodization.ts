@@ -13,6 +13,9 @@ export interface WeekPlan {
   setsFactor: number
 }
 
+/** Satzfaktor der Spitzenwochen (Woche 3 und 4 im Block); der Generator plant das Zeitbudget darauf hin. */
+export const PEAK_SETS_FACTOR = 1.25
+
 export function weekInBlock(week: number, deload: boolean): number {
   return week % (deload ? BLOCK_WORKING_WEEKS + 1 : BLOCK_WORKING_WEEKS)
 }
@@ -29,7 +32,7 @@ export function weekPlan(config: Pick<ProgramConfig, 'repScheme' | 'deload'>, we
   else if (scheme === 'undulating') repShift = w % 2 === 0 ? -2 : 2
   // RIR sinkt über den Block (letzte Arbeitswoche am anspruchsvollsten), Setvolumen steigt leicht
   const rirDelta = -Math.min(w, 2)
-  const setsFactor = 1 + (w >= 2 ? 0.25 : 0)
+  const setsFactor = w >= 2 ? PEAK_SETS_FACTOR : 1
   return { isDeload: false, repShift, rirDelta, setsFactor }
 }
 
@@ -53,6 +56,9 @@ export function baseRepRange(goal: Goal, compound: boolean, role?: ExerciseRole)
   return { main: { min: 6, max: 10 }, secondary: { min: 8, max: 12 }, isolation: { min: 10, max: 15 } }[r]
 }
 
+/** Zeitübungen (Halten/Tragen): Haltezeit in Sekunden statt Wiederholungen */
+export const TIME_RANGE: RepRange = { min: 30, max: 60 }
+
 export function baseRir(exp: Experience): number {
   return { none: 3, beginner: 3, intermediate: 2, advanced: 1 }[exp]
 }
@@ -68,6 +74,9 @@ export function effectiveRir(base: number, plan: WeekPlan): number {
 /**
  * Ziel-RIR pro Satz (Heuristik, Hypertrophie nahe am Muskelversagen, aber mit Reserve bei Verbund).
  * Verbund: erster Satz Basis+1. Isolation: letzter Satz Basis-1 (min. 0). Sonst Basis.
+ * Grundlage: Hypertrophie profitiert von Nähe zum Muskelversagen, Kraft kaum (Meta-Regression Robinson et al. 2024);
+ * Verbundübungen behalten deshalb mehr Reserve. Die RIR-Schätzung ist ungenau (Halperin et al. 2022: im Mittel
+ * ≈ 1 Wdh. zu niedrig, große Streuung), daher gelten Abweichungen von ±1 RIR nicht als Signal (`ADAPT_DEAD_ZONE`).
  */
 export function setRir(base: number, index: number, total: number, compound: boolean): number {
   if (compound) return index === 0 && total > 1 ? base + 1 : base

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import type { Equipment, Exercise, MuscleId } from '../../types'
+import { Icon, PROGRAM_ICONS, programIconName } from '../../components/icons'
 import { BottomSheet, Chip, inputCls } from '../../components/ui'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { EQUIPMENT_LABEL } from '../../data/exercises'
 
-export const ICONS = ['🏋️', '💪', '🔥', '⚡', '🎯', '🦵', '🏃', '🚀', '🧠', '🛡️']
 export const COLORS = ['#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf']
 
 export function IdentityFields({
@@ -20,9 +20,10 @@ export function IdentityFields({
       <div>
         <div className="text-xs text-muted mb-2">Icon</div>
         <div className="flex flex-wrap gap-2">
-          {ICONS.map((i) => (
+          {PROGRAM_ICONS.map((i) => (
             <button key={i} type="button" onClick={() => onChange({ icon: i })}
-              className={`w-11 h-11 rounded-xl text-xl bg-surface2 border ${i === icon ? 'border-accent' : 'border-line'}`}>{i}</button>
+              aria-label={i} aria-pressed={programIconName(icon) === i}
+              className={`w-11 h-11 rounded-xl bg-surface2 border flex items-center justify-center ${programIconName(icon) === i ? 'border-accent' : 'border-line'}`}><Icon name={i} size={22} /></button>
           ))}
         </div>
       </div>

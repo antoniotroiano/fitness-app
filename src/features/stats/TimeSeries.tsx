@@ -5,12 +5,13 @@ import {
 } from '../../engine/chartWindow'
 import { average, type Averaging, type Period, type Point } from '../../engine/stats'
 import { formatDate, todayStr } from '../../utils/dates'
+import { de } from '../../i18n/de'
 
 const PERIODS: Period[] = ['1W', '1M', '3M', '6M', '1Y', 'All']
 const AVG: { value: Averaging; letter: string; label: string }[] = [
-  { value: 'daily', letter: 'D', label: 'Daily' },
-  { value: 'weekly', letter: 'W', label: 'Weekly' },
-  { value: 'monthly', letter: 'M', label: 'Monthly' },
+  { value: 'daily', letter: 'D', label: de.stats.daily },
+  { value: 'weekly', letter: 'W', label: de.stats.weekly },
+  { value: 'monthly', letter: 'M', label: de.stats.monthly },
 ]
 
 const H = 208
@@ -178,7 +179,7 @@ export function TimeSeries({ daily, bar, fmt, defaultPeriod = '1W', showAveragin
           {PERIODS.map((p) => <button key={p} type="button" className={chipCls(highlight && p === period)} onClick={() => pick(p)}>{p}</button>)}
         </div>
         {showAveraging && (
-          <button type="button" aria-label="Chart Averaging" onClick={() => setSheet(true)}
+          <button type="button" aria-label={de.stats.averaging} onClick={() => setSheet(true)}
             className="w-8 h-8 rounded-full border border-line bg-surface2 text-xs font-bold shrink-0">
             {AVG.find((a) => a.value === mode)?.letter}
           </button>
@@ -189,7 +190,7 @@ export function TimeSeries({ daily, bar, fmt, defaultPeriod = '1W', showAveragin
       <BottomSheet open={sheet} onClose={() => setSheet(false)}>
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => setSheet(false)} aria-label="Schließen" className="text-xl text-muted w-8">✕</button>
-          <h2 className="font-bold text-lg">Chart Averaging</h2>
+          <h2 className="font-bold text-lg">{de.stats.averaging}</h2>
         </div>
         <div className="space-y-2">
           {AVG.map((a) => (

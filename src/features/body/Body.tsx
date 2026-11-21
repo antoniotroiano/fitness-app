@@ -2,13 +2,14 @@ import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { MeasureSite } from '../../types'
 import { Button, Card, Page, cx, inputCls } from '../../components/ui'
-import { db, parseWeightImport, saveBodyEntry, setWeight, useMeasures, useSettings, useWeights } from '../../db/db'
+import { db, parseWeightFile, saveBodyEntry, setWeight, useMeasures, useSettings, useWeights } from '../../db/db'
 import { EntrySheet } from './EntrySheet'
 import { cmToDisplay, displayToCm, displayToKg, kgToDisplay } from '../../utils/units'
 import { formatDate, todayStr } from '../../utils/dates'
 import { streakDays } from '../../engine/habits'
 import { CalendarLegend, MonthCalendar } from '../dashboard/widgets'
 import { TimeSeries } from '../stats/TimeSeries'
+import { de } from '../../i18n/de'
 
 export function WeightPage() {
   const nav = useNavigate()
@@ -35,8 +36,7 @@ export function WeightPage() {
 
   const onImport = async (f: File | undefined) => {
     if (!f) return
-    const text = await f.text()
-    const rows = parseWeightImport(text)
+    const rows = await parseWeightFile(f)
     for (const r of rows) await setWeight(r.date, r.kg, 'import')
     setMsg(rows.length ? `${rows.length} Einträge importiert` : 'Keine Gewichtswerte in der Datei gefunden')
   }
@@ -45,7 +45,7 @@ export function WeightPage() {
     <Page title="Körpergewicht" back={() => nav(-1)}>
       <Card className="flex items-center justify-between">
         <div><div className="text-xs text-muted">Heute</div><div className="text-lg font-bold">{todayW ? `${kgToDisplay(todayW.kg, u)} ${u}` : `-- ${u}`}</div></div>
-        <div className="text-right"><div className="text-xs text-muted">Streak</div><div className="text-lg font-bold">{streakDays(dates, todayStr())} Tage</div></div>
+        <div className="text-right"><div className="text-xs text-muted">{de.common.streak}</div><div className="text-lg font-bold">{streakDays(dates, todayStr())} Tage</div></div>
       </Card>
       <Card className="space-y-3">
         <div className="flex gap-2">
@@ -83,7 +83,7 @@ export function WeightPage() {
                 <span>{formatDate(w.date, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                 <span className="flex items-center gap-3">
                   <b>{kgToDisplay(w.kg, u)} {u}{w.bodyFat != null && <span className="text-muted font-normal"> · {w.bodyFat} %</span>}</b>
-                  <button className="text-red-500 text-xs" onClick={() => w.id && db.weights.delete(w.id)}>Löschen</button>
+                  <button className="text-danger text-xs" onClick={() => w.id && db.weights.delete(w.id)}>Löschen</button>
                 </span>
               </li>
             ))}
@@ -96,7 +96,7 @@ export function WeightPage() {
 
 const SITES: { region: string; items: { id: MeasureSite; label: string }[] }[] = [
   { region: 'Oberkörper', items: [
-    { id: 'neck', label: 'Hals' }, { id: 'shoulders', label: 'Schultern' }, { id: 'bust', label: 'Bust' },
+    { id: 'neck', label: 'Hals' }, { id: 'shoulders', label: 'Schultern' }, { id: 'bust', label: 'Brustumfang' },
     { id: 'chest', label: 'Brust' }, { id: 'waist', label: 'Taille' },
     { id: 'bicepsL', label: 'Bizeps links' }, { id: 'bicepsR', label: 'Bizeps rechts' },
     { id: 'forearmL', label: 'Unterarm links' }, { id: 'forearmR', label: 'Unterarm rechts' },

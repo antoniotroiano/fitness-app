@@ -1,7 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { cx } from '../../components/ui'
+import { LinkButton, cx } from '../../components/ui'
 import { habitDots, monthGrid, shiftMonth, monthOf } from '../../engine/habits'
 import { formatMonth, WEEKDAYS } from '../../utils/dates'
+import { de } from '../../i18n/de'
 
 /** Ring, bei dem sich nur die Linie füllt. */
 export function Ring({ done, total, color, size, stroke, children }: {
@@ -22,13 +23,15 @@ export function Ring({ done, total, color, size, stroke, children }: {
   )
 }
 
-export function RingStat({ label, done, total, color, big }: { label: string; done: number; total: number; color: string; big?: boolean }) {
-  const left = Math.max(0, total - done)
+/** `shown`: Ganzzahl für die Anzeige, falls der Ring anteilig (done) gefüllt wird. */
+export function RingStat({ label, done, total, color, big, shown }: { label: string; done: number; total: number; color: string; big?: boolean; shown?: number }) {
+  const num = shown ?? Math.round(done * 10) / 10
+  const left = Math.max(0, total - num)
   return (
-    <div className="flex flex-col items-center gap-1.5" role="img" aria-label={`${label}: ${done} von ${total}, ${left} übrig`}>
+    <div className="flex flex-col items-center gap-1.5" role="img" aria-label={`${label}: ${num} von ${total}, ${left} übrig`}>
       <Ring done={done} total={total} color={color} size={big ? 132 : 84} stroke={big ? 11 : 8}>
-        <span className={cx('font-bold tabular-nums', big ? 'text-3xl' : 'text-xl')}>{Math.round(done * 10) / 10}</span>
-        <span className={cx('text-muted', big ? 'text-xs' : 'text-[10px]')}>{Math.round(left * 10) / 10} übrig</span>
+        <span className={cx('font-bold tabular-nums', big ? 'text-3xl' : 'text-xl')}>{num}</span>
+        <span className={cx('text-muted', big ? 'text-xs' : 'text-[11px]')}>{left} übrig</span>
       </Ring>
       <div className="text-center">
         <div className={cx('font-semibold', big ? 'text-sm' : 'text-xs')}>{label}</div>
@@ -96,7 +99,7 @@ export function MetricBox({ title, values, last, unit, onClick }: {
   return (
     <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
       <div className="text-sm font-semibold truncate">{title}</div>
-      <div className="text-[11px] text-muted mb-1.5">Last 7 entries</div>
+      <div className="text-[11px] text-muted mb-1.5">{de.dashboard.last7Entries}</div>
       {values.length ? <MiniLine values={values} /> : <div className="h-9 flex items-center text-xs text-muted">Noch keine Daten</div>}
       <div className="mt-2 pt-2 border-t border-line text-xs text-muted">
         <span className="text-fg font-semibold tabular-nums">{last ?? '–'}</span> {last ? unit : ''}
@@ -109,7 +112,7 @@ export function SectionHeader({ title, onAll }: { title: string; onAll?: () => v
   return (
     <div className="flex items-baseline justify-between">
       <h2 className="font-semibold">{title}</h2>
-      {onAll && <button onClick={onAll} className="text-sm text-accent">Alle anzeigen</button>}
+      {onAll && <LinkButton onClick={onAll}>{de.common.showAll}</LinkButton>}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, inputCls } from '../../components/ui'
+import { ProgramBadge } from '../../components/icons'
 import { SlideOver } from '../../components/SlideOver'
 import { MUSCLES } from '../../data/muscles'
 import { exerciseById } from '../../data/exercises'
@@ -8,13 +9,14 @@ import { saveBodyEntry, useActiveProgram, useAllExercises, useMeasures, useSessi
 import { MEASURE_GROUPS, RATIOS, bodyLabel, bodySeries, lastEntries, type BodyKey } from '../../engine/body'
 import { bodyUnit, formatBody } from '../body/format'
 import { EntrySheet } from '../body/EntrySheet'
-import { cardioDaily, exerciseDaily, muscleDaily } from '../../engine/stats'
+import { cardioDaily, exerciseDaily, muscleDaily, noLoadStats } from '../../engine/stats'
 import { dailySeries, dailyValues, sessionDates, streakDays, streakWeeks, weekCount } from '../../engine/habits'
 import { weekProgress } from '../../engine/weekProgress'
 import { recentRecords, type RecordMetric } from '../../engine/records'
 import { displayToKg, kgToDisplay } from '../../utils/units'
 import { todayStr } from '../../utils/dates'
 import { CalendarLegend, HabitBox, MetricBox, MonthCalendar, RingStat, SectionHeader, StatBox } from './widgets'
+import { de } from '../../i18n/de'
 
 const COLOR = { weight: 'var(--habit-weight)', workout: 'var(--habit-workout)' }
 
@@ -27,7 +29,7 @@ function HabitPanel({ open, onClose, title, today, tracked, color, todayText, st
     <SlideOver open={open} onClose={onClose} title={title}>
       <Card className="flex items-center justify-between">
         <div><div className="text-xs text-muted">Heute</div><div className="text-lg font-bold">{todayText}</div></div>
-        <div className="text-right"><div className="text-xs text-muted">Streak</div><div className="text-lg font-bold">{streakText}</div></div>
+        <div className="text-right"><div className="text-xs text-muted">{de.common.streak}</div><div className="text-lg font-bold">{streakText}</div></div>
       </Card>
       {children}
       <Card><MonthCalendar tracked={tracked} today={today} color={color} onSelect={onSelect} /><CalendarLegend color={color} /></Card>
@@ -52,7 +54,7 @@ export default function Dashboard() {
   const pager = useRef<HTMLDivElement>(null)
   const onPagerScroll = () => {
     const el = pager.current
-    if (el) setPageIdx(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))
+    if (el) setPageIdx(el.scrollLeft > el.clientWidth * 0.3 ? 1 : 0)
   }
   // Notch-Fläche passend zum weißen Kopfbereich einfärben
   useEffect(() => {
@@ -88,8 +90,8 @@ export default function Dashboard() {
       const sets = e!.cardio ? points : exerciseDaily(sessions, e!.id, 'totalSets')
       const values = dailySeries(sets, today, 7)
       // Wie auf der Übungsseite: Kraftübungen als Linie (1RM), Cardio als Balken (Dauer)
-      const line = e!.cardio ? undefined : dailyValues(exerciseDaily(sessions, e!.id, 'rm1'), today, 7)
-      return { id: e!.id, title: e!.name, values, line, total: values.reduce((a, b) => a + b, 0), unit: e!.cardio ? 'min' : 'Sets' }
+      const line = e!.cardio ? undefined : dailyValues(exerciseDaily(sessions, e!.id, 'rm1', 1, noLoadStats(e)), today, 7)
+      return { id: e!.id, title: e!.name, values, line, total: values.reduce((a, b) => a + b, 0), unit: e!.cardio ? 'min' : de.common.sets }
     })
   }, [program, sessions, lookup, today])
 
@@ -125,7 +127,7 @@ export default function Dashboard() {
           <div className="w-full shrink-0 snap-center px-4 pb-2 space-y-4">
             {!program && (
               <div className="text-center space-y-3 py-4">
-                <div className="text-4xl">👋</div>
+                <div className="flex justify-center"><ProgramBadge size={56} /></div>
                 <div className="font-semibold">Willkommen bei Lift Lab</div>
                 <p className="text-sm text-muted">Erstelle dein erstes Programm, um Fortschritt zu verfolgen.</p>
                 <Button onClick={() => nav('/new')}>Programm erstellen</Button>
@@ -135,11 +137,11 @@ export default function Dashboard() {
               <>
                 <div className="flex justify-between items-baseline">
                   <div className="font-semibold">Diese Woche</div>
-                  <div className="text-xs text-muted">{program.icon} {program.name} · Woche {week.week + 1}</div>
+                  <div className="text-xs text-muted flex items-center gap-1.5"><ProgramBadge icon={program.icon} color={program.color} size={20} />{program.name} · Woche {week.week + 1}</div>
                 </div>
                 <div className="flex items-end justify-between gap-2">
-                  <RingStat label="Muskeln" done={progress.muscles.done} total={progress.muscles.total} color="var(--ring-muscles)" />
-                  <RingStat big label="Sets" done={progress.sets.done} total={progress.sets.total} color="var(--ring-sets)" />
+                  <RingStat label="Muskeln" done={progress.muscles.done} shown={progress.muscles.full} total={progress.muscles.total} color="var(--ring-muscles)" />
+                  <RingStat big label={de.common.sets} done={progress.sets.done} total={progress.sets.total} color="var(--ring-sets)" />
                   <RingStat label="Übungen" done={progress.exercises.done} total={progress.exercises.total} color="var(--ring-ex)" />
                 </div>
               </>
@@ -147,7 +149,7 @@ export default function Dashboard() {
           </div>
           <div className="w-full shrink-0 snap-center px-4 pb-2 space-y-3">
             <div className="flex justify-between items-baseline">
-              <div className="font-semibold">Recent Records</div>
+              <div className="font-semibold">{de.dashboard.recentRecords}</div>
               <div className="text-xs text-muted">{recMetric === 'volume' ? `Bester Satz (${u})` : recMetric === 'reps' ? 'Wdh. im besten Satz' : `1RM (${u})`}</div>
             </div>
             <div className="space-y-2 min-h-[176px]">
@@ -163,15 +165,15 @@ export default function Dashboard() {
               ))}
             </div>
             <div className="flex rounded-xl bg-surface2 p-1" role="group" aria-label="Rekord-Art">
-              {([['volume', 'Volumen'], ['reps', 'Reps'], ['rm1', '1RM']] as const).map(([v, label]) => (
+              {([['volume', 'Volumen'], ['reps', de.common.reps], ['rm1', '1RM']] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setRecMetric(v)} aria-pressed={recMetric === v}
                   className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors ${recMetric === v ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{label}</button>
               ))}
             </div>
           </div>
         </div>
-        <div className="flex justify-center gap-1.5 pb-3" aria-hidden>
-          {[0, 1].map((i) => <i key={i} className={`w-1.5 h-1.5 rounded-full ${pageIdx === i ? 'bg-fg' : 'bg-line'}`} />)}
+        <div className="flex justify-center gap-2 pb-3" aria-hidden>
+          {[0, 1].map((i) => <i key={i} className={`h-2 rounded-full transition-all ${pageIdx === i ? 'w-5 bg-fg' : 'w-2 bg-muted/50'}`} />)}
         </div>
       </div>
 
@@ -185,7 +187,7 @@ export default function Dashboard() {
       </section>
 
       <section className="space-y-2">
-        <SectionHeader title="Body Metrics" onAll={() => setPanel('body')} />
+        <SectionHeader title={de.dashboard.bodyMetrics} onAll={() => setPanel('body')} />
         <div className="grid grid-cols-2 gap-3">
           {bodyBox('weight')}
           {bodyBox('bodyFat')}
@@ -196,7 +198,7 @@ export default function Dashboard() {
         <SectionHeader title="Muskelgruppen" onAll={() => setPanel('muscles')} />
         <div className="grid grid-cols-2 gap-3">
           {top(muscleBoxes).map((b) => (
-            <StatBox key={b.id} title={b.title} values={b.values} total={b.total} unit="Sets" onClick={() => nav(`/stats/muscle/${b.id}?m=sets`)} />
+            <StatBox key={b.id} title={b.title} values={b.values} total={b.total} unit={de.common.sets} onClick={() => nav(`/stats/muscle/${b.id}?m=sets`)} />
           ))}
         </div>
       </section>
@@ -230,9 +232,9 @@ export default function Dashboard() {
         todayText={workoutDates.has(today) ? 'Absolviert' : '--'}
         streakText={`${streakWeeks(workoutDates, today)} Wochen`} />
 
-      <SlideOver open={panel === 'body'} onClose={close} title="Body Metrics">
+      <SlideOver open={panel === 'body'} onClose={close} title={de.dashboard.bodyMetrics}>
         <section className="space-y-2">
-          <h2 className="text-xs uppercase tracking-wide text-muted">Weight &amp; Body Fat</h2>
+          <h2 className="text-xs uppercase tracking-wide text-muted">{de.dashboard.weightAndBodyFat}</h2>
           <div className="grid grid-cols-2 gap-3">{bodyBox('weight')}{bodyBox('bodyFat')}</div>
         </section>
         {MEASURE_GROUPS.map((g) => (
@@ -242,7 +244,7 @@ export default function Dashboard() {
           </section>
         ))}
         <section className="space-y-2">
-          <h2 className="text-xs uppercase tracking-wide text-muted">Ratios</h2>
+          <h2 className="text-xs uppercase tracking-wide text-muted">{de.dashboard.ratios}</h2>
           <div className="grid grid-cols-2 gap-3">{RATIOS.map((r) => bodyBox(r.id, r.label))}</div>
         </section>
       </SlideOver>
@@ -255,7 +257,7 @@ export default function Dashboard() {
             <h2 className="text-xs uppercase tracking-wide text-muted">{region === 'upper' ? 'Oberkörper' : 'Unterkörper'}</h2>
             <div className="grid grid-cols-2 gap-3">
               {muscleBoxes.filter((b) => b.region === region).map((b) => (
-                <StatBox key={b.id} title={b.title} values={b.values} total={b.total} unit="Sets" onClick={() => goStats(`/stats/muscle/${b.id}?m=sets`)} />
+                <StatBox key={b.id} title={b.title} values={b.values} total={b.total} unit={de.common.sets} onClick={() => goStats(`/stats/muscle/${b.id}?m=sets`)} />
               ))}
             </div>
           </section>

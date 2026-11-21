@@ -14,7 +14,7 @@ export default function ManualBuilder() {
   const active = useActiveProgram()
   const all = useAllExercises()
   const [name, setName] = useState('')
-  const [icon, setIcon] = useState('🏋️')
+  const [icon, setIcon] = useState('workouts')
   const [color, setColor] = useState('#38bdf8')
   const [days, setDays] = useState<WorkoutDay[]>([{ id: 'day-0', name: 'Workout A', exercises: [] }])
   const [picker, setPicker] = useState<number | null>(null)
@@ -56,7 +56,7 @@ export default function ManualBuilder() {
             <input className={inputCls} value={d.name} placeholder="Name des Workouts"
               onChange={(e) => update(di, (x) => ({ ...x, name: e.target.value }))} />
             {!single && days.length > 1 && (
-              <button className="text-red-500 text-sm px-2" onClick={() => setDays((ds) => ds.filter((_, i) => i !== di))}>Löschen</button>
+              <button className="text-danger text-sm px-2" onClick={() => setDays((ds) => ds.filter((_, i) => i !== di))}>Löschen</button>
             )}
           </div>
           <ul className="divide-y divide-line">
@@ -64,7 +64,7 @@ export default function ManualBuilder() {
               <li key={`${e.exerciseId}-${ei}`} className="py-2.5 space-y-2">
                 <div className="flex justify-between gap-2">
                   <span className="text-sm font-medium">{exerciseById(e.exerciseId, all)?.name}</span>
-                  <button className="text-xs text-red-500" onClick={() => update(di, (x) => ({ ...x, exercises: x.exercises.filter((_, i) => i !== ei) }))}>Entfernen</button>
+                  <button className="text-xs text-danger" onClick={() => update(di, (x) => ({ ...x, exercises: x.exercises.filter((_, i) => i !== ei) }))}>Entfernen</button>
                 </div>
                 {!exerciseById(e.exerciseId, all)?.cardio && (
                   <div className="flex gap-2 items-center text-xs text-muted">
