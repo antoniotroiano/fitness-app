@@ -6,7 +6,7 @@ import type { Exercise } from '../../types'
 interface Item { ex: Exercise; done: boolean }
 
 /** Horizontal scrollbare Reihe der Übungen des Workouts. Die aktive Übung wird zentriert, die übrigen sind abgedunkelt. */
-export function ExerciseStrip({ items, current, onSelect }: { items: Item[]; current: string; onSelect: (id: string) => void }) {
+export function ExerciseStrip({ items, current, onSelect, onAdd }: { items: Item[]; current: string; onSelect: (id: string) => void; onAdd?: () => void }) {
   const refs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   useEffect(() => {
@@ -29,6 +29,10 @@ export function ExerciseStrip({ items, current, onSelect }: { items: Item[]; cur
           </button>
         )
       })}
+      {onAdd && (
+        <button onClick={onAdd} aria-label="Übung hinzufügen"
+          className="shrink-0 w-[60px] h-[60px] rounded-2xl border-2 border-dashed border-line text-muted text-2xl flex items-center justify-center active:opacity-60">+</button>
+      )}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import type { ClockState } from '../../engine/workoutClock'
+import type { PlannedExercise } from '../../types'
 
 export interface Row {
   id: string
@@ -27,6 +28,8 @@ export interface ActiveWorkout {
   current: string
   /** Notizen dieser Einheit je Übungs-ID */
   notes?: Record<string, string>
+  /** Während des Workouts hinzugefügte Übungen: werden beim Abschluss dauerhaft in den Trainingstag übernommen */
+  added?: PlannedExercise[]
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)

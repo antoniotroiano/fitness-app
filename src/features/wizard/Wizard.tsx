@@ -302,7 +302,7 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
                     </div>
                     <button onClick={() => setSwap({ d: di, i: ei })} className="text-xs text-accent whitespace-nowrap">Austauschen</button>
                   </div>
-                  {ex && (
+                  {ex && !ex.cardio && (
                     <div className="flex gap-2 overflow-x-auto snap-x no-scrollbar -mx-1 px-1">
                       {weeklyOverview(e, cfg, ex).map((w) => (
                         <div key={w.week} className={cx('snap-start shrink-0 w-28 rounded-xl border p-2 text-xs', w.isDeload ? 'border-line bg-surface2' : 'border-line bg-surface')}>
@@ -341,10 +341,10 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
         <Button variant="ghost" className="w-full mt-3" onClick={() => setSearchAll(true)}>Weitere Ersatzübung suchen</Button>
       </BottomSheet>
 
-      <ExercisePicker open={searchAll} onClose={() => setSearchAll(false)} exercises={all} allowCardio={false}
+      <ExercisePicker open={searchAll} onClose={() => setSearchAll(false)} exercises={all}
         title="Ersatzübung suchen" onPick={(e) => replace(e.id)} />
 
-      <ExercisePicker open={add !== null} onClose={() => setAdd(null)} exercises={all} allowCardio={false}
+      <ExercisePicker open={add !== null} onClose={() => setAdd(null)} exercises={all}
         onPick={(e) => {
           if (add === null) return
           setDays((ds) => ds.map((d, di) => di !== add ? d : {

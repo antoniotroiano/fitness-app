@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { LoggedExercise, LoggedSet, MuscleId, WarmupStep } from '../../types'
+import type { Exercise, LoggedExercise, LoggedSet, MuscleId, PlannedExercise, Settings, WarmupStep } from '../../types'
+import { ExercisePicker } from '../wizard/shared'
 import { Button, Card, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import {
@@ -14,7 +15,7 @@ import { noLoadStats, volumeFactor } from '../../engine/stats'
 import type { PlannedView } from '../../engine/plannedDay'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
 import { adaptNextWeight } from '../../engine/progression'
-import { weekPlan } from '../../engine/periodization'
+import { TIME_RANGE, weekPlan } from '../../engine/periodization'
 import { restSecondsFor } from '../../engine/rest'
 import { historyUpTo, markSlot, maxReachedWeek } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
@@ -34,6 +35,22 @@ import { uid, type ActiveWorkout, type Row } from './state'
 import { de } from '../../i18n/de'
 
 const num = (s: string) => Number(s.replace(',', '.')) || 0
+/** Startzeilen einer Übung: Aufwärmsätze und Arbeitssätze aus der Planung. */
+function buildRows(v: PlannedView, wl: Settings['weightUnit']): Row[] {
+  const blank = { weight: '', reps: '', rir: '', done: false, minutes: '', km: '' }
+  const warm: Row[] = v.warmups.map((w) => ({
+    ...blank, id: uid(), type: 'warmup', weight: w.weight == null ? '' : String(kgToDisplay(w.weight, wl)), reps: String(w.reps),
+  }))
+  const work: Row[] = Array.from({ length: v.sets }, (_, i) => ({
+    ...blank, id: uid(), type: 'work',
+    weight: v.sug.weight == null ? '' : String(kgToDisplay(v.sug.weight, wl)),
+    reps: v.ex.cardio ? '' : String(v.sug.reps),
+    rir: v.ex.cardio ? '' : String(v.setRirs[i]),
+    ...(v.ex.cardio ? {} : { planKg: v.sug.weight, planReps: v.sug.reps, planRir: v.setRirs[i] }),
+  }))
+  return [...warm, ...work]
+}
+
 const isComplete = (rs: Row[]) => rs.length > 0 && rs.every((r) => r.done)
 
 function ActionPill({ icon, label, onClick, active }: { icon: IconName; label: string; onClick: () => void; active?: boolean }) {
@@ -77,6 +94,7 @@ export default function Logger() {
   const saving = useRef(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
 
   const local = param.replace(/^p\d+-/, '')
   const slotIdx = local.startsWith('s') ? Number(local.slice(1)) : null
@@ -91,9 +109,12 @@ export default function Logger() {
     [program, curWeek],
   )
   const lookup = useCallback((id: string) => all.find((e) => e.id === id), [all])
+  // Der Trainingstag plus die im laufenden Workout hinzugefügten Übungen
+  const added = active?.added
+  const fullDay = useMemo(() => (day && added?.length ? { ...day, exercises: [...day.exercises, ...added] } : day), [day, added])
   const views = useMemo(
-    () => (day ? plannedDay(day, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program)) : []),
-    [day, plan, sessions, program, curWeek, lookup, settings, overrides],
+    () => (fullDay ? plannedDay(fullDay, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program)) : []),
+    [fullDay, plan, sessions, program, curWeek, lookup, settings, overrides],
   )
 
   useEffect(() => { loadActiveWorkout<ActiveWorkout>().then(setStored) }, [])
@@ -103,22 +124,8 @@ export default function Logger() {
     if (stored === undefined || active || closed || !program || !views.length || !settingsLoaded || !overridesLoaded || !dataLoaded) return
     if (stored && stored.param === param && stored.programId === (program.id ?? null)) { setActive(stored); return }
     if (stored) return // anderes Workout läuft, siehe Hinweiskarte
-    const wl = settings.weightUnit
     const rows: Record<string, Row[]> = {}
-    for (const v of views) {
-      const blank = { weight: '', reps: '', rir: '', done: false, minutes: '', km: '' }
-      const warm: Row[] = v.warmups.map((w) => ({
-        ...blank, id: uid(), type: 'warmup', weight: w.weight == null ? '' : String(kgToDisplay(w.weight, wl)), reps: String(w.reps),
-      }))
-      const work: Row[] = Array.from({ length: v.sets }, (_, i) => ({
-        ...blank, id: uid(), type: 'work',
-        weight: v.sug.weight == null ? '' : String(kgToDisplay(v.sug.weight, wl)),
-        reps: v.ex.cardio ? '' : String(v.sug.reps),
-        rir: v.ex.cardio ? '' : String(v.setRirs[i]),
-        ...(v.ex.cardio ? {} : { planKg: v.sug.weight, planReps: v.sug.reps, planRir: v.setRirs[i] }),
-      }))
-      rows[v.pe.exerciseId] = [...warm, ...work]
-    }
+    for (const v of views) rows[v.pe.exerciseId] = buildRows(v, settings.weightUnit)
     setActive({ param, programId: program.id ?? null, clock: startClock(Date.now()), rows, current: views[0].pe.exerciseId })
   }, [stored, active, closed, program, views, param, settings.weightUnit, settingsLoaded, overridesLoaded, dataLoaded])
 
@@ -249,6 +256,15 @@ export default function Logger() {
   }
 
   const selectExercise = (id: string) => { setPad(null); setActive((a) => (a ? { ...a, current: id } : a)) }
+  const addExercise = (ex: Exercise) => {
+    if (views.some((v) => v.pe.exerciseId === ex.id)) { selectExercise(ex.id); return }
+    const range = ex.metric === 'time' ? TIME_RANGE : ex.compound ? { min: 6, max: 10 } : { min: 10, max: 15 }
+    const pe: PlannedExercise = { exerciseId: ex.id, sets: ex.cardio ? 1 : 3, repMin: range.min, repMax: range.max, rir: 2 }
+    const [view] = plannedDay({ ...day, exercises: [pe] }, plan, historyUpTo(sessions, program.id, curWeek), lookup, settings, overrides, deloadSessionOf(program))
+    if (!view) return
+    setPad(null)
+    setActive((a) => (a ? { ...a, added: [...(a.added ?? []), pe], rows: { ...a.rows, [ex.id]: buildRows(view, wl) }, current: ex.id } : a))
+  }
   const togglePause = () => setActive((a) => {
     if (!a) return a
     return { ...a, clock: a.clock.pausedAt == null ? pauseClock(a.clock, Date.now()) : resumeClock(a.clock, Date.now()) }
@@ -330,7 +346,7 @@ export default function Logger() {
       const date = fmt(new Date(active.clock.startedAt))
       const notes = Object.fromEntries(Object.entries(active.notes ?? {}).filter(([id, t]) => t && exercises.some((e) => e.exerciseId === id)))
       // Einheit, Wochenstand und Löschen des laufenden Workouts atomar: schlägt etwas fehl, bleibt das Training erhalten.
-      await db.transaction('rw', db.sessions, db.kv, async () => {
+      await db.transaction('rw', db.sessions, db.kv, db.programs, async () => {
         if (exercises.length) {
           await db.sessions.add({
             programId: program.id ?? null, dayIndex: dayIdx, date, finishedAt: now, week: curWeek, exercises,
@@ -338,6 +354,14 @@ export default function Logger() {
             ...(Object.keys(notes).length ? { notes } : {}),
           })
           if (slotIdx !== null && !foreign) await saveWeekState(markSlot(week, slotIdx, date))
+          // Im Workout hinzugefügte (und trainierte) Übungen dauerhaft in den Trainingstag übernehmen
+          const keep = (active.added ?? []).filter((pe) => exercises.some((e) => e.exerciseId === pe.exerciseId))
+          if (keep.length && program.id != null) {
+            const days = program.days.map((d, i) => (i !== dayIdx ? d : {
+              ...d, exercises: [...d.exercises, ...keep.filter((pe) => !d.exercises.some((e) => e.exerciseId === pe.exerciseId))],
+            }))
+            await db.programs.update(program.id, { days })
+          }
         }
         await clearActiveWorkout()
       })
@@ -372,7 +396,7 @@ export default function Logger() {
       </div>
 
       <div className={paused ? 'pointer-events-none opacity-40' : undefined}>
-        <ExerciseStrip current={current.pe.exerciseId} onSelect={selectExercise}
+        <ExerciseStrip current={current.pe.exerciseId} onSelect={selectExercise} onAdd={() => setAddOpen(true)}
           items={views.map((v) => ({ ex: v.ex, done: isComplete(active.rows[v.pe.exerciseId] ?? []) }))} />
 
         <div className="mt-2 mb-4">
@@ -412,6 +436,8 @@ export default function Logger() {
           onValue={(v) => patch(padRow.id, pad.field === 'weight' ? { weight: v } : { reps: v })}
           onRir={(v) => patch(padRow.id, { rir: v })} onConfirm={onConfirmPad} onClose={() => setPad(null)} />
       )}
+
+      <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title="Übung hinzufügen" />
 
       <ExerciseInfoSheet ex={current.ex} open={infoOpen} onClose={() => setInfoOpen(false)} />
 
