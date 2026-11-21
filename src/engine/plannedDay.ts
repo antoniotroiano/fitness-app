@@ -51,17 +51,17 @@ export function plannedDay(
     const range = time ? { min: pe.repMin, max: pe.repMax } : shiftRange({ min: pe.repMin, max: pe.repMax }, plan.repShift)
     const rir = effectiveRir(pe.rir, plan)
     const sets = ex.cardio ? 1 : effectiveSets(pe.sets, plan)
-    const sug: Suggestion = ex.cardio ? { weight: null, reps: 0 } : suggestNext({
-      range, targetRir: rir, equipment: ex.equipment, last: previous.work, stalled: !ex.assisted && !time && isStalled(e1rms), assisted: ex.assisted, metric: ex.metric, unit: warmup.weightUnit,
-    })
     const ov = overrides[pe.exerciseId]
+    const sug: Suggestion = ex.cardio ? { weight: null, reps: 0 } : suggestNext({
+      range, targetRir: rir, equipment: ex.equipment, last: previous.work, stalled: !ex.assisted && !time && isStalled(e1rms), assisted: ex.assisted, metric: ex.metric, unit: warmup.weightUnit, scale: ov?.weightScale,
+    })
     const warmupMode = ex.cardio || time ? 'none' : effectiveMode(ov?.warmupMode, warmup.warmupMode)
     const warmupCtx: WarmupContext = {
       equipment: ex.equipment, compound: ex.compound, isCore: ex.pattern === 'core',
       freshness: freshnessFor(ids, index, lookup), intensity: intensityOf(sug.reps || range.min, rir),
     }
     const scheme = ov?.warmupScheme ?? warmup.warmupSchemes[restCategory(ex)]
-    const warmups = resolveWarmup({ mode: warmupMode, scheme, ctx: warmupCtx, workWeight: sug.weight, unit: warmup.weightUnit })
+    const warmups = resolveWarmup({ mode: warmupMode, scheme, ctx: warmupCtx, workWeight: sug.weight, unit: warmup.weightUnit, scale: ov?.weightScale })
     const setRirs = Array.from({ length: sets }, (_, i) => setRir(rir, i, sets, ex.compound))
     out.push({ pe, ex, range, rir, sets, setRirs, sug, warmups, warmupCtx, warmupMode, previous })
   })

@@ -184,7 +184,14 @@ export interface ExerciseOverride {
   note?: string
   /** Eigene Pause nach Arbeitssätzen in Sekunden */
   restSeconds?: number
+  /** Verfügbare Gewichte des Geräts (kg). Ohne Eintrag: Standard-Schrittweite des Equipments. */
+  weightScale?: WeightScale
 }
+
+/** Verfügbare Gewichte: gleichmäßiges Raster oder Einzelwerte (alles in kg). */
+export type WeightScale =
+  | { kind: 'range'; min: number; max: number; step: number }
+  | { kind: 'list'; weights: number[] }
 
 export interface WeekState {
   /** Programmwoche (0-basiert) */

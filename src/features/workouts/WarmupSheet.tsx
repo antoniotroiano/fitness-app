@@ -1,4 +1,4 @@
-import type { Equipment, WarmupStep } from '../../types'
+import type { Equipment, WarmupStep, WeightScale } from '../../types'
 import { BottomSheet, Button, cx } from '../../components/ui'
 import { stepsToSets } from '../../engine/warmup'
 import { kgToDisplay } from '../../utils/units'
@@ -6,17 +6,17 @@ import { SchemeTable } from './sheets'
 import { de } from '../../i18n/de'
 
 /** "Set Calculator": Aufwärmsätze der Übung, umschaltbar zwischen Smart (berechnet) und Scheme (editierbar). */
-export function WarmupSheet({ open, onClose, mode, smart, scheme, hasOverride, workWeight, equipment, unit, onMode, onScheme, onResetScheme }: {
+export function WarmupSheet({ open, onClose, mode, smart, scheme, hasOverride, workWeight, equipment, unit, scale, onMode, onScheme, onResetScheme }: {
   open: boolean; onClose: () => void
   mode: 'smart' | 'scheme' | 'none'
   smart: WarmupStep[]; scheme: WarmupStep[]; hasOverride: boolean
-  workWeight: number | null; equipment: Equipment; unit: 'kg' | 'lb'
+  workWeight: number | null; equipment: Equipment; unit: 'kg' | 'lb'; scale?: WeightScale
   onMode: (m: 'smart' | 'scheme') => void
   onScheme: (s: WarmupStep[]) => void; onResetScheme: () => void
 }) {
   const steps = mode === 'scheme' ? scheme : mode === 'smart' ? smart : []
   const weights = steps.map((s) => {
-    const w = stepsToSets([s], workWeight, equipment)[0]?.weight
+    const w = stepsToSets([s], workWeight, equipment, 'kg', scale)[0]?.weight
     return w ? `${kgToDisplay(w, unit)} ${unit}` : null
   })
   const seg = (m: 'smart' | 'scheme', label: string) => (

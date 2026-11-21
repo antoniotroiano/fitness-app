@@ -1,4 +1,4 @@
-import type { Experience, Goal, ProgramConfig, RepScheme } from '../types'
+import type { Experience, Goal, PlannedExercise, ProgramConfig, RepScheme } from '../types'
 import type { RepRange } from './progression'
 
 /** Arbeitswochen pro Block, danach (optional) eine Deload-Woche */
@@ -81,4 +81,40 @@ export function effectiveRir(base: number, plan: WeekPlan): number {
 export function setRir(base: number, index: number, total: number, compound: boolean): number {
   if (compound) return index === 0 && total > 1 ? base + 1 : base
   return index === total - 1 && total > 1 ? Math.max(0, base - 1) : base
+}
+
+export interface WeekOverview {
+  /** Programmwoche (0-basiert, wie `weekPlan`) */
+  week: number
+  isDeload: boolean
+  sets: number
+  repMin: number
+  repMax: number
+  rir: number
+}
+
+/** Alle Wochen eines Blocks (4 Arbeitswochen, ggf. + Deload) für eine Übung: Sätze, Rep-Range und RIR je Woche. */
+export function weeklyOverview(
+  pe: Pick<PlannedExercise, 'sets' | 'repMin' | 'repMax' | 'rir'>,
+  config: Pick<ProgramConfig, 'repScheme' | 'deload'>,
+  ex: { metric?: string; cardio?: boolean },
+): WeekOverview[] {
+  const weeks = BLOCK_WORKING_WEEKS + (config.deload ? 1 : 0)
+  return Array.from({ length: weeks }, (_, week) => {
+    const plan = weekPlan(config, week)
+    const time = ex.metric === 'time'
+    // Zeitübungen: feste Sekunden-Range, keine Verschiebung (wie plannedDay)
+    const range = time ? { min: pe.repMin, max: pe.repMax } : shiftRange({ min: pe.repMin, max: pe.repMax }, plan.repShift)
+    return {
+      week, isDeload: plan.isDeload, sets: ex.cardio ? 1 : effectiveSets(pe.sets, plan),
+      repMin: range.min, repMax: range.max, rir: effectiveRir(pe.rir, plan),
+    }
+  })
+}
+
+/** Empfohlenes Rep-Schema, wenn der Wizard "Automatisch" wählt (Heuristik: Einsteiger konstant, Kraft linear, sonst wellenförmig). */
+export function recommendedRepScheme(goal: Goal, experience: Experience): RepScheme {
+  if (experience === 'none' || experience === 'beginner') return 'static'
+  if (goal === 'strength') return 'linear'
+  return 'undulating'
 }

@@ -4,8 +4,19 @@
  */
 export const de = {
   nav: { more: 'Mehr' },
+  wizard: {
+    q: {
+      mode: 'Wie möchtest du deinen Plan erstellen?', goal: 'Was ist dein Ziel?', days: 'An wie vielen Tagen willst du trainieren?',
+      split: 'Wie soll dein Training aufgeteilt werden?', time: 'Wie viel Zeit hast du pro Training?',
+      rep: 'Wie sollen sich die Wiederholungen über die Wochen entwickeln?', focus: 'Welche Muskeln sollen Priorität haben?',
+      deload: 'Möchtest du regelmäßige Entlastungswochen?', exp: 'Wie viel Trainingserfahrung hast du?',
+      equipment: 'Welche Geräte stehen dir zur Verfügung?', identity: 'Wie soll dein Programm heißen?', preview: 'So sieht dein Plan aus',
+    },
+    perWeek: 'Mal pro Woche', auto: 'Automatisch', autoDesc: 'Wir wählen eine empfohlene Option für dich aus',
+    selectAll: 'Alles auswählen', week: (n: number) => `Woche ${n}`, deload: 'Deload',
+  },
   common: {
-    edit: 'Bearbeiten', change: 'Ändern', default: 'Standard', general: 'Allgemein', display: 'Anzeige',
+    edit: 'Bearbeiten', change: 'Bearbeiten', default: 'Standard', general: 'Allgemein', display: 'Anzeige',
     sets: 'Sätze', reps: 'Wdh.', seconds: 'Sek.', streak: 'Serie', scheme: 'Schema', note: 'Notiz', restDay: 'Ruhetag',
     weight: 'Gewicht', bodyFat: 'Körperfett', best: 'Bester', loading: 'Lädt …', showAll: 'Alle anzeigen',
   },
@@ -44,7 +55,15 @@ export const de = {
     custom: 'Eigenes Schema', customOnly: 'Eigenes Schema nur für diese Übung.',
     hintRest: (def: string) => `Der Pausentimer folgt der Einstellung dieser Übungsgruppe (${def}).`,
   },
-  exercise: { note: 'Übungsnotiz', overrides: 'Übungsspezifisch', infoValue: 'Anleitung, Details, Verlauf' },
+  exercise: {
+    note: 'Übungsnotiz', overrides: 'Übungsspezifisch', infoValue: 'Anleitung, Details, Verlauf',
+    weightScale: 'Gerätegewichte', rangeStart: 'Bereichsanfang', rangeEnd: 'Bereichsende', rangeStep: 'Schrittweite',
+    addWeight: 'Gewicht hinzufügen', removeWeight: 'Gewicht entfernen', noWeights: 'Noch keine Gewichte.',
+    scaleRangeIntro: 'Bereich und Schrittweite deines Geräts. Vorschläge werden darauf gerundet.',
+    scaleListIntro: 'Wähle die Gewichte, die du zur Verfügung hast (bei Kurzhanteln je Seite). Vorschläge werden auf diese Werte gerundet.',
+    scaleInvalid: 'Das Ende muss größer als der Anfang sein, die Schrittweite größer als 0.',
+    resetDefault: 'Zurück zum Standard',
+  },
   more: {
     title: 'Mehr', general: 'Allgemein', units: 'Einheiten', language: 'Sprache', features: 'Funktionen', theme: 'Design',
     themeSystem: 'System', themeLight: 'Hell', themeDark: 'Dunkel', data: 'Daten', other: 'Sonstiges', about: 'Über',

@@ -164,12 +164,12 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <div className="flex rounded-xl bg-surface2 p-1" role="group" aria-label="Rekord-Art">
+            <div className="flex justify-center"><div className="inline-flex rounded-xl bg-surface2 p-1" role="group" aria-label="Rekord-Art">
               {([['volume', 'Volumen'], ['reps', de.common.reps], ['rm1', '1RM']] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setRecMetric(v)} aria-pressed={recMetric === v}
-                  className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors ${recMetric === v ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{label}</button>
+                  className={`rounded-lg px-3 py-1 text-[11px] font-semibold transition-colors ${recMetric === v ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{label}</button>
               ))}
-            </div>
+            </div></div>
           </div>
         </div>
         <div className="flex justify-center gap-2 pb-3" aria-hidden>

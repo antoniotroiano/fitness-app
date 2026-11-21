@@ -4,6 +4,8 @@ import {
   DEFAULT_WARMUP_SCHEMES, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
   type WarmupContext,
 } from './warmup'
+import { effectiveStep, floorToScale, snapToScale, stepDown, stepUp } from './weightScale'
+import type { WeightScale } from '../types'
 import { volumeFactor, exerciseValue, noLoadStats } from './stats'
 import { migrateExercise, migrateFocus, migrateMuscles } from '../data/muscleMigration'
 import { groupExercises, libraryGroup } from './library'
@@ -11,7 +13,7 @@ import { axisTicks, bucketSpan, chartWindow, clampOffset, formatRange, niceTicks
 import { dailyValues, dailySeries, habitDots, monthGrid, shiftMonth, streakDays, streakWeeks, weekCount } from './habits'
 import { elapsedMs, formatClock, pauseClock, resumeClock, startClock } from './workoutClock'
 import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
-import { baseRepRange, effectiveSets, setRir, TIME_RANGE, weekPlan } from './periodization'
+import { baseRepRange, effectiveSets, setRir, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview } from './periodization'
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives } from './swap'
 import { targetMuscles } from './targetMuscles'
@@ -987,5 +989,127 @@ describe('Aufwärmsätze ohne doppelte Gewichte (B7)', () => {
     expect(dedupeWarmups([{ weight: 50, reps: 5 }, { weight: 50, reps: 3 }, { weight: null, reps: 8 }], [])).toEqual([
       { weight: 50, reps: 5 }, { weight: null, reps: 8 },
     ])
+  })
+})
+
+describe('Gerätegewichte', () => {
+  const range = { min: 6, max: 10 }
+  const r5: WeightScale = { kind: 'range', min: 0, max: 250, step: 5 }
+  const list: WeightScale = { kind: 'list', weights: [15, 10, 2, 4, 6, 8, 12.5, 12.5] }
+
+  it('Range: snap, Schritte und Klemmen', () => {
+    expect(snapToScale(22, r5)).toBe(20)
+    expect(snapToScale(23, r5)).toBe(25)
+    expect(snapToScale(999, r5)).toBe(250)
+    expect(snapToScale(-3, r5)).toBe(0)
+    expect(stepUp(20, r5)).toBe(25)
+    expect(stepUp(21, r5)).toBe(25)
+    expect(stepDown(20, r5)).toBe(15)
+    expect(stepDown(21, r5)).toBe(20)
+    expect(stepUp(250, r5)).toBe(250)
+    expect(stepDown(0, r5)).toBe(0)
+    expect(floorToScale(24, r5)).toBe(20)
+    expect(effectiveStep(r5)).toBe(5)
+  })
+  it('Range: Maximum, das kein Vielfaches ist, wird abgerundet', () => {
+    const s: WeightScale = { kind: 'range', min: 2.5, max: 100, step: 5 }
+    expect(snapToScale(500, s)).toBe(97.5)
+    expect(stepUp(97.5, s)).toBe(97.5)
+  })
+  it('Liste mit Lücken: nur vorhandene Werte', () => {
+    expect(snapToScale(11, list)).toBe(10)
+    expect(snapToScale(11.5, list)).toBe(12.5)
+    expect(snapToScale(100, list)).toBe(15)
+    expect(snapToScale(0.5, list)).toBe(2)
+    expect(stepUp(10, list)).toBe(12.5)
+    expect(stepUp(12.5, list)).toBe(15)
+    expect(stepUp(15, list)).toBe(15)
+    expect(stepDown(12.5, list)).toBe(10)
+    expect(stepDown(2, list)).toBe(2)
+    expect(effectiveStep(list)).toBe(2)
+  })
+  it('suggestNext: Vorschlag liegt immer auf der 5-kg-Skala', () => {
+    for (const w of [37.5, 40, 42.5, 47.5, 52.5]) {
+      for (const reps of [6, 8, 10]) {
+        const last = [1, 2, 3].map(() => ({ weight: w, reps, rir: 2 }))
+        const s = suggestNext({ range, targetRir: 2, equipment: 'cable', last, scale: { kind: 'range', min: 5, max: 100, step: 5 } })
+        expect(s.weight! % 5).toBe(0)
+      }
+    }
+  })
+  it('suggestNext: Obergrenze erreicht → genau eine Stufe höher (Kabel 5 kg)', () => {
+    const last = [1, 2, 3].map(() => ({ weight: 40, reps: 10, rir: 2 }))
+    const s = suggestNext({ range, targetRir: 2, equipment: 'cable', last, scale: { kind: 'range', min: 5, max: 100, step: 5 } })
+    expect(s.reps).toBe(6)
+    expect(s.weight).toBe(45)
+  })
+  it('suggestNext: Kurzhantelliste mit Lücke, nie ein Wert außerhalb', () => {
+    const l: WeightScale = { kind: 'list', weights: [10, 12.5, 15] }
+    const last = [1, 2].map(() => ({ weight: 10, reps: 10, rir: 2 }))
+    expect(suggestNext({ range, targetRir: 2, equipment: 'dumbbell', last, scale: l }).weight).toBe(12.5)
+    const top = [1, 2].map(() => ({ weight: 15, reps: 10, rir: 2 }))
+    expect(suggestNext({ range, targetRir: 2, equipment: 'dumbbell', last: top, scale: l }).weight).toBe(15)
+    const mid = [1, 2].map(() => ({ weight: 12.5, reps: 8, rir: 2 }))
+    expect([10, 12.5, 15]).toContain(suggestNext({ range, targetRir: 2, equipment: 'dumbbell', last: mid, scale: l }).weight)
+  })
+  it('suggestNext: Plateau-Reset geht mindestens eine Stufe runter', () => {
+    const last = [1, 2].map(() => ({ weight: 40, reps: 6, rir: 2 }))
+    const s = suggestNext({ range, targetRir: 2, equipment: 'cable', last, stalled: true, scale: r5 })
+    expect(s.weight!).toBeLessThanOrEqual(35)
+    expect(s.weight! % 5).toBe(0)
+  })
+  it('assistiert: weniger Unterstützung um eine Stufe', () => {
+    const last = [12, 12, 12].map((reps) => ({ weight: 30, reps, rir: 2 }))
+    expect(suggestNext({ range: { min: 8, max: 12 }, targetRir: 2, equipment: 'machine', last, assisted: true, scale: r5 }))
+      .toEqual({ weight: 25, reps: 8 })
+  })
+  it('Zeitübung mit Zusatzlast: nächste Stufe', () => {
+    const last = [60, 60].map((reps) => ({ weight: 16, reps, rir: 2 }))
+    expect(suggestNext({ range: { min: 30, max: 60 }, targetRir: 2, equipment: 'kettlebell', last, metric: 'time', scale: { kind: 'list', weights: [16, 24, 32] } }))
+      .toEqual({ weight: 24, reps: 30 })
+  })
+  it('adaptNextWeight rundet auf die Skala', () => {
+    const plan = { planWeight: 40, planReps: 8, planRir: 3 }
+    const w = adaptNextWeight({ weight: 40, reps: 8, rir: 8, ...plan }, 40, 'cable', 'kg', r5)!
+    expect(w % 5).toBe(0)
+    expect(w).toBeGreaterThan(40)
+  })
+  it('Aufwärmsätze liegen auf der Skala', () => {
+    const sets = stepsToSets([{ pct: 40, reps: 8 }, { pct: 70, reps: 5 }], 62.5, 'machine', 'kg', r5)
+    for (const s of sets) expect(s.weight! % 5).toBe(0)
+  })
+  it('Regression: ohne Skala unverändert', () => {
+    const last = [1, 2, 3].map(() => ({ weight: 60, reps: 10, rir: 2 }))
+    const a = suggestNext({ range, targetRir: 2, equipment: 'barbell', last })
+    expect(suggestNext({ range, targetRir: 2, equipment: 'barbell', last, scale: undefined })).toEqual(a)
+    expect(stepsToSets(DEFAULT_WARMUP_SCHEMES.compoundUpper, 100, 'barbell')).toEqual(stepsToSets(DEFAULT_WARMUP_SCHEMES.compoundUpper, 100, 'barbell', 'kg', undefined))
+  })
+})
+
+describe('weeklyOverview (Wizard-Vorschau)', () => {
+  const pe = { sets: 4, repMin: 6, repMax: 10, rir: 2 }
+  it('4 Arbeitswochen + Deload, Werte wie plannedDay', () => {
+    const o = weeklyOverview(pe, { repScheme: 'linear', deload: true }, {})
+    expect(o).toHaveLength(5)
+    expect(o[4].isDeload).toBe(true)
+    expect(o[4].sets).toBe(2)
+    expect(o[4].rir).toBe(5)
+    expect(o[2].repMin).toBe(4)
+    expect(o[3].sets).toBe(5)
+    expect(o[0].rir).toBe(2)
+  })
+  it('ohne Deload nur 4 Wochen, Zeitübung ohne Rep-Verschiebung', () => {
+    const o = weeklyOverview({ ...pe, repMin: 30, repMax: 60 }, { repScheme: 'linear', deload: false }, { metric: 'time' })
+    expect(o).toHaveLength(4)
+    expect(o.every((w) => w.repMin === 30 && w.repMax === 60)).toBe(true)
+  })
+})
+
+describe('recommendedRepScheme', () => {
+  it('Einsteiger static, Kraft linear, sonst undulating', () => {
+    expect(recommendedRepScheme('hypertrophy', 'none')).toBe('static')
+    expect(recommendedRepScheme('strength', 'beginner')).toBe('static')
+    expect(recommendedRepScheme('strength', 'advanced')).toBe('linear')
+    expect(recommendedRepScheme('hypertrophy', 'intermediate')).toBe('undulating')
   })
 })

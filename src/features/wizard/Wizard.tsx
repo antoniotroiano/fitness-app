@@ -3,7 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import type {
   Equipment, Experience, Goal, MuscleId, Priority, ProgramConfig, RepScheme, Split, TimeBudget, Program,
 } from '../../types'
-import { Button, Card, Chip, Page, cx } from '../../components/ui'
+import type { ReactNode } from 'react'
+import { Button, Card, Page, cx } from '../../components/ui'
+import { Icon, type IconName } from '../../components/icons'
+import { MuscleThumb } from '../../components/MuscleFigure'
+import { ExercisePhoto } from '../../components/ExerciseMedia'
+import { de } from '../../i18n/de'
+import { recommendedRepScheme, weeklyOverview } from '../../engine/periodization'
+import { LevelIcon, SplitPicto, TimeIcon } from './pictos'
 import { MUSCLES } from '../../data/muscles'
 import { EQUIPMENT_LABEL, exerciseById } from '../../data/exercises'
 import { generate } from '../../engine/planGenerator'
@@ -22,18 +29,41 @@ type StepId = 'mode' | 'goal' | 'days' | 'split' | 'time' | 'rep' | 'focus' | 'd
 const AUTO_STEPS: StepId[] = ['mode', 'goal', 'days', 'split', 'time', 'rep', 'focus', 'deload', 'exp', 'equipment', 'identity', 'preview']
 
 const TITLES: Record<StepId, string> = {
-  mode: 'Wie möchtest du starten?', goal: 'Was ist dein Ziel?', days: 'Trainingstage pro Woche',
-  split: 'Welcher Split?', time: 'Zeit pro Session', rep: 'Rep-Ranges pro Woche',
-  focus: 'Muskelfokus', deload: 'Deload-Wochen', exp: 'Trainingserfahrung', equipment: 'Verfügbares Equipment',
+  mode: 'Start', goal: 'Ziel', days: 'Trainingstage', split: 'Split', time: 'Zeit pro Session', rep: 'Rep-Ranges',
+  focus: 'Muskelfokus', deload: 'Deload-Wochen', exp: 'Erfahrung', equipment: 'Equipment',
   identity: 'Name, Icon & Farbe', preview: 'Dein Plan',
 }
 
-function Option({ active, title, desc, onClick }: { active: boolean; title: string; desc?: string; onClick: () => void }) {
+function Badge({ children }: { children: ReactNode }) {
+  return <span className="shrink-0 w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center">{children}</span>
+}
+
+function Option({ active, title, desc, icon, lead, bare, onClick }: {
+  active: boolean; title: string; desc?: string; icon?: IconName; lead?: ReactNode; bare?: boolean; onClick: () => void
+}) {
   return (
-    <button type="button" onClick={onClick}
-      className={cx('w-full text-left rounded-2xl border p-4', active ? 'border-accent bg-accent/10' : 'border-line bg-surface')}>
-      <div className="font-semibold text-sm">{title}</div>
-      {desc && <div className="text-xs text-muted mt-1">{desc}</div>}
+    <button type="button" onClick={onClick} aria-pressed={active}
+      className={cx('w-full text-left rounded-2xl border p-4 flex items-center gap-3', active ? 'border-accent bg-accent/10' : 'border-line bg-surface')}>
+      {bare ? lead : (icon || lead) && <Badge>{lead ?? <Icon name={icon!} size={20} />}</Badge>}
+      <div className="min-w-0">
+        <div className="font-semibold text-sm">{title}</div>
+        {desc && <div className="text-xs text-muted mt-1">{desc}</div>}
+      </div>
+    </button>
+  )
+}
+
+const EQUIPMENT_ICON: Record<Exclude<Equipment, 'cardio'>, IconName> = {
+  barbell: 'workouts', dumbbell: 'dumbbell', cable: 'cable', machine: 'machine', smith: 'smith',
+  kettlebell: 'kettlebell', band: 'band', bodyweight: 'pushup',
+}
+
+function RoundBtn({ icon, label, onClick, disabled, active }: { icon: IconName; label: string; onClick: () => void; disabled?: boolean; active?: boolean }) {
+  return (
+    <button type="button" aria-label={label} onClick={onClick} disabled={disabled} aria-pressed={active}
+      className={cx('w-10 h-10 rounded-full border flex items-center justify-center shrink-0',
+        active ? 'bg-accent text-accent-fg border-accent' : 'bg-surface2 border-line', disabled && 'opacity-40')}>
+      <Icon name={icon} size={20} />
     </button>
   )
 }
@@ -42,6 +72,7 @@ export default function Wizard() {
   const nav = useNavigate()
   const [cfg, setCfg] = useState<ProgramConfig>(DEFAULT)
   const [step, setStep] = useState(0)
+  const [repAuto, setRepAuto] = useState(true)
   const all = useAllExercises()
   const id = AUTO_STEPS[step]
   const set = (p: Partial<ProgramConfig>) => setCfg((c) => ({ ...c, ...p }))
@@ -65,6 +96,7 @@ export default function Wizard() {
 
   const equipmentAll = Object.keys(EQUIPMENT_LABEL).filter((k) => k !== 'cardio') as Equipment[]
   const equipment = cfg.equipment ?? equipmentAll
+  const allSelected = equipment.length === equipmentAll.length
   const toggleEq = (e: Equipment) => {
     const next = equipment.includes(e) ? equipment.filter((x) => x !== e) : [...equipment, e]
     set({ equipment: next.length ? next : equipment })
@@ -79,31 +111,35 @@ export default function Wizard() {
         <div className="h-full bg-accent transition-all" style={{ width: `${((step + 1) / AUTO_STEPS.length) * 100}%` }} />
       </div>
 
+      <h2 className="text-lg font-semibold leading-snug">{de.wizard.q[id]}</h2>
+
       {id === 'mode' && (
         <div className="space-y-3">
-          <Option active={cfg.mode === 'auto'} title="App erstellt einen Plan" desc="Du beantwortest ein paar Fragen, wir bauen das Programm." onClick={() => set({ mode: 'auto' })} />
-          <Option active={cfg.mode === 'manual'} title="Selbst erstellen" desc="Du wählst Workouts und Übungen selbst aus." onClick={() => set({ mode: 'manual' })} />
+          <Option active={cfg.mode === 'auto'} icon="sparkles" title="App erstellt einen Plan" desc="Du beantwortest ein paar Fragen, wir bauen das Programm." onClick={() => set({ mode: 'auto' })} />
+          <Option active={cfg.mode === 'manual'} icon="sliders" title="Selbst erstellen" desc="Du wählst Workouts und Übungen selbst aus." onClick={() => set({ mode: 'manual' })} />
         </div>
       )}
 
       {id === 'goal' && (
         <div className="space-y-3">
           {([
-            ['hypertrophy', 'Muskelaufbau', 'Mehr Volumen, moderate bis hohe Wiederholungen.'],
-            ['strength', 'Maximalkraft', 'Schwerere Gewichte, niedrigere Wiederholungen.'],
-            ['both', 'Beides', 'Mischung aus Kraft und Aufbau.'],
-          ] as [Goal, string, string][]).map(([v, t, d]) => (
-            <Option key={v} active={cfg.goal === v} title={t} desc={d} onClick={() => set({ goal: v })} />
+            ['hypertrophy', 'Muskelhypertrophie', 'Mehr Volumen, moderate bis hohe Wiederholungen.', 'workouts'],
+            ['strength', 'Maximalkraft', 'Schwerere Gewichte, niedrigere Wiederholungen.', 'bolt'],
+            ['both', 'Beides', 'Mischung aus Kraft und Aufbau.', 'sparkles'],
+          ] as [Goal, string, string, IconName][]).map(([v, t, d, i]) => (
+            <Option key={v} active={cfg.goal === v} icon={i} title={t} desc={d} onClick={() => set({ goal: v })} />
           ))}
         </div>
       )}
 
       {id === 'days' && (
-        <div className="flex gap-2 justify-between">
-          {[2, 3, 4, 5, 6].map((d) => (
-            <button key={d} onClick={() => set({ days: d })}
-              className={cx('flex-1 aspect-square rounded-2xl text-2xl font-bold border', cfg.days === d ? 'bg-accent text-accent-fg border-accent' : 'bg-surface border-line')}>{d}</button>
-          ))}
+        <div className="flex flex-col items-center gap-2 py-8">
+          <div className="flex items-center gap-8">
+            <RoundBtn icon="minus" label="Weniger" disabled={cfg.days <= 2} onClick={() => set({ days: Math.max(2, cfg.days - 1) })} />
+            <span className="text-7xl font-bold tabular-nums w-20 text-center" aria-live="polite">{cfg.days}</span>
+            <RoundBtn icon="plus" label="Mehr" disabled={cfg.days >= 6} onClick={() => set({ days: Math.min(6, cfg.days + 1) })} />
+          </div>
+          <div className="text-sm text-muted">{de.wizard.perWeek}</div>
         </div>
       )}
 
@@ -113,9 +149,9 @@ export default function Wizard() {
             ['fullBody', 'Full Body', 'Jede Einheit trainiert den ganzen Körper.'],
             ['ulfb', 'Upper / Lower / Full Body', 'Oberkörper- und Unterkörpertage im Wechsel.'],
             ['ppl', 'Push / Pull / Legs', 'Drücken, Ziehen und Beine getrennt.'],
-            ['none', 'Keine Präferenz', 'Die App wählt passend zu deinen Trainingstagen.'],
+            ['none', de.wizard.auto, de.wizard.autoDesc],
           ] as [Split, string, string][]).map(([v, t, d]) => (
-            <Option key={v} active={cfg.split === v} title={t} desc={d} onClick={() => set({ split: v })} />
+            <Option key={v} active={cfg.split === v} bare lead={<SplitPicto split={v} />} title={t} desc={d} onClick={() => set({ split: v })} />
           ))}
         </div>
       )}
@@ -123,7 +159,7 @@ export default function Wizard() {
       {id === 'time' && (
         <div className="space-y-3">
           {([['u20', 'Bis 20 min'], ['20-40', '20–40 min'], ['40-60', '40–60 min'], ['60-90', '60–90 min'], ['90-120', '90–120 min'], ['o120', 'Über 120 min']] as [TimeBudget, string][]).map(([v, t]) => (
-            <Option key={v} active={cfg.time === v} title={t} onClick={() => set({ time: v })} />
+            <Option key={v} active={cfg.time === v} lead={<TimeIcon time={v} />} title={t} onClick={() => set({ time: v })} />
           ))}
         </div>
       )}
@@ -131,13 +167,14 @@ export default function Wizard() {
       {id === 'rep' && (
         <div className="space-y-3">
           {([
-            ['static', 'Static', 'Gleiches Rep-Ziel jede Woche.'],
-            ['linear', 'Linear', 'Wiederholungen sinken, Gewichte steigen über das Programm.'],
-            ['reverseLinear', 'Reverse Linear', 'Wiederholungen steigen, Gewichte sinken über das Programm.'],
-            ['undulating', 'Undulating', 'Wöchentlicher Wechsel zwischen schwer/wenige und leicht/viele Wiederholungen.'],
-          ] as [RepScheme, string, string][]).map(([v, t, d]) => (
-            <Option key={v} active={cfg.repScheme === v} title={t} desc={d} onClick={() => set({ repScheme: v })} />
+            ['static', 'Static', 'Gleiches Rep-Ziel jede Woche.', 'repStatic'],
+            ['linear', 'Linear', 'Wiederholungen sinken, Gewichte steigen über das Programm.', 'repLinear'],
+            ['reverseLinear', 'Reverse Linear', 'Wiederholungen steigen, Gewichte sinken über das Programm.', 'repReverse'],
+            ['undulating', 'Undulating', 'Wöchentlicher Wechsel zwischen schwer/wenige und leicht/viele Wiederholungen.', 'repWave'],
+          ] as [RepScheme, string, string, IconName][]).map(([v, t, d, i]) => (
+            <Option key={v} active={!repAuto && cfg.repScheme === v} icon={i} title={t} desc={d} onClick={() => { setRepAuto(false); set({ repScheme: v }) }} />
           ))}
+          <Option active={repAuto} icon="sparkles" title={de.wizard.auto} desc={de.wizard.autoDesc} onClick={() => setRepAuto(true)} />
         </div>
       )}
 
@@ -149,11 +186,12 @@ export default function Wizard() {
               <div className="text-xs uppercase tracking-wide text-muted mb-2">{region === 'upper' ? 'Oberkörper' : 'Unterkörper'}</div>
               <div className="space-y-2">
                 {MUSCLES.filter((m) => m.region === region).map((m) => (
-                  <Card key={m.id} className="flex items-center justify-between !p-3">
-                    <span className="text-sm">{m.label}</span>
+                  <Card key={m.id} className="flex items-center gap-3 !p-3">
+                    <MuscleThumb primary={[m.id]} secondary={[]} size={40} />
+                    <span className="text-sm flex-1 min-w-0">{m.label}</span>
                     <div className="flex gap-2">
-                      <Chip active={cfg.focus[m.id] === 'low'} onClick={() => setFocus(m.id, 'low')}>Niedriger</Chip>
-                      <Chip active={cfg.focus[m.id] === 'high'} onClick={() => setFocus(m.id, 'high')}>Höher</Chip>
+                      <RoundBtn icon="thumbDown" label={`${m.label}: niedrigere Priorität`} active={cfg.focus[m.id] === 'low'} onClick={() => setFocus(m.id, 'low')} />
+                      <RoundBtn icon="thumbUp" label={`${m.label}: höhere Priorität`} active={cfg.focus[m.id] === 'high'} onClick={() => setFocus(m.id, 'high')} />
                     </div>
                   </Card>
                 ))}
@@ -165,20 +203,20 @@ export default function Wizard() {
 
       {id === 'deload' && (
         <div className="space-y-3">
-          <Option active={cfg.deload} title="Ja, mit Deload" desc="Nach 4 Trainingswochen folgt eine Woche mit halbem Volumen und mehr Reserve." onClick={() => set({ deload: true })} />
-          <Option active={!cfg.deload} title="Nein" desc="Durchgehend ohne Entlastungswoche." onClick={() => set({ deload: false })} />
+          <Option active={cfg.deload} icon="shield" title="Ja, mit Deload" desc="Nach 4 Trainingswochen folgt eine Woche mit halbem Volumen und mehr Reserve." onClick={() => set({ deload: true })} />
+          <Option active={!cfg.deload} icon="ban" title="Nein" desc="Durchgehend ohne Entlastungswoche." onClick={() => set({ deload: false })} />
         </div>
       )}
 
       {id === 'exp' && (
         <div className="space-y-3">
           {([
-            ['none', 'Keine', 'Du fängst gerade erst an.'],
-            ['beginner', 'Anfänger', 'Bis ca. 1 Jahr regelmäßiges Training.'],
-            ['intermediate', 'Mittlere Stufe', '1–3 Jahre Erfahrung.'],
-            ['advanced', 'Fortgeschritten', 'Mehr als 3 Jahre, gute Technik und Erholungsgefühl.'],
-          ] as [Experience, string, string][]).map(([v, t, d]) => (
-            <Option key={v} active={cfg.experience === v} title={t} desc={d} onClick={() => set({ experience: v })} />
+            ['none', 'Keine', 'Du fängst gerade erst an.', 1],
+            ['beginner', 'Anfänger', 'Bis ca. 1 Jahr regelmäßiges Training.', 2],
+            ['intermediate', 'Mittlere Stufe', '1–3 Jahre Erfahrung.', 3],
+            ['advanced', 'Fortgeschritten', 'Mehr als 3 Jahre, gute Technik und Erholungsgefühl.', 4],
+          ] as [Experience, string, string, number][]).map(([v, t, d, l]) => (
+            <Option key={v} active={cfg.experience === v} lead={<LevelIcon level={l} size={22} />} title={t} desc={d} onClick={() => set({ experience: v })} />
           ))}
         </div>
       )}
@@ -186,8 +224,23 @@ export default function Wizard() {
       {id === 'equipment' && (
         <div className="space-y-3">
           <p className="text-sm text-muted">Nur Übungen mit diesem Equipment werden vorgeschlagen.</p>
-          <div className="flex flex-wrap gap-2">
-            {equipmentAll.map((e) => <Chip key={e} active={equipment.includes(e)} onClick={() => toggleEq(e)}>{EQUIPMENT_LABEL[e]}</Chip>)}
+          <button type="button" disabled={allSelected} aria-pressed={allSelected} onClick={() => set({ equipment: equipmentAll })}
+            className={cx('w-full rounded-xl border px-4 py-2.5 text-sm font-medium flex items-center justify-between', allSelected ? 'border-accent bg-accent/10' : 'border-line bg-surface')}>
+            {de.wizard.selectAll}
+            {allSelected && <Icon name="check" size={18} />}
+          </button>
+          <div className="grid grid-cols-2 gap-3">
+            {equipmentAll.map((e) => {
+              const on = equipment.includes(e)
+              return (
+                <button key={e} type="button" aria-pressed={on} onClick={() => toggleEq(e)}
+                  className={cx('relative rounded-2xl border p-4 flex flex-col items-center gap-2', on ? 'border-accent bg-accent/10' : 'border-line bg-surface')}>
+                  <Badge><Icon name={EQUIPMENT_ICON[e as keyof typeof EQUIPMENT_ICON]} size={22} /></Badge>
+                  <span className="text-sm font-medium">{EQUIPMENT_LABEL[e]}</span>
+                  {on && <span className="absolute top-2 right-2 text-accent"><Icon name="check" size={16} /></span>}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -196,7 +249,7 @@ export default function Wizard() {
         <IdentityFields name={cfg.name} icon={cfg.icon} color={cfg.color} onChange={(v) => set(v)} />
       )}
 
-      {id === 'preview' && <Preview cfg={{ ...cfg, equipment }} all={all} onSaved={() => nav('/workouts')} />}
+      {id === 'preview' && <Preview cfg={{ ...cfg, equipment, repScheme: repAuto ? recommendedRepScheme(cfg.goal, cfg.experience) : cfg.repScheme }} all={all} onSaved={() => nav('/workouts')} />}
 
       {id !== 'preview' && (
         <div className="fixed bottom-0 inset-x-0 p-4 bg-bg/90 backdrop-blur border-t border-line safe-bottom">
@@ -239,12 +292,27 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
             {d.exercises.map((e, ei) => {
               const ex = exerciseById(e.exerciseId, all)
               return (
-                <li key={e.exerciseId} className="py-2.5 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-sm truncate">{ex?.name}</div>
-                    <div className="text-xs text-muted">{e.sets} × {e.repMin}–{e.repMax} · {ex?.primary.map(muscleLabel).join(', ')}</div>
+                <li key={e.exerciseId} className="py-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    {ex && <ExercisePhoto ex={ex} size={56} />}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{ex?.name}</div>
+                      <div className="text-xs text-muted truncate">{ex?.primary.map(muscleLabel).join(', ')}</div>
+                    </div>
+                    <button onClick={() => setSwap({ d: di, i: ei })} className="text-xs text-accent whitespace-nowrap">Austauschen</button>
                   </div>
-                  <button onClick={() => setSwap({ d: di, i: ei })} className="text-xs text-accent whitespace-nowrap">Austauschen</button>
+                  {ex && (
+                    <div className="flex gap-2 overflow-x-auto snap-x no-scrollbar -mx-1 px-1">
+                      {weeklyOverview(e, cfg, ex).map((w) => (
+                        <div key={w.week} className={cx('snap-start shrink-0 w-28 rounded-xl border p-2 text-xs', w.isDeload ? 'border-line bg-surface2' : 'border-line bg-surface')}>
+                          <div className="font-semibold mb-1">{w.isDeload ? de.wizard.deload : de.wizard.week(w.week + 1)}</div>
+                          <div className="text-muted">{w.sets} Sätze</div>
+                          <div className="text-muted">{w.repMin}–{w.repMax} {ex.metric === 'time' ? 'Sek' : 'Wdh'}</div>
+                          <div className="text-muted">RIR {w.rir}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </li>
               )
             })}
