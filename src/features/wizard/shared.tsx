@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Equipment, Exercise, MuscleId } from '../../types'
 import { Icon, PROGRAM_ICONS, programIconName } from '../../components/icons'
 import { BottomSheet, Chip, inputCls } from '../../components/ui'
@@ -51,6 +51,10 @@ export function ExercisePicker({
   const [q, setQ] = useState('')
   const [muscle, setMuscle] = useState<MuscleId | 'all' | 'cardio'>(defaultMuscle ?? 'all')
   const [eq, setEq] = useState<Equipment | 'all'>('all')
+  // Beim Schließen Suche und Filter zurücksetzen
+  useEffect(() => {
+    if (!open) { setQ(''); setMuscle(defaultMuscle ?? 'all'); setEq('all') }
+  }, [open, defaultMuscle])
   const list = useMemo(() => exercises.filter((e) => {
     if (e.cardio && !allowCardio) return false
     if (muscle === 'cardio' ? !e.cardio : muscle !== 'all' && !e.primary.includes(muscle)) return false
