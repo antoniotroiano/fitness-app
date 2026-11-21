@@ -165,5 +165,6 @@
  "cable-rear-delt": "cable-crossover-reverse-fly",
  "single-arm-pushdown": "cable-standing-one-arm-triceps-extension",
  "machine-glute-kickback": "lever-standing-rear-kick",
- "wrist-curl": "dumbbell-seated-neutral-wrist-curl"
+ "wrist-curl": "dumbbell-seated-neutral-wrist-curl",
+ "bb-behind-neck": "barbell-seated-behind-head-military-press"
 }

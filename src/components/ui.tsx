@@ -103,6 +103,7 @@ export function BottomSheet({ open, onClose, children, title, tall, height, head
   const [dragging, setDragging] = useState(false)
   const [mounted, setMounted] = useState(open)
   const [shown, setShown] = useState(false)
+  const [vv, setVv] = useState<{ top: number; h: number } | null>(null)
   const start = useRef<number | null>(null)
   const dyRef = useRef(0)
 
@@ -116,6 +117,17 @@ export function BottomSheet({ open, onClose, children, title, tall, height, head
     const t = setTimeout(() => setMounted(false), 280)
     return () => clearTimeout(t)
   }, [open])
+
+  // Sichtbarer Bereich (ohne Bildschirmtastatur): das Sheet richtet sich daran aus und bleibt vollständig sichtbar
+  useEffect(() => {
+    const v = window.visualViewport
+    if (!mounted || !v) return
+    const update = () => setVv({ top: v.offsetTop, h: v.height })
+    update()
+    v.addEventListener('resize', update)
+    v.addEventListener('scroll', update)
+    return () => { v.removeEventListener('resize', update); v.removeEventListener('scroll', update) }
+  }, [mounted])
 
   if (!mounted) return null
 
@@ -142,7 +154,7 @@ export function BottomSheet({ open, onClose, children, title, tall, height, head
   const maxH = 'calc(100% - env(safe-area-inset-top) - 12px)'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+    <div className="fixed inset-x-0 z-50 flex items-end" onClick={onClose} style={{ top: vv?.top ?? 0, height: vv ? vv.h : '100%' }}>
       <div className="absolute inset-0 bg-black/50 transition-opacity duration-300" style={{ opacity: shown ? 1 : 0 }} />
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}
         style={{

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { Equipment, Exercise, MuscleId, Settings } from '../../types'
 import { BottomSheet, Button, Card, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
 import { exportAll, importAll, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
-import { EQUIPMENT_LABEL } from '../../data/exercises'
+import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
 import { ExerciseDetail } from './ExerciseDetail'
@@ -252,7 +252,7 @@ export function LibraryPage() {
     return () => sc.removeEventListener('scroll', onScroll)
   }, [])
 
-  const filtered = all.filter((e) => e.name.toLowerCase().includes(q.trim().toLowerCase())
+  const filtered = all.filter((e) => searchText(e).includes(q.trim().toLowerCase())
     && (m === null || (m === 'cardio' ? e.cardio : e.primary.includes(m as MuscleId))))
   const groups = groupExercises(filtered)
 

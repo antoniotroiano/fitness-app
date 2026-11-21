@@ -12,7 +12,7 @@ const rows: Row[] = [
   ['smith-incline', 'Schrägbankdrücken (Smith)', ['chest'], ['frontDelts', 'triceps'], 'smith', 'horizontalPush', true],
   ['machine-chest', 'Brustpresse (Maschine)', ['chest'], ['triceps', 'frontDelts'], 'machine', 'horizontalPush', true],
   ['machine-incline-chest', 'Schrägbrustpresse (Maschine)', ['chest'], ['frontDelts', 'triceps'], 'machine', 'horizontalPush', true],
-  ['pec-deck', 'Butterfly (Pec Deck)', ['chest'], [], 'machine', 'isolation', false],
+  ['pec-deck', 'Pec-Deck-Fly (Butterfly)', ['chest'], [], 'machine', 'isolation', false],
   ['cable-fly', 'Kabel-Fly', ['chest'], [], 'cable', 'isolation', false],
   ['cable-fly-low', 'Kabel-Fly von unten', ['chest'], ['frontDelts'], 'cable', 'isolation', false],
   ['db-fly', 'Fliegende (Kurzhantel)', ['chest'], [], 'dumbbell', 'isolation', false],
@@ -23,6 +23,9 @@ const rows: Row[] = [
   ['db-ohp', 'Schulterdrücken (Kurzhantel)', ['frontDelts', 'sideDelts'], ['triceps'], 'dumbbell', 'verticalPush', true],
   ['machine-ohp', 'Schulterpresse (Maschine)', ['frontDelts', 'sideDelts'], ['triceps'], 'machine', 'verticalPush', true],
   ['smith-ohp', 'Schulterdrücken (Smith)', ['frontDelts', 'sideDelts'], ['triceps'], 'smith', 'verticalPush', true],
+  ['bb-ohp-close', 'Schulterdrücken (Langhantel, enger Griff)', ['frontDelts', 'sideDelts'], ['triceps'], 'barbell', 'verticalPush', true],
+  ['bb-ohp-wide', 'Schulterdrücken (Langhantel, weiter Griff)', ['sideDelts', 'frontDelts'], ['triceps'], 'barbell', 'verticalPush', true],
+  ['bb-behind-neck', 'Nackendrücken sitzend (Langhantel)', ['sideDelts', 'frontDelts'], ['triceps', 'traps'], 'barbell', 'verticalPush', true],
   ['db-lateral', 'Seitheben (Kurzhantel)', ['sideDelts'], [], 'dumbbell', 'isolation', false],
   ['cable-lateral', 'Seitheben (Kabel)', ['sideDelts'], [], 'cable', 'isolation', false],
   ['machine-lateral', 'Seitheben (Maschine)', ['sideDelts'], [], 'machine', 'isolation', false],
@@ -42,7 +45,7 @@ const rows: Row[] = [
   ['machine-row', 'Rudermaschine', ['upperBack', 'lats'], ['biceps'], 'machine', 'horizontalPull', true],
   ['chest-supported-row', 'Rudern (brustgestützt)', ['upperBack'], ['lats', 'biceps'], 'machine', 'horizontalPull', true],
   ['smith-row', 'Rudern (Smith)', ['upperBack', 'lats'], ['biceps'], 'smith', 'horizontalPull', true],
-  ['straight-arm-pulldown', 'Straight-Arm-Pulldown', ['lats'], [], 'cable', 'isolation', false],
+  ['straight-arm-pulldown', 'Latzug mit geraden Armen (Kabel)', ['lats'], [], 'cable', 'isolation', false],
   ['db-shrug', 'Shrugs (Kurzhantel)', ['traps'], ['forearms'], 'dumbbell', 'isolation', false],
   ['bb-shrug', 'Shrugs (Langhantel)', ['traps'], ['forearms'], 'barbell', 'isolation', false],
   ['machine-shrug', 'Shrugs (Maschine)', ['traps'], [], 'machine', 'isolation', false],
@@ -56,8 +59,8 @@ const rows: Row[] = [
   ['preacher-curl', 'Preacher Curl (Maschine)', ['biceps'], [], 'machine', 'isolation', false],
   ['bayesian-curl', 'Bayesian Curl (Kabel)', ['biceps'], [], 'cable', 'isolation', false],
   // Trizeps
-  ['cable-pushdown', 'Trizeps-Pushdown (Kabel)', ['triceps'], [], 'cable', 'isolation', false],
-  ['rope-pushdown', 'Trizeps-Pushdown (Seil)', ['triceps'], [], 'cable', 'isolation', false],
+  ['cable-pushdown', 'Trizepsdrücken (Stange, Kabel)', ['triceps'], [], 'cable', 'isolation', false],
+  ['rope-pushdown', 'Trizepsdrücken (Seilgriff, Kabel)', ['triceps'], [], 'cable', 'isolation', false],
   ['overhead-cable-ext', 'Overhead-Extension (Kabel)', ['triceps'], [], 'cable', 'isolation', false],
   ['db-overhead-ext', 'Overhead-Extension (Kurzhantel)', ['triceps'], [], 'dumbbell', 'isolation', false],
   ['skullcrusher', 'Skullcrusher', ['triceps'], [], 'barbell', 'isolation', false],
@@ -83,7 +86,7 @@ const rows: Row[] = [
   ['lying-leg-curl', 'Beinbeuger (liegend)', ['hamstrings'], [], 'machine', 'isolation', false],
   ['seated-leg-curl', 'Beinbeuger (sitzend)', ['hamstrings'], [], 'machine', 'isolation', false],
   ['hip-thrust', 'Hip Thrust (Langhantel)', ['glutes'], ['hamstrings'], 'barbell', 'hinge', true],
-  ['machine-hip-thrust', 'Hip Thrust (Maschine)', ['glutes'], ['hamstrings'], 'machine', 'hinge', true],
+  ['machine-hip-thrust', 'Hip Thrust (Maschine, Gewichtsscheiben)', ['glutes'], ['hamstrings'], 'machine', 'hinge', true],
   ['cable-kickback', 'Glute Kickback (Kabel)', ['glutes'], [], 'cable', 'isolation', false],
   ['hip-abduction', 'Abduktoren-Maschine', ['abductors'], ['glutes'], 'machine', 'isolation', false],
   ['hip-adduction', 'Adduktoren-Maschine', ['adductors'], [], 'machine', 'isolation', false],
@@ -155,8 +158,8 @@ const rows: Row[] = [
   ['db-skullcrusher', 'Skullcrusher (Kurzhantel)', ['triceps'], [], 'dumbbell', 'isolation', false],
   ['cable-kickback-tri', 'Trizeps-Kickback (Kabel)', ['triceps'], [], 'cable', 'isolation', false],
   ['db-kickback', 'Trizeps-Kickback (Kurzhantel)', ['triceps'], [], 'dumbbell', 'isolation', false],
-  ['single-arm-pushdown', 'Einarmiger Pushdown (Kabel)', ['triceps'], [], 'cable', 'isolation', false],
-  ['band-pushdown', 'Pushdown (Band)', ['triceps'], [], 'band', 'isolation', false],
+  ['single-arm-pushdown', 'Einarmiges Trizepsdrücken (Kabel)', ['triceps'], [], 'cable', 'isolation', false],
+  ['band-pushdown', 'Trizepsdrücken (Band)', ['triceps'], [], 'band', 'isolation', false],
   ['smith-close-grip', 'Enges Bankdrücken (Smith)', ['triceps'], ['chest', 'frontDelts'], 'smith', 'horizontalPush', true],
   ['diamond-pushup', 'Diamond-Liegestütze', ['triceps'], ['chest', 'frontDelts'], 'bodyweight', 'horizontalPush', true],
   ['bench-dip', 'Bankdrücken Dips (Bank)', ['triceps'], ['chest', 'frontDelts'], 'bodyweight', 'verticalPush', false],
@@ -338,6 +341,25 @@ export const CARDIO: Exercise[] = [
 ]
 
 export const ALL_EXERCISES: Exercise[] = [...EXERCISES, ...CARDIO]
+
+/** Zusätzliche Suchbegriffe (Alltagsnamen und Varianten), damit Übungen auch unter anderen Bezeichnungen gefunden werden. */
+const SEARCH_ALIASES: Record<string, string> = {
+  'pec-deck': 'fly butterfly brustmaschine brust maschine',
+  'reverse-pec-deck': 'reverse fly butterfly hintere schulter maschine',
+  'straight-arm-pulldown': 'latzug gerade arme gestreckte arme stange straight arm pulldown',
+  'single-arm-pushdown': 'trizepsdrücken pushdown einarmig kabelzug',
+  'band-pushdown': 'trizepsdrücken pushdown band',
+  'rope-pushdown': 'trizepsdrücken seilgriff seil pushdown trizeps kabelzug',
+  'cable-pushdown': 'trizepsdrücken stange pushdown trizeps kabelzug',
+  'machine-hip-thrust': 'hip thrust gewichtsscheiben scheiben plate loaded maschine hüftheben',
+  'bb-ohp': 'schulterdrücken langhantel military press überkopfdrücken',
+  'bb-ohp-close': 'schulterdrücken langhantel enger griff schmaler griff',
+  'bb-ohp-wide': 'schulterdrücken langhantel breiter griff weiter griff',
+  'bb-behind-neck': 'nackendrücken hinter dem kopf behind the neck press',
+}
+
+/** Text, in dem die Suche nach einer Übung sucht: Name plus Alias-Begriffe (klein geschrieben). */
+export const searchText = (e: { id: string; name: string }) => `${e.name} ${SEARCH_ALIASES[e.id] ?? ''}`.toLowerCase()
 
 export const exerciseById = (id: string, custom: Exercise[] = []) =>
   ALL_EXERCISES.find((e) => e.id === id) ?? custom.find((e) => e.id === id)
