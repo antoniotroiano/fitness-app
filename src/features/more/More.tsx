@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Equipment, Exercise, MuscleId, Settings } from '../../types'
 import { BottomSheet, Button, Card, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
+import { TrainingImportCard } from './TrainingImport'
 import { exportAll, importAll, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
 import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
@@ -11,7 +12,7 @@ import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/library'
-import { DEFAULT_REST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
+import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
 import { de } from '../../i18n/de'
 
 export { WarmupSettingsPage } from './WarmupSettings'
@@ -143,7 +144,7 @@ function useSettingsForm() {
 }
 
 function Stepper({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
-  const btn = 'w-9 h-9 rounded-lg bg-surface2 border border-line text-lg'
+  const btn = 'w-9 h-9 rounded-lg bg-surface2 text-lg'
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-sm">{label}</span>
@@ -192,10 +193,10 @@ export function RestSettingsPage() {
         {REST_CATEGORIES.map((c) => (
           <Stepper key={c} label={REST_LABEL[c]} value={s.restSeconds[c]} onChange={(v) => update({ restSeconds: { ...s.restSeconds, [c]: v } })} />
         ))}
-        <Stepper label="Nach Aufwärmsatz (Verbund)" value={s.warmupRestCompound} onChange={(v) => update({ warmupRestCompound: v })} />
-        <Stepper label="Nach Aufwärmsatz (sonst)" value={s.warmupRestOther} onChange={(v) => update({ warmupRestOther: v })} />
+        <Stepper label="Zwischen Aufwärmsätzen" value={s.warmupRestBetween} onChange={(v) => update({ warmupRestBetween: v })} />
+        <Stepper label="Nach letztem Aufwärmsatz" value={s.warmupRestLast} onChange={(v) => update({ warmupRestLast: v })} />
         <p className="text-xs text-muted">Richtwerte aus der Studienlage: Verbundübungen 2-3 min, Isolation 1-2 min. Längere Pausen halten bei schweren Übungen Leistung und Volumen.</p>
-        <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestCompound: 90, warmupRestOther: 45 })}>Standard wiederherstellen</Button>
+        <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST })}>Standard wiederherstellen</Button>
       </Card>
     </Page>
   )
@@ -266,7 +267,7 @@ export function LibraryPage() {
               <span className={cx('rounded-2xl p-0.5 border-2', m === x.id ? 'border-accent' : 'border-transparent opacity-80')}>
                 <MuscleThumb primary={[x.id]} secondary={[]} size={46} />
               </span>
-              <span className={cx('text-[11px] leading-tight w-full text-center truncate', m === x.id ? 'text-fg font-semibold' : 'text-muted')}>{x.label}</span>
+              <span className={cx('text-2xs leading-tight w-full text-center truncate', m === x.id ? 'text-fg font-semibold' : 'text-muted')}>{x.label}</span>
             </button>
           ))}
           <button onClick={() => setM(m === 'cardio' ? null : 'cardio')} title="Cardio" aria-label="Cardio" aria-pressed={m === 'cardio'}
@@ -274,7 +275,7 @@ export function LibraryPage() {
             <span className={cx('rounded-2xl p-0.5 border-2', m === 'cardio' ? 'border-accent' : 'border-transparent opacity-80')}>
               <span className="rounded-xl bg-surface border border-line flex items-center justify-center text-2xl" style={{ width: 46, height: 46 }}>🏃</span>
             </span>
-            <span className={cx('text-[11px] leading-tight w-full text-center truncate', m === 'cardio' ? 'text-fg font-semibold' : 'text-muted')}>Cardio</span>
+            <span className={cx('text-2xs leading-tight w-full text-center truncate', m === 'cardio' ? 'text-fg font-semibold' : 'text-muted')}>Cardio</span>
           </button>
         </div>
 
@@ -365,6 +366,9 @@ export function DataPage() {
         <Button variant="ghost" className="w-full" onClick={() => file.current?.click()}>Backup importieren</Button>
       </Card>
       <Card className="space-y-3">
+        <TrainingImportCard onDone={setMsg} />
+      </Card>
+      <Card className="space-y-3">
         <p className="text-sm text-muted">Gewicht aus Apple-Health-Export (export.xml) oder CSV importieren.</p>
         <input ref={hFile} type="file" accept=".xml,.csv,.txt" className="hidden" onChange={(e) => doHealth(e.target.files?.[0])} />
         <Button variant="ghost" className="w-full" onClick={() => hFile.current?.click()}>Gewichtsdaten importieren</Button>
@@ -414,8 +418,8 @@ export function HelpPage() {
   const items: [string, string][] = [
     ['Was ist RIR?', 'Reps in Reserve: Wie viele Wiederholungen du am Satzende noch geschafft hättest. RIR 2 heißt: noch zwei saubere Wiederholungen möglich.'],
     ['Wie berechnet die App den nächsten Vorschlag?', 'Double Progression: Erreichst du in allen Sätzen das obere Ende des Wiederholungsbereichs, steigt das Gewicht und die Wiederholungen starten wieder unten. Sonst wird eine Wiederholung mehr vorgeschlagen. Trägst du etwas anderes ein, wird aus deinem geschätzten 1RM (Epley) neu gerechnet.'],
-    ['Was ist ein Deload?', 'Eine Entlastungswoche mit etwa halbem Satzvolumen und mehr Reserve, damit sich der Körper erholt. Kommt nach jeweils 4 Trainingswochen. Der Deload ist optional (im Programm abschaltbar): die Studienlage dafür ist schwach, eine Woche Pause brachte in einer Studie (Coleman et al. 2024) keinen Vorteil bei der Muskelgröße.'],
-    ['Rep-Range-Verlauf', 'Static: gleich. Linear: Wiederholungen sinken, Gewichte steigen. Reverse Linear: umgekehrt. Undulating: wöchentlicher Wechsel zwischen schwer und leicht.'],
+    ['Was ist ein Deload?', 'Eine Entlastungswoche mit etwa halbem Satzvolumen und mehr Reserve, damit sich der Körper erholt. Kommt nach jeweils 4–6 Trainingswochen (im Wizard wählbar). Der Deload ist optional (im Programm abschaltbar): die Studienlage dafür ist schwach, eine Woche Pause brachte in einer Studie (Coleman et al. 2024) keinen Vorteil bei der Muskelgröße.'],
+    ['Rep-Range-Verlauf', 'Static: gleich. Linear: Wiederholungen sinken, Gewichte steigen. Reverse Linear: umgekehrt. Undulating: wöchentlicher Wechsel zwischen schwer und leicht. Wechselnde Bereiche: enge Bereiche (3 Wdh.), die jede Übung wöchentlich wechselt; in der letzten Blockwoche geht der letzte Satz bis zum Versagen.'],
     ['Wochenzyklus', 'Hake Workouts durch Beenden und Ruhetage selbst ab. Sind alle 7 Tage erledigt, startet eine neue Woche bei Workout A mit neu berechneten Zielen.'],
     ['Apple Health / Health Connect', 'Direkter Zugriff ist in einer Web-App technisch nicht möglich. Importiere stattdessen den Health-Export (export.xml) oder eine CSV-Datei.'],
   ]

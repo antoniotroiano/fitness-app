@@ -85,7 +85,7 @@ export function CompleteSheet({ open, onClose, primary, secondary, stats, onSave
         <div className="flex gap-2 my-4">
           {stats.map((s) => (
             <div key={s.label} className="flex-1 rounded-xl bg-surface2 p-3 text-center">
-              <div className="text-[11px] uppercase tracking-wide text-muted">{s.label}</div>
+              <div className="text-2xs uppercase tracking-wide text-muted">{s.label}</div>
               <div className="text-base font-bold mt-0.5 tabular-nums">{s.value}</div>
             </div>
           ))}

@@ -89,6 +89,15 @@ export function Page({ title, children, back, right }: { title: string; children
   )
 }
 
+/** Feste Aktionsleiste am unteren Rand (z. B. „Workout starten“): ohne Trennlinie, Inhalt blendet sanft aus. */
+export function BottomBar({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cx('fixed bottom-0 inset-x-0 z-30 px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+12px)] pointer-events-none bg-gradient-to-t from-bg from-60% to-transparent', className)}>
+      <div className="max-w-2xl mx-auto pointer-events-auto">{children}</div>
+    </div>
+  )
+}
+
 const CLOSE_DRAG = 100
 
 /** Bottom-Sheet: schließt per Wischen nach unten (Griff/Titelzeile), ✕ oder Tipp auf den Hintergrund. */
@@ -194,7 +203,7 @@ export function Segmented<T extends string>({
 export function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex-1 rounded-xl bg-surface2 p-3">
-      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
+      <div className="text-2xs uppercase tracking-wide text-muted">{label}</div>
       <div className="text-lg font-bold mt-0.5">{value}</div>
     </div>
   )

@@ -1,20 +1,20 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type {
-  Equipment, Experience, Goal, MuscleId, Priority, ProgramConfig, RepScheme, Split, TimeBudget, Program,
+  Equipment, Exercise, Experience, Goal, MuscleId, Priority, ProgramConfig, RepScheme, Split, TimeBudget, Program,
 } from '../../types'
 import type { ReactNode } from 'react'
-import { Button, Card, Page, cx } from '../../components/ui'
+import { BottomBar, Button, Card, Page, Segmented, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { de } from '../../i18n/de'
-import { recommendedRepScheme, weeklyOverview } from '../../engine/periodization'
+import { BLOCK_WEEK_OPTIONS, blockWeeksOf, recommendedRepScheme, weeklyOverview } from '../../engine/periodization'
 import { LevelIcon, SplitPicto, TimeIcon } from './pictos'
 import { MUSCLES } from '../../data/muscles'
 import { EQUIPMENT_LABEL, exerciseById } from '../../data/exercises'
 import { generate } from '../../engine/planGenerator'
-import { alternatives } from '../../engine/swap'
+import { alternatives, swapPlanned } from '../../engine/swap'
 import { saveProgram, useAllExercises } from '../../db/db'
 import { ExercisePicker, IdentityFields } from './shared'
 import { BottomSheet } from '../../components/ui'
@@ -30,7 +30,7 @@ const AUTO_STEPS: StepId[] = ['mode', 'goal', 'days', 'split', 'time', 'rep', 'f
 
 const TITLES: Record<StepId, string> = {
   mode: 'Start', goal: 'Ziel', days: 'Trainingstage', split: 'Split', time: 'Zeit pro Session', rep: 'Rep-Ranges',
-  focus: 'Muskelfokus', deload: 'Deload-Wochen', exp: 'Erfahrung', equipment: 'Equipment',
+  focus: 'Muskelfokus', deload: 'Blocklänge & Deload', exp: 'Erfahrung', equipment: 'Equipment',
   identity: 'Name, Icon & Farbe', preview: 'Dein Plan',
 }
 
@@ -171,6 +171,7 @@ export default function Wizard() {
             ['linear', 'Linear', 'Wiederholungen sinken, Gewichte steigen über das Programm.', 'repLinear'],
             ['reverseLinear', 'Reverse Linear', 'Wiederholungen steigen, Gewichte sinken über das Programm.', 'repReverse'],
             ['undulating', 'Undulating', 'Wöchentlicher Wechsel zwischen schwer/wenige und leicht/viele Wiederholungen.', 'repWave'],
+            ['rotating', 'Wechselnde Bereiche', 'Enge Bereiche (3 Wdh.), die jede Übung wöchentlich wechselt. Jeder Tag hat schwere und leichte Übungen.', 'repWave'],
           ] as [RepScheme, string, string, IconName][]).map(([v, t, d, i]) => (
             <Option key={v} active={!repAuto && cfg.repScheme === v} icon={i} title={t} desc={d} onClick={() => { setRepAuto(false); set({ repScheme: v }) }} />
           ))}
@@ -203,8 +204,14 @@ export default function Wizard() {
 
       {id === 'deload' && (
         <div className="space-y-3">
-          <Option active={cfg.deload} icon="shield" title="Ja, mit Deload" desc="Nach 4 Trainingswochen folgt eine Woche mit halbem Volumen und mehr Reserve." onClick={() => set({ deload: true })} />
-          <Option active={!cfg.deload} icon="ban" title="Nein" desc="Durchgehend ohne Entlastungswoche." onClick={() => set({ deload: false })} />
+          <div>
+            <div className="text-sm font-medium mb-2">Trainingswochen pro Block</div>
+            <Segmented value={String(blockWeeksOf(cfg))} onChange={(v) => set({ blockWeeks: Number(v) })}
+              options={BLOCK_WEEK_OPTIONS.map((n) => ({ value: String(n), label: `${n} Wochen` }))} />
+            <p className="text-xs text-muted mt-2">Über den Block steigt die Intensität (weniger Reserve, mehr Sätze). Länger lohnt sich vor allem mit Trainingserfahrung.</p>
+          </div>
+          <Option active={cfg.deload} icon="shield" title="Ja, mit Deload" desc={`Nach ${blockWeeksOf(cfg)} Trainingswochen folgt eine Woche mit halbem Volumen und mehr Reserve.`} onClick={() => set({ deload: true })} />
+          <Option active={!cfg.deload} icon="ban" title="Nein" desc={`Durchgehend ohne Entlastungswoche, der Verlauf wiederholt sich alle ${blockWeeksOf(cfg)} Wochen.`} onClick={() => set({ deload: false })} />
         </div>
       )}
 
@@ -252,9 +259,7 @@ export default function Wizard() {
       {id === 'preview' && <Preview cfg={{ ...cfg, equipment, repScheme: repAuto ? recommendedRepScheme(cfg.goal, cfg.experience) : cfg.repScheme }} all={all} onSaved={() => nav('/workouts')} />}
 
       {id !== 'preview' && (
-        <div className="fixed bottom-0 inset-x-0 p-4 bg-bg/90 backdrop-blur border-t border-line safe-bottom">
-          <div className="max-w-2xl mx-auto"><Button className="w-full" disabled={!canNext} onClick={next}>Weiter</Button></div>
-        </div>
+        <BottomBar><Button className="w-full" disabled={!canNext} onClick={next}>Weiter</Button></BottomBar>
       )}
     </Page>
   )
@@ -272,8 +277,15 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
 
   const replace = (exId: string) => {
     if (!swap) return
+    const to = exerciseById(exId, all)
+    if (!to) return
     setDays((ds) => ds.map((d, di) => di !== swap.d ? d : {
-      ...d, exercises: d.exercises.map((e, ei) => ei === swap.i ? { ...e, exerciseId: exId } : e),
+      ...d, exercises: d.exercises.map((e, ei) => {
+        if (ei !== swap.i) return e
+        // Sätze/Wdh.-Bereich passend zur neuen Übung (nicht die der getauschten übernehmen)
+        const others = d.exercises.filter((_, j) => j !== ei).map((o) => exerciseById(o.exerciseId, all)).filter((x): x is Exercise => !!x)
+        return swapPlanned(e, exerciseById(e.exerciseId, all), to, cfg, others)
+      }),
     }))
     setSwap(null)
   }
@@ -304,12 +316,12 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
                   </div>
                   {ex && !ex.cardio && (
                     <div className="flex gap-2 overflow-x-auto snap-x no-scrollbar -mx-1 px-1">
-                      {weeklyOverview(e, cfg, ex).map((w) => (
-                        <div key={w.week} className={cx('snap-start shrink-0 w-28 rounded-xl border p-2 text-xs', w.isDeload ? 'border-line bg-surface2' : 'border-line bg-surface')}>
+                      {weeklyOverview(e, cfg, ex, ei).map((w) => (
+                        <div key={w.week} className={cx('snap-start shrink-0 w-28 rounded-xl border p-2 text-xs', w.isDeload ? 'border-dashed border-line' : 'border-transparent bg-surface2')}>
                           <div className="font-semibold mb-1">{w.isDeload ? de.wizard.deload : de.wizard.week(w.week + 1)}</div>
                           <div className="text-muted">{w.sets} Sätze</div>
                           <div className="text-muted">{w.repMin}–{w.repMax} {ex.metric === 'time' ? 'Sek' : 'Wdh'}</div>
-                          <div className="text-muted">RIR {w.rir}</div>
+                          <div className="text-muted">RIR {w.rir}{w.failure ? ' · letzter bis Versagen' : ''}</div>
                         </div>
                       ))}
                     </div>
@@ -352,9 +364,7 @@ function Preview({ cfg, all, onSaved }: { cfg: ProgramConfig; all: ReturnType<ty
           }))
         }} />
 
-      <div className="fixed bottom-0 inset-x-0 p-4 bg-bg/90 backdrop-blur border-t border-line safe-bottom">
-        <div className="max-w-2xl mx-auto"><Button className="w-full" onClick={save}>Plan speichern</Button></div>
-      </div>
+      <BottomBar><Button className="w-full" onClick={save}>Plan speichern</Button></BottomBar>
     </div>
   )
 }

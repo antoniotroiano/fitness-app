@@ -34,7 +34,7 @@ export function NumpadSheet({ field, label, value, rir, onValue, onRir, onConfir
 
   const key = 'h-12 rounded-xl bg-surface2 text-xl font-medium active:bg-line'
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40">
+    <div data-numpad className="fixed bottom-0 inset-x-0 z-40">
       <div className="max-w-2xl mx-auto bg-surface border-t border-x border-line rounded-t-2xl p-3 safe-bottom shadow-2xl space-y-3">
         <div className="flex items-center justify-between px-1">
           <div className="text-sm text-muted">{label}</div>
@@ -46,7 +46,7 @@ export function NumpadSheet({ field, label, value, rir, onValue, onRir, onConfir
             <span className="text-xs text-muted mr-1">RIR</span>
             {['0', '1', '2', '3', '4', '5', '6'].map((n) => (
               <button key={n} onClick={() => onRir(n)} aria-label={`RIR ${n === '6' ? '6 oder mehr' : n}`}
-                className={cx('flex-1 h-9 rounded-lg text-sm font-semibold border', rir === n ? 'text-accent-fg' : 'border-line bg-surface2')}
+                className={cx('flex-1 h-9 rounded-lg text-sm font-semibold border', rir === n ? 'text-accent-fg border-transparent' : 'border-transparent bg-surface2')}
                 style={rir === n ? { background: rirColor(Number(n)), borderColor: rirColor(Number(n)) } : { color: rirColor(Number(n)) }}>
                 {n === '6' ? '6+' : n}
               </button>

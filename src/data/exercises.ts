@@ -300,6 +300,23 @@ const rows: Row[] = [
 /** Übungen, bei denen das eingetragene Gewicht eine Unterstützung ist (weniger Gewicht = schwerer). */
 const ASSISTED = new Set(['assisted-pullup'])
 
+/**
+ * Körpergewichtsanteil je Übung (bewegter Anteil des Körpergewichts). Eigene Heuristiken: Liegestütz ≈ 64 % in der
+ * oberen Position (Ebben et al. 2011, Bodenreaktionskraft), Hände erhöht weniger; Klimmzug/Dip: ganzer Körper ohne
+ * Unterarme und Hände (anthropometrische Segmentanteile nach Dempster/Winter); Kniebeuge/Ausfallschritt ohne
+ * Unterschenkel und Füße; Rückenstrecker/Nordic Curl nur der Oberkörper bzw. Körper oberhalb der Knie.
+ * Rumpfübungen (außer hängendem Beinheben) bleiben bei reiner Wiederholungs-Progression.
+ */
+export const BODYWEIGHT_SHARE: Record<string, number> = {
+  pushup: 0.64, 'diamond-pushup': 0.64, 'deep-push-ups': 0.66, 'incline-push-ups': 0.45, 'pike-pushup': 0.7,
+  'dips-chest': 0.95, 'dips-tri': 0.95, 'bench-dip': 0.55,
+  pullup: 0.95, chinup: 0.95, 'wide-grip-pullup': 0.95, 'neutral-pullup': 0.95, 'reverse-grip-pull-up': 0.95,
+  'chin-ups-narrow-parallel-grip': 0.95, 'inverted-row': 0.6,
+  squat: 0.85, 'sissy-squat': 0.85, 'cossack-squat': 0.85,
+  'back-extension': 0.6, 'nordic-curl': 0.7, 'glute-bridge': 0.5, 'bodyweight-calf': 0.95,
+  'hanging-leg-raise': 0.35,
+}
+
 /** Zeitbasierte Übungen (Halten/Tragen): kein Wiederholungs-Range, der Generator plant sie nur auf ausdrücklichen Wunsch ein. */
 export const TIME_BASED = new Set(['plank', 'side-plank', 'copenhagen-plank', 'dead-hang', 'suitcase-carry', 'farmers-carry'])
 
@@ -321,7 +338,7 @@ const loadOf = (id: string, equipment: Equipment): Exercise['load'] => {
 
 export const EXERCISES: Exercise[] = rows.map(([id, name, primary, secondary, equipment, pattern, compound]) => {
   const load = loadOf(id, equipment)
-  return { id, name, primary, secondary, equipment, pattern, compound, ...(ASSISTED.has(id) ? { assisted: true } : {}), ...(load ? { load } : {}), ...(TIME_BASED.has(id) ? { metric: 'time' as const } : {}) }
+  return { id, name, primary, secondary, equipment, pattern, compound, ...(ASSISTED.has(id) ? { assisted: true } : {}), ...(load ? { load } : {}), ...(TIME_BASED.has(id) ? { metric: 'time' as const } : {}), ...(BODYWEIGHT_SHARE[id] ? { bodyweight: BODYWEIGHT_SHARE[id] } : {}) }
 })
 
 const cardio = (id: string, name: string): Exercise => ({

@@ -10,12 +10,14 @@ export interface Row {
   done: boolean
   minutes: string
   km: string
-  /** Gewicht von Hand geändert: wird von der RIR-Anpassung nicht überschrieben */
+  /** Gewicht oder Wdh. von Hand geändert: wird von der RIR-Anpassung nicht überschrieben */
   manual?: boolean
   /** Geplantes Gewicht (kg), Wdh. und RIR dieses Arbeitssatzes: Grundlage der RIR-Anpassung (fehlt bei älteren Workouts) */
   planKg?: number | null
   planReps?: number
   planRir?: number
+  /** Satz bis zum Versagen (letzte Arbeitswoche): Wdh. sind das Minimum */
+  failure?: boolean
 }
 
 /** Laufendes Workout, wird in der DB zwischengespeichert (übersteht Reload). */

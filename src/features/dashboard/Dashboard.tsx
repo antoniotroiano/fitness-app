@@ -5,7 +5,7 @@ import { ProgramBadge } from '../../components/icons'
 import { SlideOver } from '../../components/SlideOver'
 import { MUSCLES } from '../../data/muscles'
 import { exerciseById } from '../../data/exercises'
-import { saveBodyEntry, useActiveProgram, useAllExercises, useMeasures, useSessions, useSettings, useWeekState, useWeights } from '../../db/db'
+import { saveBodyEntry, useActiveProgram, useAllExercises, useMeasures, useSessions, useSettings, useStatSessions, useWeekState, useWeights } from '../../db/db'
 import { MEASURE_GROUPS, RATIOS, bodyLabel, bodySeries, lastEntries, type BodyKey } from '../../engine/body'
 import { bodyUnit, formatBody } from '../body/format'
 import { EntrySheet } from '../body/EntrySheet'
@@ -42,6 +42,7 @@ export default function Dashboard() {
   const program = useActiveProgram()
   const week = useWeekState()
   const sessions = useSessions()
+  const statSessions = useStatSessions()
   const all = useAllExercises()
   const settings = useSettings()
   const weights = useWeights()
@@ -65,7 +66,7 @@ export default function Dashboard() {
   const today = todayStr()
   const u = settings.weightUnit
 
-  const records = useMemo(() => recentRecords(sessions, lookup, recMetric, 7), [sessions, lookup, recMetric])
+  const records = useMemo(() => recentRecords(statSessions, lookup, recMetric, 7), [statSessions, lookup, recMetric])
   const recMax = Math.max(1, ...records.map((r) => r.value))
   const recFmt = (v: number) => (recMetric === 'reps' ? `${v}` : `${Math.round(kgToDisplay(v, u))}`)
 
@@ -90,10 +91,10 @@ export default function Dashboard() {
       const sets = e!.cardio ? points : exerciseDaily(sessions, e!.id, 'totalSets')
       const values = dailySeries(sets, today, 7)
       // Wie auf der Übungsseite: Kraftübungen als Linie (1RM), Cardio als Balken (Dauer)
-      const line = e!.cardio ? undefined : dailyValues(exerciseDaily(sessions, e!.id, 'rm1', 1, noLoadStats(e)), today, 7)
+      const line = e!.cardio ? undefined : dailyValues(exerciseDaily(statSessions, e!.id, 'rm1', 1, noLoadStats(e)), today, 7)
       return { id: e!.id, title: e!.name, values, line, total: values.reduce((a, b) => a + b, 0), unit: e!.cardio ? 'min' : de.common.sets }
     })
-  }, [program, sessions, lookup, today])
+  }, [program, sessions, statSessions, lookup, today])
 
   // Die zwei Gruppen mit den meisten Sätzen der letzten 7 Tage (bei Gleichstand in Listenreihenfolge)
   const top = <T extends { total: number }>(list: T[]) =>
@@ -167,7 +168,7 @@ export default function Dashboard() {
             <div className="flex justify-center"><div className="inline-flex rounded-xl bg-surface2 p-1" role="group" aria-label="Rekord-Art">
               {([['volume', 'Volumen'], ['reps', de.common.reps], ['rm1', '1RM']] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setRecMetric(v)} aria-pressed={recMetric === v}
-                  className={`rounded-lg px-3 py-1 text-[11px] font-semibold transition-colors ${recMetric === v ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{label}</button>
+                  className={`rounded-lg px-3 py-1 text-2xs font-semibold transition-colors ${recMetric === v ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{label}</button>
               ))}
             </div></div>
           </div>

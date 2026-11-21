@@ -31,11 +31,11 @@ export function RingStat({ label, done, total, color, big, shown }: { label: str
     <div className="flex flex-col items-center gap-3.5" role="img" aria-label={`${label}: ${num} von ${total}, ${left} übrig`}>
       <Ring done={done} total={total} color={color} size={big ? 136 : 88} stroke={big ? 7 : 5}>
         <span className={cx('font-bold tabular-nums', big ? 'text-3xl' : 'text-xl')}>{num}</span>
-        <span className={cx('text-muted', big ? 'text-xs' : 'text-[11px]')}>{left} übrig</span>
+        <span className={cx('text-muted', big ? 'text-xs' : 'text-2xs')}>{left} übrig</span>
       </Ring>
       <div className="text-center">
         <div className={cx('font-semibold', big ? 'text-sm' : 'text-xs')}>{label}</div>
-        <div className="text-[11px] text-muted">{total} Ziel</div>
+        <div className="text-2xs text-muted">{total} Ziel</div>
       </div>
     </div>
   )
@@ -83,7 +83,7 @@ export function StatBox({ title, values, line, total, unit, onClick }: {
   return (
     <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
       <div className="text-sm font-semibold truncate">{title}</div>
-      <div className="text-[11px] text-muted mb-1.5">Letzte 7 Tage</div>
+      <div className="text-2xs text-muted mb-1.5">Letzte 7 Tage</div>
       {line ? <MiniLine values={line} /> : <MiniBars values={values} />}
       <div className="mt-2 pt-2 border-t border-line text-xs text-muted">
         <span className="text-fg font-semibold tabular-nums">{Math.round(total * 10) / 10}</span> {unit}
@@ -99,7 +99,7 @@ export function MetricBox({ title, values, last, unit, onClick }: {
   return (
     <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
       <div className="text-sm font-semibold truncate">{title}</div>
-      <div className="text-[11px] text-muted mb-1.5">{de.dashboard.last7Entries}</div>
+      <div className="text-2xs text-muted mb-1.5">{de.dashboard.last7Entries}</div>
       {values.length ? <MiniLine values={values} /> : <div className="h-9 flex items-center text-xs text-muted">Noch keine Daten</div>}
       <div className="mt-2 pt-2 border-t border-line text-xs text-muted">
         <span className="text-fg font-semibold tabular-nums">{last ?? '–'}</span> {last ? unit : ''}
@@ -125,7 +125,7 @@ export function HabitBox({ title, dates, today, color, weekDone, onClick }: {
   return (
     <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
       <div className="text-sm font-semibold">{title}</div>
-      <div className="text-[11px] text-muted mb-2">Letzte 30 Tage</div>
+      <div className="text-2xs text-muted mb-2">Letzte 30 Tage</div>
       <div className="grid grid-cols-10 gap-1.5" aria-hidden>
         {dots.map((d) => <i key={d.date} className="aspect-square rounded-full" style={{ background: d.on ? color : 'var(--surface2)' }} />)}
       </div>
@@ -160,7 +160,7 @@ export function MonthCalendar({ tracked, today, color, onSelect }: { tracked: Se
         <button onClick={() => go(1)} aria-label="Nächster Monat" className="w-9 h-9 text-xl text-muted">›</button>
       </div>
       <div className="grid grid-cols-7 gap-y-2 text-center">
-        {WEEKDAYS.map((w) => <div key={w} className="text-[11px] text-muted">{w}</div>)}
+        {WEEKDAYS.map((w) => <div key={w} className="text-2xs text-muted">{w}</div>)}
         {grid.flat().map((d, i) => {
           if (!d) return <div key={i} />
           const on = tracked.has(d)

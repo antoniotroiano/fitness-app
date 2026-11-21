@@ -33,10 +33,18 @@ export function restCategory(ex: Exercise): RestCategory {
   return region === 'lower' ? 'isoLower' : 'isoUpper'
 }
 
-type RestSettings = Pick<Settings, 'restSeconds' | 'warmupRestCompound' | 'warmupRestOther'>
+type RestSettings = Pick<Settings, 'restSeconds' | 'warmupRestBetween' | 'warmupRestLast'>
 
-export function restSecondsFor(ex: Exercise, settings: RestSettings, afterWarmup: boolean, override?: number): number {
-  if (afterWarmup) return ex.compound ? settings.warmupRestCompound : settings.warmupRestOther
+/** Satzart für die Pause: Arbeitssatz, Aufwärmsatz mit weiteren Aufwärmsätzen danach, letzter Aufwärmsatz. */
+export type RestAfter = 'work' | 'warmup' | 'lastWarmup'
+
+/** Standard: kurz zwischen Aufwärmsätzen (leichte Last), länger vor dem ersten Arbeitssatz (Heuristik). */
+export const DEFAULT_WARMUP_REST_BETWEEN = 30
+export const DEFAULT_WARMUP_REST_LAST = 90
+
+export function restSecondsFor(ex: Exercise, settings: RestSettings, after: RestAfter, override?: number): number {
+  if (after === 'warmup') return settings.warmupRestBetween ?? DEFAULT_WARMUP_REST_BETWEEN
+  if (after === 'lastWarmup') return settings.warmupRestLast ?? DEFAULT_WARMUP_REST_LAST
   if (override && override > 0) return override
   return settings.restSeconds[restCategory(ex)] ?? DEFAULT_REST[restCategory(ex)]
 }

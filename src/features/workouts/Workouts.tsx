@@ -5,9 +5,8 @@ import { ProgramBadge } from '../../components/icons'
 import { activateProgram, deleteProgram, saveWeekState, useActiveProgram, useActiveWorkoutParam, usePrograms, useSessions, useSettings, useWeekState } from '../../db/db'
 import { sessionDates } from '../../engine/habits'
 import { formatTime } from '../../utils/units'
-import { jumpToWeek, markSlot, maxReachedWeek, unmarkSlot } from '../../engine/weekCycle'
+import { jumpToWeek, markSlot, unmarkSlot, weekLabel, weekOptions } from '../../engine/weekCycle'
 import { WeekSheet } from './WeekSheet'
-import { weekPlan } from '../../engine/periodization'
 import { WEEKDAYS, addDays, fmt, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
 import { de } from '../../i18n/de'
 
@@ -26,7 +25,7 @@ function WeekStrip({ marked }: { marked: Set<string> }) {
         const isMarked = marked.has(d)
         return (
           <div key={d} style={{ flex: '0 0 calc((100% - 0px) / 7)' }} className="snap-start flex flex-col items-center gap-1 py-1">
-            <span className="text-[11px] text-muted">{WEEKDAYS[weekdayIndex(d)]}</span>
+            <span className="text-2xs text-muted">{WEEKDAYS[weekdayIndex(d)]}</span>
             <span className={cx(
               'w-9 h-9 rounded-full flex items-center justify-center text-sm border',
               isMarked ? 'border-2 border-accent font-bold' : d === today ? 'border-line bg-surface2 font-semibold' : 'border-line text-muted',
@@ -72,7 +71,6 @@ export default function Workouts() {
 
   const others = programs.filter((p) => p.id !== program.id)
   const allOpen = others.length > 0 && others.every((p) => expanded[p.id as number])
-  const plan = program.config ? weekPlan(program.config, week.week) : null
   const scheduled = new Set(program.weekSlots.filter((s): s is number => s !== 'rest'))
   const extra = program.days.map((d, i) => ({ d, i })).filter(({ i }) => !scheduled.has(i))
   const cycleSessions = sessions.filter((s) => s.programId === program.id && s.week === week.week)
@@ -91,12 +89,12 @@ export default function Workouts() {
         </div>
         <button onClick={() => setWeekSheet(true)} aria-haspopup="dialog"
           className="rounded-xl bg-surface2 px-3 py-2 text-sm font-semibold active:opacity-70">
-          Woche {week.week + 1}{plan?.isDeload ? ' · Deload' : ''} <span className="text-muted">▾</span>
+          {weekLabel(program, week.week)} <span className="text-muted">▾</span>
         </button>
       </div>
 
       <WeekSheet open={weekSheet} onClose={() => setWeekSheet(false)} current={week.week}
-        maxWeek={maxReachedWeek(program, sessions, week.week)} counts={weekCounts}
+        options={weekOptions(program, sessions, week.week)} counts={weekCounts}
         onPick={async (w) => { await saveWeekState(jumpToWeek(program, sessions, w)); setWeekSheet(false) }} />
 
       {running && (

@@ -49,7 +49,7 @@ function useTheme() {
 function Tab({ to, label, icon }: { to: string; label: string; icon: IconName }) {
   return (
     <NavLink to={to} end={to === '/'} replace
-      className={({ isActive }) => cx('flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px]', isActive ? 'text-accent' : 'text-muted')}>
+      className={({ isActive }) => cx('flex-1 flex flex-col items-center gap-0.5 py-2 text-2xs', isActive ? 'text-accent' : 'text-muted')}>
       <Icon name={icon} size={24} />{label}
     </NavLink>
   )
@@ -125,7 +125,7 @@ function Shell() {
             <Tab to="/" label="Dashboard" icon="dashboard" />
             <Tab to="/workouts" label="Workouts" icon="calendar" />
             <button onClick={() => setSheet(true)} aria-label="Hinzufügen"
-              className="-mt-6 w-14 h-14 rounded-full bg-accent text-accent-fg text-3xl font-light shadow-lg active:scale-95">＋</button>
+              className="-mt-3 w-12 h-12 shrink-0 rounded-full bg-accent text-accent-fg text-2xl font-light shadow-md active:scale-95">＋</button>
             <Tab to="/more/library" label="Übungen" icon="library" />
             <Tab to="/more" label={de.nav.more} icon="more" />
           </div>

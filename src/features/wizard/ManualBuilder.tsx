@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { PlannedExercise, WorkoutDay } from '../../types'
-import { Button, Card, Page, inputCls } from '../../components/ui'
+import { BottomBar, Button, Card, Page, inputCls } from '../../components/ui'
 import { exerciseById } from '../../data/exercises'
 import { db, saveProgram, useActiveProgram, useAllExercises } from '../../db/db'
 import { weekSlots } from '../../engine/planGenerator'
@@ -114,9 +114,7 @@ export default function ManualBuilder() {
           }))
         }} />
 
-      <div className="fixed bottom-0 inset-x-0 p-4 bg-bg/90 backdrop-blur border-t border-line safe-bottom">
-        <div className="max-w-2xl mx-auto"><Button className="w-full" disabled={!valid} onClick={save}>Speichern</Button></div>
-      </div>
+      <BottomBar><Button className="w-full" disabled={!valid} onClick={save}>Speichern</Button></BottomBar>
     </Page>
   )
 }

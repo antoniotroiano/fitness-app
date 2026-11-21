@@ -14,6 +14,8 @@
   --color-warn: var(--warn);
   --color-danger: var(--danger);
   --color-danger-fg: var(--danger-fg);
+  /* Kleinste Textstufe (Tab-Leiste, Spaltenköpfe, Legenden) */
+  --text-2xs: 11px;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -34,7 +36,9 @@ body {
   background: var(--bg); color: var(--fg); font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none;
 }
-input, select, button { font: inherit; }
+/* Buttons erben die Schrift über Tailwinds Preflight (Ebene base), damit text-xs/font-semibold greifen.
+   Eingabefelder bleiben bewusst bei 16px: darunter zoomt iOS beim Antippen in die Seite. */
+input, select, textarea { font-size: 16px; }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 .safe-top { padding-top: env(safe-area-inset-top); }
 /* Untere Tab-Leiste: nur ein Teil der Home-Indicator-Fläche, damit sie nicht zu hoch sitzt */
@@ -55,9 +59,10 @@ body::before {
 :root { --warn: #a14a0a; --danger: #b91c1c; --danger-fg: #ffffff; }
 .dark { --warn: #fbbf24; --danger: #f87171; --danger-fg: #0e0f11; }
 
-/* Dashboard: Ringe und Gewohnheiten */
-:root { --ring-sets: #14b8a6; --ring-muscles: #8b5cf6; --ring-ex: #ec4899; --habit-weight: #22c55e; --habit-workout: #f97316; }
-.dark { --ring-sets: #2dd4bf; --ring-muscles: #a78bfa; --ring-ex: #f472b6; --habit-weight: #4ade80; --habit-workout: #fb923c; }
+/* Dashboard: Ringe und Gewohnheiten. Bewusst eine Farbfamilie (Teal wie Diagramme/Muskelfigur):
+   Fortschritt ist eine Bedeutung, die Beschriftung unterscheidet. Signalfarben bleiben RIR und Warnungen. */
+:root { --ring-sets: #0d9488; --ring-muscles: #14b8a6; --ring-ex: #14b8a6; --habit-weight: #14b8a6; --habit-workout: #14b8a6; }
+.dark { --ring-sets: #2dd4bf; --ring-muscles: #2dd4bf; --ring-ex: #2dd4bf; --habit-weight: #2dd4bf; --habit-workout: #2dd4bf; }
 
 /* Konfetti im Abschluss-Sheet */
 .confetti i { position: absolute; top: -12px; border-radius: 2px; opacity: 0; animation-name: confetti-fall; animation-timing-function: ease-in; animation-iteration-count: 1; animation-fill-mode: forwards; }

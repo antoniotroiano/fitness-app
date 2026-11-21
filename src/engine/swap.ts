@@ -1,4 +1,5 @@
-import type { Equipment, Exercise } from '../types'
+import type { Equipment, Exercise, PlannedExercise, ProgramConfig } from '../types'
+import { baseRepRange, TIME_RANGE } from './periodization'
 
 /** Alternativen für dieselbe Hauptmuskelgruppe, bevorzugt gleiches Bewegungsmuster. */
 export function alternatives(
@@ -15,4 +16,28 @@ export function alternatives(
 function score(e: Exercise, cur: Exercise): number {
   return (e.pattern === cur.pattern ? 2 : 0) + (e.compound === cur.compound ? 1 : 0)
     + (e.primary[0] === cur.primary[0] ? 1 : 0)
+}
+
+/**
+ * Geplante Werte nach einem Übungstausch. Bleibt die Art gleich (Verbund ↔ Verbund, Isolation ↔ Isolation,
+ * Zeit ↔ Zeit), bleiben Sätze und Wdh.-Bereich (gleiche Rolle im Tag). Sonst bekommt die neue Übung den Bereich
+ * ihrer Rolle wie im Generator: Isolation hohe Wdh., Verbund Hauptübung (höchstens zwei pro Tag) oder weitere Verbundübung.
+ * `others`: die übrigen Übungen des Tages (ohne den getauschten Platz).
+ */
+export function swapPlanned(
+  pe: PlannedExercise, from: Exercise | undefined, to: Exercise,
+  config: Pick<ProgramConfig, 'goal'>, others: Exercise[],
+): PlannedExercise {
+  const time = (e?: Exercise) => e?.metric === 'time'
+  const same = !!from && from.compound === to.compound && time(from) === time(to)
+  if (same) return { ...pe, exerciseId: to.id }
+  let range
+  if (time(to)) range = TIME_RANGE
+  else if (!to.compound) range = baseRepRange(config.goal, false, 'isolation')
+  else {
+    const mains = others.filter((e) => e.compound && !e.cardio && !time(e)).length
+    range = baseRepRange(config.goal, true, mains < 2 ? 'main' : 'secondary')
+  }
+  const minSets = to.compound ? 3 : 2
+  return { ...pe, exerciseId: to.id, repMin: range.min, repMax: range.max, sets: Math.max(pe.sets, minSets) }
 }
