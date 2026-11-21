@@ -170,3 +170,65 @@ export function groupByMonth(points: Point[]): { month: string; items: Point[] }
   }
   return [...map.entries()].map(([month, items]) => ({ month, items }))
 }
+
+/**
+ * Ø Sätze pro Woche je Muskel über die letzten `weeks` Wochen (rollierend bis `today`): primär voll, sekundär
+ * `SECONDARY_WEIGHT`, Aufwärmsätze und Drop-/Myo-Segmente zählen nicht (wie `muscleDaily`).
+ */
+export function weeklyMuscleSets(
+  sessions: Session[], lookup: (id: string) => Exercise | undefined, weeks: number, today = todayStr(),
+): Partial<Record<MuscleId, number>> {
+  const start = addDays(today, -weeks * 7 + 1)
+  const out: Partial<Record<MuscleId, number>> = {}
+  for (const s of sessions) {
+    if (s.date < start || s.date > today) continue
+    for (const ex of s.exercises) {
+      const def = lookup(ex.exerciseId)
+      if (!def || def.cardio) continue
+      const n = mainSets(ex.sets).length
+      if (!n) continue
+      for (const m of def.primary) out[m] = (out[m] ?? 0) + n
+      for (const m of def.secondary) if (!def.primary.includes(m)) out[m] = (out[m] ?? 0) + n * SECONDARY_WEIGHT
+    }
+  }
+  for (const m of Object.keys(out) as MuscleId[]) out[m] = Math.round((out[m]! / weeks) * 10) / 10
+  return out
+}
+
+/** Stufe für die Körperkarte: 0 = nichts, 1 = unter 4, 2 = 4–9, 3 = 10–20, 4 = über 20 Sätze/Woche (grobe Volumen-Richtwerte). */
+export function setTier(perWeek: number): 0 | 1 | 2 | 3 | 4 {
+  if (perWeek <= 0) return 0
+  if (perWeek < 4) return 1
+  if (perWeek < 10) return 2
+  if (perWeek <= 20) return 3
+  return 4
+}
+
+/** Beitrag einer Übung zu einem Muskel: Ø gewertete Sätze pro Woche, Rolle des Muskels in der Übung */
+export interface MuscleContribution { exerciseId: string; perWeek: number; role: 'primary' | 'secondary' }
+
+/**
+ * Welche Übungen zu den Ø Sätzen eines Muskels beitragen (gleiche Zählung wie `weeklyMuscleSets`), absteigend.
+ * Die Summe der Beiträge ergibt (bis auf Rundung) den Wert des Muskels.
+ */
+export function muscleContributions(
+  sessions: Session[], lookup: (id: string) => Exercise | undefined, muscle: MuscleId, weeks: number, today = todayStr(),
+): MuscleContribution[] {
+  const start = addDays(today, -weeks * 7 + 1)
+  const by = new Map<string, MuscleContribution>()
+  for (const s of sessions) {
+    if (s.date < start || s.date > today) continue
+    for (const ex of s.exercises) {
+      const def = lookup(ex.exerciseId)
+      if (!def || def.cardio) continue
+      const role = def.primary.includes(muscle) ? 'primary' : def.secondary.includes(muscle) ? 'secondary' : null
+      const n = role ? mainSets(ex.sets).length : 0
+      if (!role || !n) continue
+      const c = by.get(def.id) ?? { exerciseId: def.id, perWeek: 0, role }
+      c.perWeek += n * (role === 'primary' ? 1 : SECONDARY_WEIGHT)
+      by.set(def.id, c)
+    }
+  }
+  return [...by.values()].map((c) => ({ ...c, perWeek: Math.round((c.perWeek / weeks) * 10) / 10 }))
+    .sort((a, b) => b.perWeek - a.perWeek || a.exerciseId.localeCompare(b.exerciseId))
+}

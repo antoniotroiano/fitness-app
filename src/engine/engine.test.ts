@@ -25,7 +25,7 @@ import { MEDIA_MAP, posterSlug } from '../data/media'
 import { TIPS } from '../data/media/tips'
 import manifest from '../data/media/manifest.json'
 import { emptyWeek, historyUpTo, isWeekComplete, jumpToWeek, isSlotSkipped, markSlot, maxReachedWeek, skipSlot, unmarkSlot, weekLabel, weekOptions } from './weekCycle'
-import { average, cardioDaily, exerciseDaily, filterPeriod, groupByMonth, muscleDaily, summary } from './stats'
+import { average, cardioDaily, exerciseDaily, filterPeriod, groupByMonth, muscleDaily, muscleContributions, setTier, summary, weeklyMuscleSets } from './stats'
 import { ALL_EXERCISES, EXERCISES, exerciseById, TIME_BASED } from '../data/exercises'
 import { recentRecords } from './records'
 import { linksOf, nextInSuperset, normalizeSupersets, setSupersetLink, supersetMembers, toggleSupersetLink, withLinks } from './superset'
@@ -1797,5 +1797,38 @@ describe('Workout überspringen', () => {
   })
   it('bereits erledigter Slot bleibt unverändert', () => {
     expect(skipSlot(base, 2)).toBe(base)
+  })
+})
+
+describe('Körperkarte: Ø Sätze pro Woche', () => {
+  const lookup = (id: string) => ALL_EXERCISES.find((e) => e.id === id)
+  const sess = (date: string, exerciseId: string, n: number): Session => ({
+    programId: null, dayIndex: 0, date, finishedAt: 0, week: 0,
+    exercises: [{ exerciseId, sets: [{ weight: 20, reps: 5, warmup: true }, ...Array.from({ length: n }, () => ({ weight: 60, reps: 8 }))] }],
+  })
+  it('primär voll, sekundär halb, nur im Zeitraum, geteilt durch Wochen', () => {
+    const s = [sess('2026-11-20', 'bb-bench', 4), sess('2026-11-10', 'bb-bench', 4), sess('2026-09-01', 'bb-bench', 10)]
+    const r = weeklyMuscleSets(s, lookup, 4, '2026-11-22')
+    expect(r.chest).toBe(2)
+    expect(r.triceps).toBe(1)
+    expect(r.lats).toBeUndefined()
+  })
+  it('Stufen', () => {
+    expect([0, 2, 6, 15, 25].map(setTier)).toEqual([0, 1, 2, 3, 4])
+  })
+})
+
+describe('Übungsbeiträge je Muskel', () => {
+  const lookup = (id: string) => ALL_EXERCISES.find((e) => e.id === id)
+  const sess = (date: string, ex: [string, number][]): Session => ({
+    programId: null, dayIndex: 0, date, finishedAt: 0, week: 0,
+    exercises: ex.map(([exerciseId, n]) => ({ exerciseId, sets: Array.from({ length: n }, () => ({ weight: 50, reps: 8 })) })),
+  })
+  it('primär voll, sekundär halb, absteigend, Summe = Muskelwert', () => {
+    const s = [sess('2026-11-20', [['bb-bench', 4], ['bb-ohp', 2], ['pullup', 3]])]
+    const c = muscleContributions(s, lookup, 'triceps', 1, '2026-11-22')
+    expect(c).toEqual([{ exerciseId: 'bb-bench', perWeek: 2, role: 'secondary' }, { exerciseId: 'bb-ohp', perWeek: 1, role: 'secondary' }])
+    const sum = c.reduce((a, x) => a + x.perWeek, 0)
+    expect(sum).toBe(weeklyMuscleSets(s, lookup, 1, '2026-11-22').triceps)
   })
 })

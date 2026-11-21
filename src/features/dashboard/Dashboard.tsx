@@ -17,6 +17,7 @@ import { displayToKg, kgToDisplay } from '../../utils/units'
 import { todayStr } from '../../utils/dates'
 import { CalendarLegend, HabitBox, MetricBox, MonthCalendar, RingStat, SectionHeader, StatBox } from './widgets'
 import { de } from '../../i18n/de'
+import { BodyMap, VolumeTile } from './BodyMap'
 
 const COLOR = { weight: 'var(--habit-weight)', workout: 'var(--habit-workout)' }
 
@@ -46,7 +47,7 @@ export default function Dashboard() {
   const all = useAllExercises()
   const settings = useSettings()
   const weights = useWeights()
-  const [panel, setPanel] = useState<null | 'weight' | 'workout' | 'muscles' | 'exercises' | 'body'>(null)
+  const [panel, setPanel] = useState<null | 'weight' | 'workout' | 'muscles' | 'exercises' | 'body' | 'volume'>(null)
   const [sheetDate, setSheetDate] = useState<string | null>(null)
   const measures = useMeasures()
   const [wVal, setWVal] = useState('')
@@ -196,6 +197,11 @@ export default function Dashboard() {
       </section>
 
       <section className="space-y-2">
+        <SectionHeader title="Volumen" />
+        <VolumeTile onClick={() => setPanel('volume')} />
+      </section>
+
+      <section className="space-y-2">
         <SectionHeader title="Muskelgruppen" onAll={() => setPanel('muscles')} />
         <div className="grid grid-cols-2 gap-3">
           {top(muscleBoxes).map((b) => (
@@ -251,6 +257,10 @@ export default function Dashboard() {
       </SlideOver>
 
       <EntrySheet date={sheetDate} today={today} entry={weights.find((w) => w.date === sheetDate)} unit={u} onClose={() => setSheetDate(null)} />
+
+      <SlideOver open={panel === 'volume'} onClose={close} title="Volumen">
+        <BodyMap onMuscle={(id) => goStats(`/stats/muscle/${id}?m=sets`)} />
+      </SlideOver>
 
       <SlideOver open={panel === 'muscles'} onClose={close} title="Muskelgruppen">
         {(['upper', 'lower'] as const).map((region) => (
