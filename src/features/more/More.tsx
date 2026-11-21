@@ -209,6 +209,8 @@ export function WorkoutSettingsPage() {
       </Section>
       <Section title={de.common.display}>
         <SwitchRow icon="phone" label={de.more.keepAlive} desc={de.more.keepAliveDesc} checked={s.keepAlive} onChange={(v) => update({ keepAlive: v })} />
+        <SwitchRow icon="warmup" label="Erledigte Aufwärmsätze ausblenden" desc="Abgehakte Aufwärmsätze werden im Workout zu einer Zeile zusammengefasst, ein Tipp darauf zeigt sie wieder."
+          checked={s.hideDoneWarmups} onChange={(v) => update({ hideDoneWarmups: v })} />
       </Section>
     </Page>
   )

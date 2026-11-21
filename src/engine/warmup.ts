@@ -168,3 +168,15 @@ export function isFirstForMuscle(
 export function stepsFromSets(sets: WarmupSet[], workWeight: number | null): WarmupStep[] {
   return sets.map((s) => ({ pct: workWeight && s.weight ? Math.round((s.weight / workWeight) * 100) : 0, reps: s.reps }))
 }
+
+/**
+ * Abgehakte Aufwärmsätze im Logger einklappen: Indizes der ausgeblendeten Zeilen und Position der Sammelzeile
+ * (erste ausgeblendete Zeile, −1 = nichts ausgeblendet). `keep`: Zeilen-ID, die sichtbar bleiben muss (offenes Numpad).
+ */
+export function collapsedWarmups<T extends { id: string; type: string; done: boolean }>(
+  rows: T[], hide: boolean, keep?: string,
+): { hidden: Set<number>; summaryAt: number } {
+  const hidden = new Set<number>()
+  if (hide) rows.forEach((r, i) => { if (r.type === 'warmup' && r.done && r.id !== keep) hidden.add(i) })
+  return { hidden, summaryAt: hidden.size ? Math.min(...hidden) : -1 }
+}

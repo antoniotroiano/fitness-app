@@ -214,6 +214,8 @@ export interface Settings {
   expandRange: boolean
   /** RIR-Verteilung: erster Arbeitssatz am härtesten (Anker), danach Ziel-RIR; Versagenssatz zuerst */
   hardSetFirst: boolean
+  /** Logger: abgehakte Aufwärmsätze zu einer Sammelzeile einklappen */
+  hideDoneWarmups: boolean
 }
 
 /** Ein Aufwärmsatz im Schema: Prozent des Arbeitsgewichts und Wiederholungen */
