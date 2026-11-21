@@ -3,7 +3,8 @@ import type { Equipment, Exercise, MuscleId } from '../../types'
 import { Icon, PROGRAM_ICONS, programIconName } from '../../components/icons'
 import { BottomSheet, Chip, inputCls } from '../../components/ui'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
-import { EQUIPMENT_LABEL } from '../../data/exercises'
+import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
+import { ExercisePhoto } from '../../components/ExerciseMedia'
 
 export const COLORS = ['#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf']
 
@@ -54,11 +55,11 @@ export function ExercisePicker({
     if (e.cardio && !allowCardio) return false
     if (muscle === 'cardio' ? !e.cardio : muscle !== 'all' && !e.primary.includes(muscle)) return false
     if (eq !== 'all' && e.equipment !== eq) return false
-    return e.name.toLowerCase().includes(q.toLowerCase())
+    return q.trim().toLowerCase().split(/\s+/).every((w) => searchText(e).includes(w))
   }), [exercises, q, muscle, eq, allowCardio])
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={title}>
+    <BottomSheet open={open} onClose={onClose} title={title} tall>
       <input className={inputCls} placeholder="Suchen…" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="flex gap-2 overflow-x-auto no-scrollbar py-3">
         <Chip active={muscle === 'all'} onClick={() => setMuscle('all')}>Alle</Chip>
@@ -74,8 +75,9 @@ export function ExercisePicker({
       <ul className="divide-y divide-line">
         {list.map((e) => (
           <li key={e.id}>
-            <button className="w-full text-left py-3 flex justify-between gap-3" onClick={() => { onPick(e); onClose() }}>
-              <span>
+            <button className="w-full text-left py-2.5 flex items-center gap-3" onClick={() => { onPick(e); onClose() }}>
+              <ExercisePhoto ex={e} size={48} />
+              <span className="min-w-0">
                 <span className="block text-sm font-medium">{e.name}</span>
                 <span className="block text-xs text-muted">
                   {e.cardio ? 'Cardio' : e.primary.map(muscleLabel).join(', ')} · {EQUIPMENT_LABEL[e.equipment]}

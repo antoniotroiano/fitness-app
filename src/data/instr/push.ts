@@ -18,6 +18,8 @@ export const PUSH: Record<string, string[]> = {
   'db-ohp': ['Hanteln auf Schulterhöhe, Unterarme senkrecht.', 'Drücke sie über dem Kopf zusammen, ohne ins Hohlkreuz zu gehen.', 'Senke kontrolliert bis Ohrhöhe.'],
   'machine-ohp': ['Sitz so einstellen, dass die Griffe auf Schulterhöhe starten.', 'Drücke nach oben, Rücken bleibt an der Lehne.', 'Lasse das Gewicht langsam absinken.'],
   'smith-ohp': ['Bank senkrecht oder 80° stellen, Stange vor dem Gesicht senken.', 'Drücke senkrecht nach oben.', 'Senke kontrolliert bis zum Kinn.'],
+  'bb-ohp-close': ['Stange auf Schulterhöhe, Hände etwa schulterbreit oder etwas enger, Gesäß und Bauch angespannt.', 'Drücke die Stange senkrecht über den Kopf, Ellbogen bleiben eng am Körper.', 'Senke kontrolliert zurück auf Schulterhöhe.'],
+  'bb-ohp-wide': ['Stange auf Schulterhöhe, Hände deutlich breiter als die Schultern, Gesäß und Bauch angespannt.', 'Drücke die Stange senkrecht über den Kopf, Unterarme bleiben möglichst senkrecht.', 'Senke kontrolliert bis knapp unter das Kinn, nicht tiefer, wenn die Schultern es nicht mitmachen.'],
   'db-lateral': ['Stehe aufrecht, Hanteln seitlich, Ellbogen leicht gebeugt.', 'Hebe die Arme seitlich bis auf Schulterhöhe, Ellbogen führen.', 'Senke langsam und ohne Schwung ab.'],
   'cable-lateral': ['Kabel auf Hüfthöhe, Griff mit der entfernten Hand.', 'Hebe den Arm seitlich bis Schulterhöhe.', 'Senke kontrolliert.'],
   'machine-lateral': ['Sitz einstellen, Ellbogen an die Polster legen.', 'Hebe die Arme seitlich an.', 'Lasse kontrolliert absinken.'],
