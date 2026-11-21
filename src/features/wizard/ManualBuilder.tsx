@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { PlannedExercise, WorkoutDay } from '../../types'
 import { Button, Card, Page, inputCls } from '../../components/ui'
@@ -6,6 +6,21 @@ import { exerciseById } from '../../data/exercises'
 import { db, saveProgram, useActiveProgram, useAllExercises } from '../../db/db'
 import { weekSlots } from '../../engine/planGenerator'
 import { ExercisePicker, IdentityFields } from './shared'
+
+/** Ganzzahlfeld, das sich leeren lässt: der Wert wird erst übernommen, wenn eine gültige Zahl drinsteht, beim Verlassen wird zurückgesetzt. */
+function IntInput({ value, min = 1, max, className, onValue }: { value: number; min?: number; max?: number; className: string; onValue: (n: number) => void }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => { setText((t) => (Number(t) === value ? t : String(value))) }, [value])
+  return (
+    <input type="number" inputMode="numeric" min={min} max={max} className={className} value={text}
+      onChange={(ev) => {
+        setText(ev.target.value)
+        const n = Number(ev.target.value)
+        if (ev.target.value !== '' && Number.isFinite(n) && n >= min) onValue(max ? Math.min(max, Math.round(n)) : Math.round(n))
+      }}
+      onBlur={() => setText(String(value))} />
+  )
+}
 
 export default function ManualBuilder() {
   const nav = useNavigate()
@@ -69,13 +84,10 @@ export default function ManualBuilder() {
                 {!exerciseById(e.exerciseId, all)?.cardio && (
                   <div className="flex gap-2 items-center text-xs text-muted">
                     <label className="flex items-center gap-1">Sätze
-                      <input type="number" min={1} max={10} className={`${inputCls} !w-16 !py-1.5`} value={e.sets}
-                        onChange={(ev) => patchEx(di, ei, { sets: Math.max(1, Number(ev.target.value) || 1) })} /></label>
+                      <IntInput max={10} className={`${inputCls} !w-16 !py-1.5`} value={e.sets} onValue={(n) => patchEx(di, ei, { sets: n })} /></label>
                     <label className="flex items-center gap-1">Reps
-                      <input type="number" min={1} className={`${inputCls} !w-14 !py-1.5`} value={e.repMin}
-                        onChange={(ev) => patchEx(di, ei, { repMin: Math.max(1, Number(ev.target.value) || 1) })} />–
-                      <input type="number" min={1} className={`${inputCls} !w-14 !py-1.5`} value={e.repMax}
-                        onChange={(ev) => patchEx(di, ei, { repMax: Math.max(1, Number(ev.target.value) || 1) })} /></label>
+                      <IntInput className={`${inputCls} !w-14 !py-1.5`} value={e.repMin} onValue={(n) => patchEx(di, ei, { repMin: n })} />–
+                      <IntInput className={`${inputCls} !w-14 !py-1.5`} value={e.repMax} onValue={(n) => patchEx(di, ei, { repMax: n })} /></label>
                   </div>
                 )}
               </li>
