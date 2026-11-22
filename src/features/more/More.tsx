@@ -5,6 +5,7 @@ import { BottomSheet, Button, Card, Chip, LinkButton, Page, Segmented, cx, input
 import { PLATE_OPTIONS } from '../../engine/plates'
 import { kgToDisplay } from '../../utils/units'
 import { downloadText } from '../../utils/download'
+import { ExercisePicker } from '../wizard/shared'
 import { TrainingImportCard } from './TrainingImport'
 import { DEFAULT_SETTINGS, exportAll, exportSessionsCsv, importAll, importProgramJson, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
 import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
@@ -422,8 +423,16 @@ export function DataPage() {
     downloadText(`liftlab-backup-${new Date().toISOString().slice(0, 10)}.json`, await exportAll(), 'application/json')
     setMsg('Backup exportiert')
   }
+  const [csvFrom, setCsvFrom] = useState('')
+  const [csvTo, setCsvTo] = useState('')
+  const [csvEx, setCsvEx] = useState<Exercise | null>(null)
+  const [csvPick, setCsvPick] = useState(false)
+  const allEx = useAllExercises()
   const csvExport = async () => {
-    downloadText(`liftlab-einheiten-${new Date().toISOString().slice(0, 10)}.csv`, await exportSessionsCsv(), 'text/csv')
+    if (csvFrom && csvTo && csvFrom > csvTo) { setMsg('Fehler: „Von“ liegt nach „Bis“.'); return }
+    const csv = await exportSessionsCsv({ from: csvFrom || undefined, to: csvTo || undefined, exerciseIds: csvEx ? [csvEx.id] : undefined })
+    if (csv.trim().split('\n').length < 2) { setMsg('Keine Einheiten im gewählten Zeitraum bzw. mit dieser Übung.'); return }
+    downloadText(`liftlab-einheiten-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv')
     setMsg('Einheiten als CSV exportiert')
   }
   const doProgramImport = async (f?: File) => {
@@ -454,7 +463,20 @@ export function DataPage() {
         <Button variant="ghost" className="w-full" onClick={() => file.current?.click()}>Backup importieren</Button>
       </Card>
       <Card className="space-y-3">
-        <p className="text-sm text-muted">Einheiten als CSV (eine Zeile pro Satz) exportieren, z. B. für Tabellen. Das Format passt zum Trainingsimport unten.</p>
+        <p className="text-sm text-muted">Einheiten als CSV (eine Zeile pro Satz) exportieren, z. B. für Tabellen, wahlweise nur ein Zeitraum oder eine Übung. Das Format passt zum Trainingsimport unten.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-xs text-muted">Von
+            <input type="date" className={`${inputCls} mt-1`} value={csvFrom} onChange={(e) => setCsvFrom(e.target.value)} />
+          </label>
+          <label className="block text-xs text-muted">Bis
+            <input type="date" className={`${inputCls} mt-1`} value={csvTo} onChange={(e) => setCsvTo(e.target.value)} />
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" className="flex-1" onClick={() => setCsvPick(true)}>{csvEx ? csvEx.name : 'Alle Übungen'}</Button>
+          {csvEx && <button onClick={() => setCsvEx(null)} aria-label="Übungsfilter entfernen" className="text-muted p-2">✕</button>}
+        </div>
+        <ExercisePicker open={csvPick} onClose={() => setCsvPick(false)} exercises={allEx} title="Nur eine Übung exportieren" onPick={(e) => { setCsvEx(e); setCsvPick(false) }} />
         <Button variant="ghost" className="w-full" onClick={csvExport}>Einheiten exportieren (CSV)</Button>
       </Card>
       <Card className="space-y-3">

@@ -9,7 +9,7 @@ import { MuscleThumb } from '../../components/MuscleFigure'
 import { Icon } from '../../components/icons'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { rirColor } from '../../components/rir'
-import { progressionNote } from './progressionNote'
+import { progressionNote, reasonText } from './progressionNote'
 import { db, saveWeekState, useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useBodyweights } from '../../db/db'
 import { muscleLabel } from '../../data/muscles'
 import { exerciseTargets, neutralWeek, plannedSets, setWeekTarget, setWeekTargetForDay, weekPlan } from '../../engine/periodization'
@@ -19,6 +19,11 @@ import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
 import { historyUpTo, isSlotSkipped, maxReachedWeek, skipSlot, unmarkSlot } from '../../engine/weekCycle'
 import { targetMuscles } from '../../engine/targetMuscles'
 import { moveExercise } from '../../engine/programAdmin'
+import { removeFromDay, swapInDay } from '../../engine/dayEdit'
+import { alternatives, recommendable } from '../../engine/swap'
+import { ExercisePicker } from '../wizard/shared'
+import { ExerciseActionsSheet, SuggestionSheet } from './LoggerSheets'
+import { DayManageSheet } from './DayManageSheet'
 import { de } from '../../i18n/de'
 
 /** Vorschau eines Workouts: Übungen, Sätze, Rep-Bereiche und Ziel-RIR. Start über den Button unten. */
@@ -46,6 +51,12 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
   const [moveIdx, setMoveIdx] = useState<number | null>(null)
   /** Schritt 2 des Verschiebens: gewählter Zieltag, dann die Position darin */
   const [moveDay, setMoveDay] = useState<number | null>(null)
+  /** Index der Übung, die getauscht oder entfernt wird (Aktionen-Sheet bzw. Auswahl) */
+  const [actIdx, setActIdx] = useState<number | null>(null)
+  const [swapIdx, setSwapIdx] = useState<number | null>(null)
+  /** Übung, deren Vorschlagsbegründung offen ist */
+  const [whyId, setWhyId] = useState<string | null>(null)
+  const [manageOpen, setManageOpen] = useState(false)
 
   const local = param.replace(/^p\d+-/, '')
   const slotIdx = local.startsWith('s') ? Number(local.slice(1)) : null
@@ -80,6 +91,22 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
     if (!program?.id || !pe) return
     void db.programs.update(program.id, { days: moveExercise(program.days, dayIdx, to, pe.exerciseId, index) })
   }
+
+  const whyOf = (v: (typeof views)[number]) => (v.skipped || v.ex.cardio ? null : reasonText(v.sug, v.range, settings.weightUnit, v.ex.metric ?? 'reps', v.bodyLoad))
+  const editDay = (f: (l: PlannedExercise[]) => PlannedExercise[]) => {
+    if (!program?.id) return
+    void db.programs.update(program.id, { days: program.days.map((d, i) => (i === dayIdx ? { ...d, exercises: f(d.exercises) } : d)) })
+  }
+  const actPe = actIdx !== null ? day?.exercises[actIdx] : undefined
+  const swapPe = swapIdx !== null ? day?.exercises[swapIdx] : undefined
+  const swapEx = swapPe ? exerciseById(swapPe.exerciseId, all) : undefined
+  const swapCandidates = (() => {
+    if (!swapEx || !day) return []
+    const inDay = day.exercises.map((e) => e.exerciseId)
+    const alts = alternatives(swapEx, recommendable(all, overrides), inDay)
+    const ids = new Set([...inDay, ...alts.map((e) => e.id)])
+    return [...alts, ...all.filter((e) => !e.cardio && !ids.has(e.id))]
+  })()
 
   if (!program || !day) {
     return <Page title="Workout" back={() => nav('/workouts')}><Card>Workout nicht gefunden.</Card></Page>
@@ -124,7 +151,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
           {ssStart && <div className="text-xs font-semibold text-accent flex items-center gap-1 mb-1 px-1"><Icon name="link" size={13} />Supersatz</div>}
           <Card className={cx('!p-3 transition-opacity', ssLinked && 'border-l-4 border-l-accent', dim && 'opacity-40 grayscale')}>
             <div className="grid grid-cols-[64px_1fr_auto] gap-x-3 gap-y-1 items-center">
-              <div style={{ gridRow: `1 / span ${lines + 2 + (progressionNote(v.sug, v.range, settings.weightUnit, v.bodyLoad) ? 1 : 0)}` }} className="self-start"><ExercisePhoto ex={v.ex} size={64} /></div>
+              <div style={{ gridRow: `1 / span ${lines + 2 + (progressionNote(v.sug, v.range, settings.weightUnit, v.bodyLoad) ? 1 : 0) + (whyOf(v) ? 1 : 0)}` }} className="self-start"><ExercisePhoto ex={v.ex} size={64} /></div>
               <div className="font-semibold leading-tight">{v.ex.name}</div>
               <div className="text-2xs uppercase tracking-wide text-muted text-right">{v.ex.cardio ? '' : 'RIR'}</div>
               {Array.from({ length: lines }, (_, i) => (
@@ -140,9 +167,19 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
               {progressionNote(v.sug, v.range, settings.weightUnit, v.bodyLoad) && (
                 <div className="text-xs text-warn col-span-2">{progressionNote(v.sug, v.range, settings.weightUnit, v.bodyLoad)}</div>
               )}
+              {(() => {
+                if (!whyOf(v)) return null
+                const check = v.sug.level === 'check'
+                return (
+                  <button onClick={() => setWhyId(v.pe.exerciseId)} className={cx('col-span-2 flex items-center gap-1 text-xs text-left pointer-events-auto active:opacity-70', check ? 'text-warn' : 'text-muted')}>
+                    <Icon name={check ? 'bolt' : 'sparkles'} size={13} />{check ? 'Vorschlag bitte prüfen' : 'Warum dieser Vorschlag?'}
+                  </button>
+                )
+              })()}
               <div className="text-xs text-muted col-span-2 flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate">{v.skipped ? 'Diese Woche ausgelassen' : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? ` · ${v.warmups.length} Aufwärmsätze` : ''}</>}</span>
                 <span className="shrink-0 flex items-center gap-3">
+                  {idx >= 0 && <button className="text-accent pointer-events-auto" onClick={() => setActIdx(idx)}>Tauschen</button>}
                   {program.days.length > 1 && day.exercises.length > 1 && idx >= 0 && <button className="text-accent pointer-events-auto" onClick={() => setMoveIdx(idx)}>Verschieben</button>}
                   {!v.ex.cardio && idx >= 0 && <button className="text-accent pointer-events-auto" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? 'Ziele · eigen' : 'Ziele'}</button>}
                 </span>
@@ -195,6 +232,23 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         })()}
       </BottomSheet>
 
+      {(() => {
+        const wv = whyId ? views.find((v) => v.pe.exerciseId === whyId) : undefined
+        return <SuggestionSheet open={!!wv} onClose={() => setWhyId(null)} warn={wv?.sug.level === 'check'}
+          info={wv ? reasonText(wv.sug, wv.range, settings.weightUnit, wv.ex.metric ?? 'reps', wv.bodyLoad) : null} />
+      })()}
+      <ExerciseActionsSheet open={!!actPe} onClose={() => setActIdx(null)}
+        name={actPe ? (exerciseById(actPe.exerciseId, all)?.name ?? '') : ''}
+        canRemove={day.exercises.length > 1} hasDone={false}
+        onSwap={() => setSwapIdx(actIdx)}
+        onRemove={() => { if (actPe) editDay((l) => removeFromDay(l, actPe.exerciseId)) }} />
+      <ExercisePicker open={!!swapPe} onClose={() => setSwapIdx(null)} exercises={swapCandidates} title="Übung tauschen" allowCardio={false}
+        onPick={(to) => {
+          const from = swapPe?.exerciseId
+          setSwapIdx(null)
+          if (from) editDay((l) => swapInDay(l, from, to, (id) => exerciseById(id, all), program.config ?? undefined))
+        }} />
+
       <WeekTargetSheet open={!!editView} onClose={() => setEditIdx(null)} unit={metricUnit(editView?.ex.metric)}
         title={editView ? `${editView.ex.name} · ${weekLabel(program, curWeek)}` : ''}
         computed={(() => {
@@ -215,8 +269,14 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
 
   return (
     <Page title={day.name} back={() => nav('/workouts')}
-      right={plan.isDeload ? <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span> : undefined}>
+      right={(
+        <span className="flex items-center gap-2">
+          {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
+          <button onClick={() => setManageOpen(true)} aria-label="Workout verwalten" className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-fg active:opacity-70"><Icon name="menu" /></button>
+        </span>
+      )}>
       {body}
+      <DayManageSheet program={program} dayIdx={dayIdx} open={manageOpen} onClose={() => setManageOpen(false)} onUnscheduled={() => nav('/workouts')} />
 
       <BottomBar>
         <div className="flex gap-2">

@@ -20,15 +20,15 @@ import { baseRepRange, effectiveSets, exerciseTargets, isSkipped, neutralWeek, p
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives, recommendable, swapPlanned } from './swap'
 import { removeFromDay, swapInDay } from './dayEdit'
-import { applySettings, copyName, duplicateProgram, extendProgram, moveExercise, programEnded, settingsOf } from './programAdmin'
-import { EMPTY_DRAFT, buildExercise, canDeleteExercise, draftOf, duplicateDraft, exerciseUsage, newCustomId, validateDraft } from './customExercise'
+import { appendDay, applySettings, copyName, duplicateProgram, extendProgram, duplicateDay, moveExercise, moveSlot, moveWeekSlot, programEnded, renameDay, scheduleDay, settingsOf, unscheduleDay } from './programAdmin'
+import { EMPTY_DRAFT, buildExercise, canDeleteByRemoving, canDeleteExercise, draftOf, duplicateDraft, exerciseUsage, newCustomId, removeExerciseFromDays, validateDraft } from './customExercise'
 import { isPerSide } from './stats'
 import { fitSize } from '../utils/image'
 import { isRepless, metricColumn, metricLabel, metricUnit } from './metric'
 import { instructionsFor } from '../data/instructions'
 import { targetMuscles } from './targetMuscles'
 import { weekProgress } from './weekProgress'
-import { parseProgramFile, programToFile, sessionsToCsv } from './exportData'
+import { filterSessions, parseProgramFile, parseWorkoutFile, programToFile, sessionsToCsv, workoutToFile } from './exportData'
 import { deloadSessionOf, plannedDay } from './plannedDay'
 import { MEDIA_MAP, posterSlug } from '../data/media'
 import { TIPS } from '../data/media/tips'
@@ -41,7 +41,7 @@ import { linksOf, nextInSuperset, normalizeSupersets, setSupersetLink, supersetM
 import { DROP_FACTOR, nextSegment } from './setTypes'
 import { applyBodyweight, bodyLoadOf, bodyweightAt, withBodyLoad } from './bodyweight'
 import { BODYWEIGHT_SHARE } from '../data/exercises'
-import { canFreeSlot, moveSessionToDate, sessionSummary, setSessionDuration, setSessionStartTime, weekStateAfterDelete, weekStateAfterMove } from './history'
+import { canFreeSlot, moveSessionToDate, sessionSummary, setSessionDuration, setSessionStartTime, weekStateAfterDelete, weekStateAfterMove, weekStateAfterWeekChange } from './history'
 import { buildImportSessions, parseTrainingCsv, suggestMapping } from './trainingImport'
 import { IMPORT_ALIASES } from '../data/importAliases'
 import { bodySeries, lastEntries, ratioSeries, smoothWeights, trendSeries, weightSeries } from './body'
@@ -701,6 +701,32 @@ describe('weekProgress Umschalter und Vorwoche', () => {
   })
 })
 
+describe('Eigene Übung löschen mit Entfernen aus Programmen (B3)', () => {
+  const pe = (id: string, extra = {}) => ({ exerciseId: id, sets: 3, repMin: 8, repMax: 12, rir: 2, ...extra })
+  const days = [
+    { id: 'a', name: 'A', exercises: [pe('custom-x', { superset: 'custom-x' }), pe('bb-bench', { superset: 'custom-x' }), pe('bb-row')] },
+    { id: 'b', name: 'B', exercises: [pe('bb-row')] },
+  ]
+  it('entfernt die Übung aus den Tagen, löst den Supersatz und lässt andere Tage unberührt', () => {
+    const r = removeExerciseFromDays(days, 'custom-x')
+    expect(r.emptied).toEqual([])
+    expect(r.days[0].exercises.map((e) => e.exerciseId)).toEqual(['bb-bench', 'bb-row'])
+    expect(r.days[0].exercises[0].superset).toBeUndefined()
+    expect(r.days[1]).toBe(days[1])
+  })
+  it('würde ein Tag leer, bleibt alles unverändert und der Tag wird gemeldet', () => {
+    const only = [{ id: 'c', name: 'Nur X', exercises: [pe('custom-x')] }, ...days]
+    const r = removeExerciseFromDays(only, 'custom-x')
+    expect(r.emptied).toEqual(['Nur X'])
+    expect(r.days).toBe(only)
+  })
+  it('ohne Vorkommen unverändert; Entfernen-Löschen nur ohne geloggte Einheiten', () => {
+    expect(removeExerciseFromDays(days, 'gibt-es-nicht').days).toBe(days)
+    expect(canDeleteByRemoving({ sessions: 0, programs: ['P'] })).toBe(true)
+    expect(canDeleteByRemoving({ sessions: 2, programs: [] })).toBe(false)
+  })
+})
+
 describe('Export CSV und Programmdatei', () => {
   const lookup = (id: string) => exerciseById(id, ALL_EXERCISES)
   const sess = {
@@ -765,6 +791,53 @@ describe('Export CSV und Programmdatei', () => {
     expect(() => parseProgramFile('{"app":"andere"}', [], new Set(), () => 'x')).toThrow(/Lift-Lab/)
     expect(() => parseProgramFile('{"app":"liftlab","version":2}', [], new Set(), () => 'x')).toThrow(/Programm-Export/)
     expect(() => parseProgramFile('{"app":"liftlab","kind":"program","program":{"days":[]}}', [], new Set(), () => 'x')).toThrow(/unvollständig/)
+  })
+
+  it('CSV-Filter: Zeitraum und Übung, ohne Filter unverändert', () => {
+    const a = { ...sess, date: '2026-02-01' }
+    const b = { ...sess, date: '2026-03-01', exercises: [{ exerciseId: 'bb-row', sets: [{ weight: 50, reps: 8 }] }, sess.exercises[0]] } as typeof sess
+    const all = [a, b]
+    expect(filterSessions(all)).toBe(all)
+    expect(filterSessions(all, { from: '2026-02-15' })).toEqual([b])
+    expect(filterSessions(all, { to: '2026-02-15' })).toEqual([a])
+    expect(filterSessions(all, { from: '2026-02-01', to: '2026-02-01' })).toEqual([a])
+    const onlyRow = filterSessions(all, { exerciseIds: ['bb-row'] })
+    expect(onlyRow).toHaveLength(1)
+    expect(onlyRow[0].exercises.map((e) => e.exerciseId)).toEqual(['bb-row'])
+    const lines = sessionsToCsv(all, programs, lookup, { exerciseIds: ['bb-row'] }).trim().split('\n')
+    expect(lines).toHaveLength(2)
+    expect(lines[1]).toContain('2026-03-01')
+  })
+
+  const day = { id: 'd1', name: 'Push', exercises: [{ exerciseId: 'custom-x', sets: 3, repMin: 8, repMax: 12, rir: 2, superset: 'custom-x' }, { exerciseId: 'bb-bench', sets: 3, repMin: 8, repMax: 12, rir: 2, superset: 'custom-x' }] } as unknown as Parameters<typeof workoutToFile>[0]
+  it('Workout-Datei: ohne ID, nur verwendete eigene Übungen, Import mit eindeutigem Namen', () => {
+    const f = workoutToFile(day, [customX, customY])
+    expect(f.kind).toBe('workout')
+    expect(f.workout).not.toHaveProperty('id')
+    expect(f.customExercises.map((e) => e.id)).toEqual(['custom-x'])
+    const json = JSON.stringify(f)
+    const r = parseWorkoutFile(json, ['Push', 'Push (2)'], new Set(['bb-bench']))
+    expect(r.day.name).toBe('Push (3)')
+    expect(r.day.exercises).toHaveLength(2)
+    expect(r.newExercises.map((e) => e.id)).toEqual(['custom-x'])
+    const again = parseWorkoutFile(json, [], new Set(['custom-x', 'bb-bench']))
+    expect(again.day.name).toBe('Push')
+    expect(again.keptExercises).toEqual(['custom-x'])
+  })
+  it('Workout-Import lehnt falsche und kaputte Dateien verständlich ab', () => {
+    expect(() => parseWorkoutFile('x', [], new Set())).toThrow(/JSON/)
+    expect(() => parseWorkoutFile('{"app":"x"}', [], new Set())).toThrow(/Lift-Lab/)
+    expect(() => parseWorkoutFile(JSON.stringify(programToFile(program, [])), [], new Set())).toThrow(/Programm-Export/)
+    expect(() => parseProgramFile(JSON.stringify(workoutToFile(day, [])), [], new Set(), () => 'x')).toThrow(/Workout-Export/)
+    expect(() => parseWorkoutFile('{"app":"liftlab","kind":"workout","workout":{"name":"A","exercises":[]}}', [], new Set())).toThrow(/unvollständig/)
+    expect(() => parseWorkoutFile('{"app":"liftlab","kind":"workout","workout":{"name":"A","exercises":[{"exerciseId":"x"}]}}', [], new Set())).toThrow(/unvollständig/)
+  })
+  it('Importierten Tag anhängen: neue ID ohne Kollision', () => {
+    const days = [{ id: 'day-0', name: 'A', exercises: [] }, { id: 'day-2', name: 'B', exercises: [] }]
+    const out = appendDay(days, { name: 'C', exercises: [] })
+    expect(out).toHaveLength(3)
+    expect(out[2].name).toBe('C')
+    expect(new Set(out.map((d) => d.id)).size).toBe(3)
   })
 })
 
@@ -2089,6 +2162,22 @@ describe('Verlauf bearbeiten (B2)', () => {
     // andere Woche: unverändert
     expect(weekStateAfterMove(st, prog, { ...before, week: 1 }, { ...after, week: 1 }, [])).toBe(st)
   })
+  it('Programmwoche ändern: verlässt die aktuelle Woche → Slot frei, kommt hinein → Slot erledigt', () => {
+    const cur = at('2026-11-10', 18)
+    const st = state([true, true, false, false, false, false, false], ['2026-11-10'])
+    const out = weekStateAfterWeekChange(st, prog, cur, { ...cur, week: 1 }, [])
+    expect(out.done).toEqual([false, true, false, false, false, false, false])
+    expect(out.markedDates).toEqual([])
+    // frühere Einheit in die aktuelle Woche holen
+    const old = at('2026-11-03', 18, { week: 1 })
+    const into = weekStateAfterWeekChange(state(Array(7).fill(false), []), prog, old, { ...old, week: 2 }, [])
+    expect(into.done[0]).toBe(true)
+    expect(into.markedDates).toEqual(['2026-11-03'])
+    // zwischen zwei früheren Wochen, gleiche Woche, fremdes Programm: unverändert
+    expect(weekStateAfterWeekChange(st, prog, old, { ...old, week: 0 }, [])).toBe(st)
+    expect(weekStateAfterWeekChange(st, prog, cur, cur, [])).toBe(st)
+    expect(weekStateAfterWeekChange(st, { ...prog, active: false }, cur, { ...cur, week: 1 }, [])).toBe(st)
+  })
   it('Zusammenfassung zählt Arbeitssätze ohne Aufwärmen/Segmente, Volumen ohne Aufwärmen', () => {
     const s: Session = { ...at('2026-11-10', 18), exercises: [{ exerciseId: 'bb-bench', sets: [
       { weight: 40, reps: 10, warmup: true }, { weight: 60, reps: 8 }, { weight: 50, reps: 5, segment: 'drop' }] }] }
@@ -2382,6 +2471,47 @@ describe('Programm verwalten (B4)', () => {
     expect(more.config?.blocks).toBe(3)
     expect(programEnded(more, 10)).toBe(false)
     expect(extendProgram(prog())).toEqual(prog())
+  })
+
+  it('Einzelne Workouts: umbenennen, duplizieren, aus dem Wochenplan nehmen und wieder einplanen', () => {
+    const days = prog().days
+    expect(renameDay(days, 0, '  Push  ')[0].name).toBe('Push')
+    expect(renameDay(days, 0, '   ')).toBe(days)
+    expect(renameDay(days, 0, days[0].name)).toBe(days)
+    expect(renameDay(days, 9, 'x')).toBe(days)
+    const dup = duplicateDay(days, 0)
+    expect(dup).toHaveLength(days.length + 1)
+    const copy = dup[dup.length - 1]
+    expect(copy.name).toBe(`${days[0].name} (Kopie)`)
+    expect(dup.map((d) => d.id)).toHaveLength(new Set(dup.map((d) => d.id)).size)
+    expect(copy.exercises).toEqual(days[0].exercises)
+    expect(copy.exercises[0]).not.toBe(days[0].exercises[0]) // tiefe Kopie
+    expect(duplicateDay(duplicateDay(days, 0), 0).at(-1)?.name).toBe(`${days[0].name} (Kopie 2)`)
+    expect(duplicateDay(days, 9)).toBe(days)
+    const slots: (number | 'rest')[] = [0, 'rest', 1, 'rest']
+    expect(unscheduleDay(slots, 1)).toEqual([0, 'rest', 'rest', 'rest'])
+    expect(unscheduleDay([0, 'rest', 'rest'], 0)).toEqual([0, 'rest', 'rest']) // letztes Workout bleibt
+    expect(unscheduleDay(slots, 5)).toBe(slots)
+    expect(scheduleDay([0, 'rest', 'rest', 'rest'], 1)).toEqual([0, 1, 'rest', 'rest'])
+    expect(scheduleDay(slots, 0)).toBe(slots) // schon eingeplant
+    expect(scheduleDay([0, 1], 2)).toEqual([0, 1]) // kein freier Ruhetag
+  })
+
+  it('Wochenslots ordnen: Slot verschieben, Erledigt-Markierung wandert mit, Grenzen und Nulländerung', () => {
+    const slots: (number | 'rest')[] = [0, 'rest', 1, 2]
+    expect(moveSlot(slots, 2, 0)).toEqual([1, 0, 'rest', 2])
+    expect(moveSlot(slots, 0, 99)).toEqual(['rest', 1, 2, 0])
+    expect(moveSlot(slots, 1, -5)).toEqual(['rest', 0, 1, 2])
+    expect(moveSlot(slots, 1, 1)).toBe(slots)
+    expect(moveSlot(slots, 9, 0)).toBe(slots)
+    const st = { week: 2, done: [true, false, false, true], markedDates: ['2026-01-01'], skipped: [false, false, false, true] }
+    const m = moveWeekSlot(st, 3, 0)
+    expect(m.done).toEqual([true, true, false, false])
+    expect(m.skipped).toEqual([true, false, false, false])
+    expect(m.week).toBe(2)
+    expect(m.markedDates).toEqual(['2026-01-01'])
+    expect(moveWeekSlot(st, 1, 1)).toBe(st)
+    expect(moveWeekSlot({ week: 0, done: [true, false], markedDates: [] }, 0, 1).skipped).toBeUndefined()
   })
 
   it('Übung verschieben: ans Ende des Zieltags, Supersätze neu, letzte Übung und Dubletten bleiben', () => {

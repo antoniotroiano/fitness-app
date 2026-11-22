@@ -119,7 +119,7 @@ export function SupersetSheet({ open, onClose, prev, next, inSuperset, onPick }:
 /** Übung tauschen oder entfernen, wahlweise nur für heute oder dauerhaft im Trainingstag. */
 export function ExerciseActionsSheet({ open, onClose, name, persist, onPersist, canRemove, hasDone, onSwap, onRemove }: {
   open: boolean; onClose: () => void; name: string
-  persist: boolean; onPersist: (v: boolean) => void
+  persist?: boolean; onPersist?: (v: boolean) => void
   canRemove: boolean; hasDone: boolean
   onSwap: () => void; onRemove: () => void
 }) {
@@ -128,7 +128,7 @@ export function ExerciseActionsSheet({ open, onClose, name, persist, onPersist, 
   return (
     <BottomSheet open={open} onClose={close} title={name}>
       <div className="space-y-2">
-        <button role="switch" aria-checked={persist} onClick={() => onPersist(!persist)}
+        {onPersist && <button role="switch" aria-checked={persist} onClick={() => onPersist(!persist)}
           className="w-full flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3 text-left active:opacity-70">
           <span>
             <span className="block text-sm font-medium">Im Programm übernehmen</span>
@@ -137,7 +137,7 @@ export function ExerciseActionsSheet({ open, onClose, name, persist, onPersist, 
           <span className={cx('h-6 w-10 shrink-0 rounded-full p-0.5 transition-colors', persist ? 'bg-accent' : 'bg-surface2')}>
             <span className={cx('block h-5 w-5 rounded-full bg-white transition-transform', persist && 'translate-x-4')} />
           </span>
-        </button>
+        </button>}
         {hasDone && <p className="text-xs text-warn px-1">Die abgehakten Sätze dieser Übung gehen verloren.</p>}
         <MenuItem icon="automation" label="Übung tauschen" onClick={() => { close(); onSwap() }} />
         <MenuItem icon="trash" danger disabled={!canRemove}

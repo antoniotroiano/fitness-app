@@ -1,4 +1,4 @@
-import type { PlannedExercise, Program, ProgramConfig } from '../types'
+import type { PlannedExercise, Program, ProgramConfig, WeekState } from '../types'
 import { BLOCK_WEEK_OPTIONS, blockLength } from './periodization'
 import { normalizeSupersets } from './superset'
 
@@ -102,4 +102,68 @@ export function moveExercise(days: Program['days'], from: number, to: number, ex
     if (i === from) return { ...d, exercises: normalizeSupersets(d.exercises.filter((e) => e.exerciseId !== exerciseId)) }
     return d
   })
+}
+
+/** Element in einer Liste von `from` nach `to` setzen (Indizes werden begrenzt); keine Änderung: gleiche Liste. */
+function moved<T>(list: T[], from: number, to: number): T[] {
+  if (from < 0 || from >= list.length) return list
+  const at = Math.min(list.length - 1, Math.max(0, to))
+  if (at === from) return list
+  const out = [...list]
+  const [x] = out.splice(from, 1)
+  out.splice(at, 0, x)
+  return out
+}
+
+/** Reihenfolge der Wochenslots (Workouts und Ruhetage): Slot `from` an Position `to`. Keine Änderung: gleiche Liste. */
+export function moveSlot(slots: Program['weekSlots'], from: number, to: number): Program['weekSlots'] {
+  return moved(slots, from, to)
+}
+
+/** Wochenstand passend zu `moveSlot`: Erledigt-/Übersprungen-Markierung wandert mit ihrem Slot. */
+export function moveWeekSlot(state: WeekState, from: number, to: number): WeekState {
+  const done = moved(state.done, from, to)
+  const skipped = state.skipped ? moved(state.skipped, from, to) : undefined
+  if (done === state.done && skipped === state.skipped) return state
+  return { ...state, done, ...(skipped ? { skipped } : {}) }
+}
+
+/** Workout (Tag) umbenennen; leerer Name oder gleicher Name: unverändert (gleiche Liste). */
+export function renameDay(days: Program['days'], i: number, name: string): Program['days'] {
+  const n = name.trim()
+  if (!days[i] || !n || n === days[i].name) return days
+  return days.map((d, k) => (k === i ? { ...d, name: n } : d))
+}
+
+/**
+ * Workout (Tag) duplizieren: tiefe Kopie ans Ende der Liste („… (Kopie n)“, neue ID), noch nicht im Wochenplan.
+ * Der Supersatz-Zusammenhang bleibt, Wochenziele werden mitkopiert. Unbekannter Tag: unverändert.
+ */
+export function duplicateDay(days: Program['days'], i: number): Program['days'] {
+  const d = days[i]
+  if (!d) return days
+  let n = days.length
+  while (days.some((x) => x.id === `day-${n}`)) n++
+  const copy = { ...d, id: `day-${n}`, name: copyName(d.name, days.map((x) => x.name)), exercises: d.exercises.map((e) => ({ ...e, ...(e.weeks ? { weeks: { ...e.weeks } } : {}) })) }
+  return [...days, copy]
+}
+
+/** Workout aus dem Wochenplan nehmen (Slot wird Ruhetag, das Workout bleibt als „nicht eingeplant“). Das letzte eingeplante Workout bleibt. */
+export function unscheduleDay(slots: Program['weekSlots'], dayIdx: number): Program['weekSlots'] {
+  if (!slots.includes(dayIdx) || slots.filter((s) => s !== 'rest').length < 2) return slots
+  return slots.map((s) => (s === dayIdx ? 'rest' : s))
+}
+
+/** Nicht eingeplantes Workout in den ersten freien Ruhetag setzen; kein Ruhetag frei oder schon eingeplant: unverändert. */
+export function scheduleDay(slots: Program['weekSlots'], dayIdx: number): Program['weekSlots'] {
+  const rest = slots.indexOf('rest')
+  if (slots.includes(dayIdx) || rest < 0) return slots
+  return slots.map((s, k) => (k === rest ? dayIdx : s))
+}
+
+/** Importierten Tag ans Ende der Tage hängen (neue ID, noch ohne Wochenplatz). */
+export function appendDay(days: Program['days'], day: Omit<Program['days'][number], 'id'>): Program['days'] {
+  let n = days.length
+  while (days.some((x) => x.id === `day-${n}`)) n++
+  return [...days, { ...day, id: `day-${n}` }]
 }

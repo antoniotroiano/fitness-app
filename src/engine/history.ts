@@ -1,6 +1,6 @@
 import type { Exercise, Program, Session, WeekState } from '../types'
 import { noLoadStats, setVolume, volumeFactor } from './stats'
-import { unmarkSlot } from './weekCycle'
+import { markSlot, unmarkSlot } from './weekCycle'
 import { parse } from '../utils/dates'
 
 /** Gleicher Zeitpunkt auf einem anderen lokalen Tag (Uhrzeit bleibt, auch über Zeitumstellungen hinweg). */
@@ -92,6 +92,23 @@ export function weekStateAfterMove(state: WeekState, program: Program | undefine
   const stays = weekDates(program, state, others).includes(before.date)
   const dates = stays ? state.markedDates : state.markedDates.filter((d) => d !== before.date)
   return { ...state, markedDates: dates.includes(after.date) ? dates : [...dates, after.date] }
+}
+
+/**
+ * Wochenstand nach dem Ändern der Programmwoche einer Einheit (`after.week !== before.week`, gleiche Einheit, `others` ohne sie).
+ * Verlässt sie die aktuelle Woche: Slot wieder frei, Tag demarkiert. Kommt sie in die aktuelle Woche: Slot erledigt
+ * (wie beim Loggen, die Woche kann dabei abschließen). Sonst unverändert (frühere Wochen haben keinen Wochenstand).
+ */
+export function weekStateAfterWeekChange(state: WeekState, program: Program | undefined, before: Session, after: Session, others: Session[]): WeekState {
+  if (before.week === after.week || !program) return state
+  const wasIn = inCurrentWeek(state, program, before)
+  const nowIn = inCurrentWeek(state, program, after)
+  if (wasIn && !nowIn) return weekStateAfterDelete(state, program, before, others, true)
+  if (nowIn && !wasIn) {
+    const slot = slotOfSession(program, after)
+    return slot === null || state.done[slot] ? state : markSlot(state, slot, after.date)
+  }
+  return state
 }
 
 /** Startuhrzeit (`hh:mm`) für das Eingabefeld, ohne Start aus der Endzeit. */

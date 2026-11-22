@@ -9,6 +9,8 @@ import { isSlotSkipped, jumpToWeek, markSlot, unmarkSlot, weekLabel, weekOptions
 import { WeekSheet } from './WeekSheet'
 import { ProgramSettingsSheet } from './ProgramSettingsSheet'
 import { MenuRow } from './ProgramPage'
+import { WeekOrderSheet } from './WeekOrderSheet'
+import { WorkoutImportRow } from './DayManageSheet'
 import { extendProgram, programEnded } from '../../engine/programAdmin'
 import type { Program } from '../../types'
 import { WEEKDAYS, addDays, fmt, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
@@ -52,6 +54,7 @@ export default function Workouts() {
   const programs = usePrograms()
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
   const [editing, setEditing] = useState<Program | null>(null)
+  const [ordering, setOrdering] = useState(false)
   const [menu, setMenu] = useState<'main' | 'archive' | null>(null)
   const [libOpen, setLibOpen] = useState(false)
   // Nur absolvierte Workouts füllen den Kalender (Ruhetage nicht)
@@ -117,6 +120,7 @@ export default function Workouts() {
         options={weekOptions(program, sessions, week.week)} counts={weekCounts}
         onPick={async (w) => { await saveWeekState(jumpToWeek(program, sessions, w)); setWeekSheet(false) }} />
 
+      <WeekOrderSheet program={ordering ? program ?? null : null} onClose={() => setOrdering(false)} />
       <ProgramSettingsSheet program={editing} onClose={() => setEditing(null)}
         onSave={async (p) => { await updateProgram(p); setEditing(null) }} />
 
@@ -253,6 +257,8 @@ export default function Workouts() {
                 <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">Programm anpassen</h3>
                 <div className="divide-y divide-line">
                   <MenuRow icon="sliders" label="Programm bearbeiten" desc="Name, Blocklänge, Deload, Programm-Ende" onClick={() => { setMenu(null); setEditing(program) }} />
+                  <MenuRow icon="calendar" label="Wochenplan ordnen" desc="Reihenfolge der Workouts und Ruhetage" onClick={() => { setMenu(null); setOrdering(true) }} />
+                  <WorkoutImportRow programId={program.id as number} onDone={() => { setMenu(null); nav(`/program/${program.id}`) }} />
                   <MenuRow icon="copy" label="Programm duplizieren" onClick={() => { setMenu(null); void copyProgram(program.id as number) }} />
                   <MenuRow icon="archive" label="Programm archivieren" desc="Das neueste andere Programm wird aktiv" onClick={() => { setMenu(null); void archiveProgram(program.id as number) }} />
                 </div>

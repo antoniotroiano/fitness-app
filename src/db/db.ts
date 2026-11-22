@@ -1,4 +1,4 @@
-import { canDeleteExercise, exerciseUsage, type ExerciseUsage } from '../engine/customExercise'
+import { canDeleteByRemoving, canDeleteExercise, exerciseUsage, removeExerciseFromDays, type ExerciseUsage } from '../engine/customExercise'
 import Dexie, { type EntityTable } from 'dexie'
 import { DEFAULT_BAR, DEFAULT_PLATES } from '../engine/plates'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -10,9 +10,10 @@ import { ALL_EXERCISES, exerciseById } from '../data/exercises'
 import { applyBodyweight } from '../engine/bodyweight'
 import { smoothWeights } from '../engine/body'
 import { emptyWeek, jumpToWeek, maxReachedWeek } from '../engine/weekCycle'
-import { weekStateAfterDelete, weekStateAfterMove } from '../engine/history'
-import { duplicateProgram } from '../engine/programAdmin'
-import { parseProgramFile, programToFile, sessionsToCsv } from '../engine/exportData'
+import { weekStateAfterDelete, weekStateAfterMove, weekStateAfterWeekChange } from '../engine/history'
+import { appendDay, duplicateProgram, moveSlot, moveWeekSlot } from '../engine/programAdmin'
+import { parseProgramFile, parseWorkoutFile, programToFile, sessionsToCsv, workoutToFile, type SessionFilter } from '../engine/exportData'
+import { normalizeSupersets } from '../engine/superset'
 import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
@@ -166,10 +167,17 @@ export const saveCustomExercise = (ex: Exercise) => db.customExercises.put(ex)
  * Eigene Übung löschen (samt Überschreibungen). Verweist noch eine Einheit oder ein Programm darauf, passiert nichts
  * und die Verwendung wird zurückgegeben (sonst `null` = gelöscht).
  */
-export async function deleteCustomExercise(id: string): Promise<ExerciseUsage | null> {
+export async function deleteCustomExercise(id: string, removeFromPrograms = false): Promise<(ExerciseUsage & { emptied?: string[] }) | null> {
   return db.transaction('rw', [db.customExercises, db.sessions, db.programs, db.kv], async () => {
-    const usage = exerciseUsage(id, await db.sessions.toArray(), await db.programs.toArray())
-    if (!canDeleteExercise(usage)) return usage
+    const programs = await db.programs.toArray()
+    const usage = exerciseUsage(id, await db.sessions.toArray(), programs)
+    if (!canDeleteExercise(usage)) {
+      if (!removeFromPrograms || !canDeleteByRemoving(usage)) return usage
+      const changes = programs.map((p) => ({ p, ...removeExerciseFromDays(p.days, id) }))
+      const emptied = changes.flatMap((c) => c.emptied.map((d) => `${c.p.name}: ${d}`))
+      if (emptied.length) return { ...usage, emptied }
+      for (const c of changes) if (c.days !== c.p.days && c.p.id !== undefined) await db.programs.update(c.p.id, { days: c.days })
+    }
     await db.customExercises.delete(id)
     await saveExerciseOverrideTx(id, null)
     return null
@@ -382,6 +390,23 @@ async function activateFallback() {
   } else await saveWeekState(emptyWeek())
 }
 
+/** Tage und Wochenplan eines Programms speichern (Workouts umbenennen, duplizieren, ein-/ausplanen). */
+export async function saveProgramLayout(id: number, layout: Pick<Program, 'days' | 'weekSlots'>) {
+  await db.programs.update(id, { days: layout.days, weekSlots: layout.weekSlots })
+}
+
+/** Wochenslot `from` an Position `to` setzen; beim aktiven Programm wandert die Erledigt-Markierung mit. */
+export async function reorderWeekSlot(id: number, from: number, to: number) {
+  await db.transaction('rw', db.programs, db.kv, async () => {
+    const p = await db.programs.get(id)
+    if (!p) return
+    const weekSlots = moveSlot(p.weekSlots, from, to)
+    if (weekSlots === p.weekSlots) return
+    await db.programs.update(id, { weekSlots })
+    if (p.active) await saveWeekState(moveWeekSlot(await getWeekState(), from, to))
+  })
+}
+
 /** Einstellungen/Tage eines Programms speichern (`applySettings`, `moveExercise`); Aktiv-Status und Archiv bleiben. */
 export async function updateProgram(p: Program) {
   if (p.id === undefined) return
@@ -399,9 +424,9 @@ export async function copyProgram(id: number): Promise<number | undefined> {
 }
 
 /** Einheiten als CSV-Text (alle gespeicherten Einheiten, eine Zeile pro Satz). */
-export async function exportSessionsCsv(): Promise<string> {
+export async function exportSessionsCsv(filter?: SessionFilter): Promise<string> {
   const [sessions, programs, custom] = await Promise.all([db.sessions.toArray(), db.programs.toArray(), db.customExercises.toArray()])
-  return sessionsToCsv(sessions, programs, (id) => exerciseById(id, [...ALL_EXERCISES, ...custom]))
+  return sessionsToCsv(sessions, programs, (id) => exerciseById(id, [...ALL_EXERCISES, ...custom]), filter)
 }
 
 /** Ein Programm als JSON-Text (mit seinen eigenen Übungen). */
@@ -409,6 +434,28 @@ export async function exportProgramJson(id: number): Promise<{ name: string; jso
   const p = await db.programs.get(id)
   if (!p) return null
   return { name: p.name, json: JSON.stringify(programToFile(p, await db.customExercises.toArray()), null, 2) }
+}
+
+/** Ein Workout (Tag) als JSON-Text (mit seinen eigenen Übungen). */
+export async function exportWorkoutJson(programId: number, dayIdx: number): Promise<{ name: string; json: string } | null> {
+  const day = (await db.programs.get(programId))?.days[dayIdx]
+  if (!day) return null
+  return { name: day.name, json: JSON.stringify(workoutToFile(day, await db.customExercises.toArray()), null, 2) }
+}
+
+/** Workout-Datei in ein Programm importieren: neuer Tag ohne Wochenplatz; fehlende eigene Übungen werden angelegt. Gibt den Tag-Index zurück. */
+export async function importWorkoutJson(programId: number, json: string): Promise<{ dayIdx: number; added: number }> {
+  return db.transaction('rw', db.programs, db.customExercises, async () => {
+    const p = await db.programs.get(programId)
+    if (!p) throw new Error('Programm nicht gefunden.')
+    const custom = await db.customExercises.toArray()
+    const known = new Set([...ALL_EXERCISES, ...custom].map((e) => e.id))
+    const r = parseWorkoutFile(json, p.days.map((d) => d.name), known)
+    if (r.newExercises.length) await db.customExercises.bulkAdd(r.newExercises)
+    const days = appendDay(p.days, { name: r.day.name, exercises: normalizeSupersets(r.day.exercises) })
+    await db.programs.update(programId, { days })
+    return { dayIdx: days.length - 1, added: r.newExercises.length }
+  })
 }
 
 /** Programm-Datei importieren: neues, inaktives Programm; fehlende eigene Übungen werden angelegt. Gibt die neue ID zurück. */
@@ -445,17 +492,20 @@ export async function deleteProgram(id: number) {
 
 /**
  * Geänderte Einheit speichern (Sätze, Datum, Zeiten). Ändert sich das Datum, wandert der markierte Tag im Wochenstand
- * der aktuellen Woche mit. Die Programmwoche der Einheit bleibt unverändert.
+ * der aktuellen Woche mit. Ändert sich die Programmwoche, folgt der Slot der aktuellen Woche (`weekStateAfterWeekChange`).
  */
 export async function saveSessionEdit(next: Session) {
   if (next.id === undefined) throw new Error('Einheit ohne ID')
   await db.transaction('rw', db.sessions, db.programs, db.kv, async () => {
     const before = await db.sessions.get(next.id as number)
     await db.sessions.put(next)
-    if (!before || before.date === next.date || next.programId === null) return
+    if (!before || (before.date === next.date && before.week === next.week) || next.programId === null) return
     const program = await db.programs.get(next.programId)
     const others = (await db.sessions.toArray()).filter((s) => s.id !== next.id)
-    await saveWeekState(weekStateAfterMove(await getWeekState(), program, before, next, others))
+    const state = await getWeekState()
+    await saveWeekState(before.week !== next.week
+      ? weekStateAfterWeekChange(state, program, before, next, others)
+      : weekStateAfterMove(state, program, before, next, others))
   })
 }
 
