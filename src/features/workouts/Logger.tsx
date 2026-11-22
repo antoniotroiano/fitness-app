@@ -21,6 +21,8 @@ import type { PlannedView } from '../../engine/plannedDay'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
 import { adaptNextSets, loadSteps } from '../../engine/progression'
 import { MYO_REST_SEC, nextSegment } from '../../engine/setTypes'
+import { removeFromDay, replaceInDay, swapEntry } from '../../engine/dayEdit'
+import { alternatives, recommendable } from '../../engine/swap'
 import { linksOf, nextInSuperset, setSupersetLink, supersetMembers, withLinks } from '../../engine/superset'
 import { neutralWeek, TIME_RANGE, weekPlan } from '../../engine/periodization'
 import { restSecondsFor } from '../../engine/rest'
@@ -35,13 +37,13 @@ import { SetTable, type PadField, type Side } from './SetTable'
 import { SetTypeSheet, type SetTypeChoice } from './SetTypeSheet'
 import { WorkoutHeader } from './WorkoutHeader'
 import { ExerciseInfoSheet } from './ExerciseInfoSheet'
-import { CompleteSheet, FinishChoiceSheet, SupersetSheet, WorkoutMenuSheet } from './LoggerSheets'
+import { CompleteSheet, ExerciseActionsSheet, FinishChoiceSheet, SuggestionSheet, SupersetSheet, WorkoutMenuSheet } from './LoggerSheets'
 import { NoteSheet, scopeLabel, type NoteScope } from './sheets'
 import { WarmupSheet } from './WarmupSheet'
 import { isSegment, uid, withSides, type ActiveWorkout, type Row, type SideRow } from './state'
 import { num, rowToSet, sideSet } from './sessionRows'
 import { de } from '../../i18n/de'
-import { progressionNote } from './progressionNote'
+import { progressionNote, reasonText } from './progressionNote'
 
 /** Scheiben pro Seite als Text für das Numpad (Langhantel), leer ohne Gewicht */
 function plateHint(kg: number, s: Settings, wl: Settings['weightUnit']): string | undefined {
@@ -131,6 +133,11 @@ export default function Logger() {
   const [infoOpen, setInfoOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [supersetOpen, setSupersetOpen] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const [whyOpen, setWhyOpen] = useState(false)
+  const [swapOpen, setSwapOpen] = useState(false)
+  // Tausch/Entfernen: dauerhaft im Trainingstag (Standard) oder nur für diese Einheit
+  const [persist, setPersist] = useState(true)
 
   // Nachgetragenes Workout: `<Programm/Tag>@<Datum>@<Woche>` (siehe history/BackfillSheet)
   const [baseParam, bDate, bWeek] = param.split('@')
@@ -153,7 +160,11 @@ export default function Logger() {
   const lookup = useCallback((id: string) => all.find((e) => e.id === id), [all])
   // Der Trainingstag plus die im laufenden Workout hinzugefügten Übungen
   const added = active?.added
-  const fullDay = useMemo(() => (day && added?.length ? { ...day, exercises: [...day.exercises, ...added] } : day), [day, added])
+  const custom = active?.custom
+  const fullDay = useMemo(
+    () => (day && custom ? { ...day, exercises: custom } : day && added?.length ? { ...day, exercises: [...day.exercises, ...added] } : day),
+    [day, added, custom],
+  )
   const views = useMemo(
     // In dieser Woche ausgelassene Übungen (eigenes Wochenziel) erscheinen nicht im Training
     () => (fullDay ? plannedDay(fullDay, plan, historyUpTo(history, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), asOf, bodyweights).filter((v) => !v.skipped) : []),
@@ -428,6 +439,7 @@ export default function Logger() {
     setSupersetOpen(false)
     if (curIdx < 0) return
     const next = setSupersetLink(dayList, curIdx, action)
+    if (active.custom) { setActive((a) => (a ? { ...a, custom: next } : a)); return } // „nur heute“-Liste: Programm bleibt
     const n = day.exercises.length
     if (program.id != null) void db.programs.update(program.id, { days: program.days.map((d, i) => (i === dayIdx ? { ...d, exercises: next.slice(0, n) } : d)) })
     if (next.length > n) setActive((a) => (a ? { ...a, added: next.slice(n) } : a))
@@ -449,6 +461,59 @@ export default function Logger() {
     setPad(null)
     setActive((a) => (a ? { ...a, added: [...(a.added ?? []), pe], rows: { ...a.rows, [ex.id]: buildRows(view, wl, splitsSides(ex, overrides[ex.id]?.sides), settings.prefillMode) }, current: ex.id } : a))
   }
+
+  // ---- Übung tauschen/entfernen (dauerhaft im Programm oder nur heute) ----
+  /** Änderung der Übungsliste anwenden: dauerhaft im Trainingstag (und in hinzugefügten Übungen) oder nur als Liste dieser Einheit */
+  const applyDayEdit = (f: (l: PlannedExercise[]) => PlannedExercise[], saveToProgram: boolean) => {
+    if (saveToProgram && program.id != null) {
+      void db.programs.update(program.id, { days: program.days.map((d, i) => (i === dayIdx ? { ...d, exercises: f(d.exercises) } : d)) })
+    }
+    setActive((a) => {
+      if (!a) return a
+      if (saveToProgram) return { ...a, ...(a.added ? { added: f(a.added) } : {}), ...(a.custom ? { custom: f(a.custom) } : {}) }
+      return { ...a, custom: f(a.custom ?? [...day.exercises, ...(a.added ?? [])]) }
+    })
+  }
+  const swapExercise = (to: Exercise) => {
+    const from = current.pe.exerciseId
+    const entry = swapEntry(dayList, from, to, lookup, program.config ?? undefined)
+    if (!entry) return
+    const [view] = plannedDay({ ...day, exercises: [{ ...entry, superset: undefined }] }, plan, historyUpTo(history, program.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), asOf, bodyweights)
+    if (!view) return
+    applyDayEdit((l) => replaceInDay(l, from, entry), persist)
+    setPad(null)
+    setActive((a) => {
+      if (!a) return a
+      const { [from]: _gone, ...rows } = a.rows
+      const notes = { ...(a.notes ?? {}) }
+      delete notes[from]
+      return { ...a, rows: { ...rows, [to.id]: buildRows(view, wl, splitsSides(to, overrides[to.id]?.sides), settings.prefillMode) }, notes, current: to.id }
+    })
+  }
+  const removeExercise = () => {
+    const id = current.pe.exerciseId
+    const i = views.findIndex((v) => v.pe.exerciseId === id)
+    const nextId = (views[i + 1] ?? views[i - 1])?.pe.exerciseId
+    applyDayEdit((l) => removeFromDay(l, id), persist)
+    setPad(null)
+    setActive((a) => {
+      if (!a) return a
+      const { [id]: _gone, ...rows } = a.rows
+      const notes = { ...(a.notes ?? {}) }
+      delete notes[id]
+      return { ...a, rows, notes, current: nextId ?? a.current }
+    })
+  }
+  // Vorschläge (gleiche Hauptmuskelgruppe, ohne „Nie empfehlen“) zuerst, danach die freie Auswahl; ohne Übungen, die schon im Tag sind
+  // (kein Hook: steht hinter den frühen returns) nur berechnen, solange die Auswahl offen ist
+  const swapCandidates = (() => {
+    if (!swapOpen) return []
+    const inDay = dayList.map((e) => e.exerciseId)
+    const alts = alternatives(current.ex, recommendable(all, overrides), inDay)
+    const ids = new Set([...inDay, ...alts.map((e) => e.id)])
+    return [...alts, ...all.filter((e) => !e.cardio && !ids.has(e.id))]
+  })()
+
   const togglePause = () => setActive((a) => {
     if (!a) return a
     return { ...a, clock: a.clock.pausedAt == null ? pauseClock(a.clock, Date.now()) : resumeClock(a.clock, Date.now()) }
@@ -602,6 +667,16 @@ export default function Logger() {
           </div>
           {backfill && <p className="text-xs text-accent mt-0.5">Nachgetragen für {formatDate(backfill.date, { day: '2-digit', month: 'long', year: 'numeric' })} · {weekLabel(program, backfill.week)}</p>}
           {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
+          {(() => {
+            const why = current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric === 'time' ? 'time' : 'reps', current.bodyLoad)
+            if (!why) return null
+            const check = current.sug.level === 'check'
+            return (
+              <button onClick={() => setWhyOpen(true)} className={cx('mt-1 flex items-center gap-1 text-xs active:opacity-70', check ? 'text-warn' : 'text-muted')}>
+                <Icon name={check ? 'bolt' : 'sparkles'} size={13} />{check ? 'Vorschlag bitte prüfen' : 'Warum dieser Vorschlag?'}
+              </button>
+            )
+          })()}
           {settings.prefillMode === 'last' && !current.ex.cardio && current.previous.work.length > 0 && current.sug.weight != null && (
             <p className="text-xs text-muted mt-0.5">Vorschlag: {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString('de-DE')} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : ' Wdh.'}</p>
           )}
@@ -623,6 +698,7 @@ export default function Logger() {
           )}
           <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar">
             <ActionPill icon="guide" label="Info" onClick={() => setInfoOpen(true)} />
+            <ActionPill icon="automation" label="Tauschen" onClick={() => setActionsOpen(true)} />
             {!current.ex.cardio && <ActionPill icon="warmup" label={de.logger.warmup} onClick={() => setWarmupOpen(true)} active={modeNow !== 'none'} />}
             <ActionPill icon="note" label={de.common.note} onClick={() => setNoteScope(noteBoxes[0] ?? 'session')} active={noteBoxes.length > 0} />
             {!current.ex.cardio && <ActionPill icon="sides" label="Links/Rechts" onClick={toggleSides} active={sidesOn} />}
@@ -664,6 +740,14 @@ export default function Logger() {
       })()}
 
       <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title="Übung hinzufügen" />
+
+      <SuggestionSheet open={whyOpen} onClose={() => setWhyOpen(false)} warn={current.sug.level === 'check'}
+        info={current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric === 'time' ? 'time' : 'reps', current.bodyLoad)} />
+      <ExerciseActionsSheet open={actionsOpen} onClose={() => setActionsOpen(false)} name={current.ex.name}
+        persist={persist} onPersist={setPersist} canRemove={views.length > 1}
+        hasDone={rows.some((r) => r.done)} onSwap={() => setSwapOpen(true)} onRemove={removeExercise} />
+      <ExercisePicker open={swapOpen} onClose={() => setSwapOpen(false)} exercises={swapCandidates} onPick={swapExercise}
+        title={`Ersatz für ${current.ex.name}`} allowCardio={false} defaultMuscle={current.ex.primary[0]} />
 
       <ExerciseInfoSheet ex={current.ex} open={infoOpen} onClose={() => setInfoOpen(false)} />
 

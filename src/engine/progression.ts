@@ -108,7 +108,24 @@ export interface Suggestion {
   note?: 'extend' | 'gap'
   /** Bei `note`: die nächste Gewichtsstufe (wie `weight`) */
   nextWeight?: number
+  /** Warum dieser Vorschlag (siehe explainSuggestion); von suggestNext gesetzt */
+  reason?: SuggestionReason
+  /** `check` = auffällige Änderung gegenüber der letzten Einheit, bitte prüfen; sonst `info` */
+  level?: 'info' | 'check'
+  /** Letzte Einheit: schwerstes Gewicht und schwächste Wdh. daran (Zusatzgewicht bei Körperlast), für den Begründungstext */
+  prev?: { weight: number; reps: number }
 }
+
+/**
+ * Gründe eines Vorschlags: `start` keine Historie, `time` Zeitübung, `reps` nur Wdh. (Körpergewicht/assistiert) bzw. +1 Wdh.,
+ * `bwLoad` erstes Zusatzgewicht, `top` Obergrenze erreicht → schwerer, `up`/`down` Gewicht aus dem e1RM angepasst,
+ * `hold` Gewicht und Wdh. wie zuletzt, `stall` Plateau-Reset, `break` nach Trainingspause gedeckelt, `extend`/`gap` Gerätegrenze.
+ */
+export type SuggestionReason = 'start' | 'time' | 'reps' | 'bwLoad' | 'top' | 'up' | 'down' | 'hold' | 'stall' | 'break' | 'extend' | 'gap'
+
+/** Gewichtsänderung über diesem Anteil oder Wdh.-Sprung über dieser Zahl gegenüber der letzten Einheit: Stufe `check` */
+export const CHECK_WEIGHT_CHANGE = 0.1
+export const CHECK_REPS_CHANGE = 3
 
 export interface SuggestInput {
   range: RepRange
@@ -177,6 +194,41 @@ const extendCap = (range: RepRange) => range.max + Math.max(2, Math.ceil(range.m
 export const STALL_RESET = 0.95
 /** Fällt das e1RM zwischen zwei Einheiten um mehr als das, beginnt ein neuer Abschnitt (z. B. nach einem Reset). */
 export const STALL_DROP = 0.02
+
+/** Vorschlag mit Begründung (`reason`, `level`, `prev`): die Anzeige im Logger und in der Vorschau. */
+export function suggestExplained(input: SuggestInput): Suggestion {
+  return explainSuggestion(input, suggestNext(input))
+}
+
+/**
+ * Begründung und Warnstufe zu einem Vorschlag, aus Eingabe und Ergebnis abgeleitet (die Rechenwege bleiben unberührt).
+ * Stufe `check`, wenn das Gewicht um mehr als CHECK_WEIGHT_CHANGE oder die Wdh. um mehr als CHECK_REPS_CHANGE von der
+ * letzten Einheit abweichen (nicht bei Start, Plateau-Reset und Pause: dort ist die Änderung erwartet).
+ */
+export function explainSuggestion(input: SuggestInput, sug: Suggestion): Suggestion {
+  const worked = (input.last ?? []).filter((s) => !s.warmup && !s.segment && s.reps > 0)
+  if (sug.weight == null || worked.length === 0) return { ...sug, reason: 'start', level: 'info' }
+  const topWeight = Math.max(...worked.map((s) => s.weight))
+  const topSets = worked.filter((s) => s.weight === topWeight)
+  const prev = { weight: topWeight, reps: Math.min(...topSets.map((s) => s.reps)) }
+  const done = (reason: SuggestionReason, level: 'info' | 'check' = 'info'): Suggestion => ({ ...sug, reason, level, prev })
+  if (input.metric === 'time') return done('time')
+  const bodyOnly = input.assisted || topWeight <= 0
+  if (bodyOnly) return done(!input.assisted && sug.weight > 0 ? 'bwLoad' : 'reps')
+  if (input.stalled) return done('stall')
+  if (detrainFactor(input.daysSince) < 1) {
+    const without = suggestNext({ ...input, daysSince: undefined })
+    if (without.weight !== sug.weight) return done('break')
+  }
+  const eps = 1e-6
+  const w = sug.weight
+  const big = Math.abs(w - prev.weight) > prev.weight * CHECK_WEIGHT_CHANGE + eps || Math.abs(sug.reps - prev.reps) > CHECK_REPS_CHANGE
+  const level = big ? 'check' : 'info'
+  if (sug.note) return done(sug.note, level)
+  if (w > prev.weight + eps) return done(prev.reps >= input.range.max ? 'top' : 'up', level)
+  if (w < prev.weight - eps) return done('down', level)
+  return done(sug.reps > prev.reps ? 'reps' : 'hold', level)
+}
 
 export function suggestNext(input: SuggestInput): Suggestion {
   const off = input.bodyLoad && input.bodyLoad > 0 && !input.assisted && input.metric !== 'time' ? input.bodyLoad : 0

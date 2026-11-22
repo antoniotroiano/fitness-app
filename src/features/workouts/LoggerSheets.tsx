@@ -5,10 +5,10 @@ import { Icon, type IconName } from '../../components/icons'
 import { MuscleDetail } from '../../components/MuscleFigure'
 import { de } from '../../i18n/de'
 
-function MenuItem({ icon, label, onClick, danger }: { icon: IconName; label: string; onClick: () => void; danger?: boolean }) {
+function MenuItem({ icon, label, onClick, danger, disabled }: { icon: IconName; label: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
   return (
-    <button onClick={onClick}
-      className={cx('w-full flex items-center gap-3 rounded-xl bg-surface2 px-4 py-3.5 text-left text-sm font-medium active:opacity-70', danger && 'text-danger')}>
+    <button onClick={onClick} disabled={disabled}
+      className={cx('w-full flex items-center gap-3 rounded-xl bg-surface2 px-4 py-3.5 text-left text-sm font-medium active:opacity-70 disabled:opacity-40', danger && 'text-danger')}>
       <Icon name={icon} size={20} />{label}
     </button>
   )
@@ -112,6 +112,49 @@ export function SupersetSheet({ open, onClose, prev, next, inSuperset, onPick }:
         {next && <MenuItem icon="link" label={`Mit nächster verbinden: ${next}`} onClick={() => onPick('next')} />}
         {inSuperset && <MenuItem icon="ban" label="Aus Supersatz lösen" onClick={() => onPick('none')} />}
       </div>
+    </BottomSheet>
+  )
+}
+
+/** Übung tauschen oder entfernen, wahlweise nur für heute oder dauerhaft im Trainingstag. */
+export function ExerciseActionsSheet({ open, onClose, name, persist, onPersist, canRemove, hasDone, onSwap, onRemove }: {
+  open: boolean; onClose: () => void; name: string
+  persist: boolean; onPersist: (v: boolean) => void
+  canRemove: boolean; hasDone: boolean
+  onSwap: () => void; onRemove: () => void
+}) {
+  const [confirm, setConfirm] = useState(false)
+  const close = () => { setConfirm(false); onClose() }
+  return (
+    <BottomSheet open={open} onClose={close} title={name}>
+      <div className="space-y-2">
+        <button role="switch" aria-checked={persist} onClick={() => onPersist(!persist)}
+          className="w-full flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3 text-left active:opacity-70">
+          <span>
+            <span className="block text-sm font-medium">Im Programm übernehmen</span>
+            <span className="block text-xs text-muted">{persist ? 'Gilt auch für künftige Einheiten dieses Trainingstags.' : 'Gilt nur für diese Einheit, das Programm bleibt unverändert.'}</span>
+          </span>
+          <span className={cx('h-6 w-10 shrink-0 rounded-full p-0.5 transition-colors', persist ? 'bg-accent' : 'bg-surface2')}>
+            <span className={cx('block h-5 w-5 rounded-full bg-white transition-transform', persist && 'translate-x-4')} />
+          </span>
+        </button>
+        {hasDone && <p className="text-xs text-warn px-1">Die abgehakten Sätze dieser Übung gehen verloren.</p>}
+        <MenuItem icon="automation" label="Übung tauschen" onClick={() => { close(); onSwap() }} />
+        <MenuItem icon="trash" danger disabled={!canRemove}
+          label={!canRemove ? 'Entfernen nicht möglich: letzte Übung' : confirm ? 'Wirklich entfernen?' : 'Übung entfernen'}
+          onClick={() => (confirm ? (close(), onRemove()) : setConfirm(true))} />
+      </div>
+    </BottomSheet>
+  )
+}
+
+/** Begründung des Progressionsvorschlags (Tipp auf die Vorschlagszeile im Logger). */
+export function SuggestionSheet({ open, onClose, info, warn }: {
+  open: boolean; onClose: () => void; info: { title: string; text: string } | null; warn: boolean
+}) {
+  return (
+    <BottomSheet open={open} onClose={onClose} title={info?.title ?? 'Vorschlag'}>
+      <p className={cx('text-sm', warn && 'text-warn')}>{info?.text}</p>
     </BottomSheet>
   )
 }

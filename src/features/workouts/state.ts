@@ -45,6 +45,8 @@ export interface ActiveWorkout {
   notes?: Record<string, string>
   /** Während des Workouts hinzugefügte Übungen: werden beim Abschluss dauerhaft in den Trainingstag übernommen */
   added?: PlannedExercise[]
+  /** Vollständige Übungsliste nur für diese Einheit (Tausch/Entfernen mit „nur heute“); ersetzt Trainingstag + `added` */
+  custom?: PlannedExercise[]
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
