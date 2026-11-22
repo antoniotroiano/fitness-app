@@ -19,6 +19,7 @@ import { normalizeSupersets } from '../engine/superset'
 import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
+import { t } from '../i18n'
 
 interface KV { key: string; value: unknown }
 
@@ -249,7 +250,7 @@ export async function exportAll(): Promise<string> {
 
 export async function importAll(json: string) {
   const data = JSON.parse(json)
-  if (data?.app !== 'liftlab') throw new Error('Keine gültige Backup-Datei')
+  if (data?.app !== 'liftlab') throw new Error(t('Keine gültige Backup-Datei'))
   await db.transaction('rw', [db.programs, db.sessions, db.weights, db.measures, db.customExercises, db.kv], async () => {
     await Promise.all([db.programs.clear(), db.sessions.clear(), db.weights.clear(), db.measures.clear(),
       db.customExercises.clear(), db.kv.clear()])
@@ -463,7 +464,7 @@ export async function exportWorkoutJson(programId: number, dayIdx: number): Prom
 export async function importWorkoutJson(programId: number, json: string): Promise<{ dayIdx: number; added: number }> {
   return db.transaction('rw', db.programs, db.customExercises, async () => {
     const p = await db.programs.get(programId)
-    if (!p) throw new Error('Programm nicht gefunden.')
+    if (!p) throw new Error(t('Programm nicht gefunden.'))
     const custom = await db.customExercises.toArray()
     const known = new Set([...ALL_EXERCISES, ...custom].map((e) => e.id))
     const r = parseWorkoutFile(json, p.days.map((d) => d.name), known)
@@ -511,7 +512,7 @@ export async function deleteProgram(id: number) {
  * der aktuellen Woche mit. Ändert sich die Programmwoche, folgt der Slot der aktuellen Woche (`weekStateAfterWeekChange`).
  */
 export async function saveSessionEdit(next: Session) {
-  if (next.id === undefined) throw new Error('Einheit ohne ID')
+  if (next.id === undefined) throw new Error(t('Einheit ohne ID'))
   await db.transaction('rw', db.sessions, db.programs, db.kv, async () => {
     const before = await db.sessions.get(next.id as number)
     await db.sessions.put(next)

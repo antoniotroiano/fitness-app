@@ -1,6 +1,7 @@
 import type { Exercise, LoggedExercise, LoggedSet, Session } from '../types'
 import { IMPORT_ALIASES } from '../data/importAliases'
 import { parse } from '../utils/dates'
+import { t } from '../i18n'
 
 /**
  * Import eines Trainingsverlaufs aus einer CSV-Datei (eine Zeile pro Satz). Erwartete Spalten (deutsch oder englisch):
@@ -72,11 +73,11 @@ const num = (s: string | undefined) => {
 /** Liest die Sätze. Wirft einen Fehler, wenn Pflichtspalten fehlen. */
 export function parseTrainingCsv(text: string): ImportRow[] {
   const [head, ...lines] = splitCsv(text)
-  if (!head) throw new Error('Die Datei ist leer.')
+  if (!head) throw new Error(t('Die Datei ist leer.'))
   const names = head.map((h) => h.trim().toLowerCase())
   const col = (keys: readonly string[]) => names.findIndex((n) => keys.includes(n))
   const idx = Object.fromEntries(Object.entries(COLUMNS).map(([k, v]) => [k, col(v)])) as Record<keyof typeof COLUMNS, number>
-  if (idx.date < 0 || idx.exercise < 0) throw new Error('Spalten „Datum“ und „Übung“ nicht gefunden. Ist das ein Trainings-Export?')
+  if (idx.date < 0 || idx.exercise < 0) throw new Error(t('Spalten „Datum“ und „Übung“ nicht gefunden. Ist das ein Trainings-Export?'))
   const out: ImportRow[] = []
   for (const l of lines) {
     const get = (i: number) => (i >= 0 ? l[i]?.trim() : undefined)

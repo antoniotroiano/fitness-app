@@ -2,6 +2,7 @@ import type { Metric } from './metric'
 import { isRepless } from './metric'
 import { removeFromDay } from './dayEdit'
 import type { Equipment, Exercise, MuscleId, Pattern, Program, Session } from '../types'
+import { t } from '../i18n'
 
 /**
  * Eigene Übungen (PLAN-6 B3): Entwurf aus dem Formular → gültige `Exercise`, Duplizieren, Verwendung prüfen.
@@ -12,8 +13,8 @@ import type { Equipment, Exercise, MuscleId, Pattern, Program, Session } from '.
 export const CUSTOM_EQUIPMENT: Equipment[] = ['barbell', 'dumbbell', 'cable', 'machine', 'smith', 'kettlebell', 'band', 'bodyweight', 'cardio']
 
 export const PATTERN_LABEL: Record<Exclude<Pattern, 'cardio'>, string> = {
-  horizontalPush: 'Drücken horizontal', verticalPush: 'Drücken vertikal', horizontalPull: 'Ziehen horizontal', verticalPull: 'Ziehen vertikal',
-  squat: 'Kniebeuge', hinge: 'Hüftbeuge', lunge: 'Ausfallschritt', isolation: 'Isolation', core: 'Rumpf',
+  horizontalPush: t('Drücken horizontal'), verticalPush: t('Drücken vertikal'), horizontalPull: t('Ziehen horizontal'), verticalPull: t('Ziehen vertikal'),
+  squat: t('Kniebeuge'), hinge: t('Hüftbeuge'), lunge: t('Ausfallschritt'), isolation: 'Isolation', core: t('Rumpf'),
 }
 export const CUSTOM_PATTERNS = Object.keys(PATTERN_LABEL) as Exclude<Pattern, 'cardio'>[]
 
@@ -53,12 +54,12 @@ const sameName = (a: string, b: string) => norm(a).toLowerCase() === norm(b).toL
 /** Fehlertext oder null. `all` = alle vorhandenen Übungen (Standard + eigene), `editId` = die gerade bearbeitete Übung. */
 export function validateDraft(d: ExerciseDraft, all: Pick<Exercise, 'id' | 'name'>[], editId?: string): string | null {
   const name = norm(d.name)
-  if (!name) return 'Gib einen Namen ein.'
-  if (name.length > NAME_MAX) return `Der Name darf höchstens ${NAME_MAX} Zeichen haben.`
-  if (all.some((e) => e.id !== editId && sameName(e.name, name))) return 'Eine Übung mit diesem Namen gibt es schon.'
-  if (d.description.length > DESCRIPTION_MAX) return `Die Beschreibung darf höchstens ${DESCRIPTION_MAX} Zeichen haben.`
-  if (d.equipment !== 'cardio' && d.primary.length === 0) return 'Wähle mindestens einen Hauptmuskel.'
-  if (d.equipment === 'bodyweight' && d.bodyweight !== 0 && !(d.bodyweight > 0 && d.bodyweight <= 1)) return 'Der Körpergewichtsanteil liegt zwischen 0 und 100 %.'
+  if (!name) return t('Gib einen Namen ein.')
+  if (name.length > NAME_MAX) return t('Der Name darf höchstens {0} Zeichen haben.', NAME_MAX)
+  if (all.some((e) => e.id !== editId && sameName(e.name, name))) return t('Eine Übung mit diesem Namen gibt es schon.')
+  if (d.description.length > DESCRIPTION_MAX) return t('Die Beschreibung darf höchstens {0} Zeichen haben.', DESCRIPTION_MAX)
+  if (d.equipment !== 'cardio' && d.primary.length === 0) return t('Wähle mindestens einen Hauptmuskel.')
+  if (d.equipment === 'bodyweight' && d.bodyweight !== 0 && !(d.bodyweight > 0 && d.bodyweight <= 1)) return t('Der Körpergewichtsanteil liegt zwischen 0 und 100 %.')
   return null
 }
 
@@ -108,8 +109,8 @@ export function draftOf(ex: Exercise): ExerciseDraft {
 /** Duplikat als Vorlage: gleicher Entwurf, Name „… (Kopie)“ (bzw. „(Kopie 2)“ …), eindeutig unter `all`. */
 export function duplicateDraft(ex: Exercise, all: Pick<Exercise, 'name'>[]): ExerciseDraft {
   const base = `${ex.name.replace(/ \(Kopie(?: \d+)?\)$/, '')}`
-  let name = `${base} (Kopie)`
-  for (let n = 2; all.some((e) => sameName(e.name, name)); n++) name = `${base} (Kopie ${n})`
+  let name = t('{0} (Kopie)', base)
+  for (let n = 2; all.some((e) => sameName(e.name, name)); n++) name = t('{0} (Kopie {1})', base, n)
   return { ...draftOf(ex), name }
 }
 

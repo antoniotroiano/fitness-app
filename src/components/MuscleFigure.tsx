@@ -1,5 +1,6 @@
 import type { MuscleId } from '../types'
 import type { ReactNode } from 'react'
+import { t } from '../i18n'
 
 /**
  * Eigene, stilisierte Muskelfigur (Vorder- und Rückansicht) als Inline-SVG.
@@ -134,7 +135,7 @@ export function MuscleThumb({ primary, secondary, size = 56 }: { primary: Muscle
   const lower = lead ? LOWER.includes(lead) : false
   const box = lower ? '20 84 60 104' : '14 2 72 98'
   return (
-    <svg width={size} height={size} viewBox={box} role="img" aria-label="Trainierte Muskeln"
+    <svg width={size} height={size} viewBox={box} role="img" aria-label={t('Trainierte Muskeln')}
       className="rounded-xl bg-surface border border-line shrink-0">
       <Body view={view} primary={primary} secondary={secondary} />
     </svg>
@@ -148,16 +149,16 @@ export function MuscleDetail({ primary, secondary }: { primary: MuscleId[]; seco
       <div className="grid grid-cols-2 gap-2">
         {(['front', 'back'] as const).map((v) => (
           <div key={v} className="text-center">
-            <svg viewBox="14 0 72 190" className="w-full max-h-72" role="img" aria-label={v === 'front' ? 'Vorderansicht' : 'Rückansicht'}>
+            <svg viewBox="14 0 72 190" className="w-full max-h-72" role="img" aria-label={v === 'front' ? t('Vorderansicht') : t('Rückansicht')}>
               <Body view={v} primary={primary} secondary={secondary} />
             </svg>
-            <div className="text-xs text-muted">{v === 'front' ? 'Vorne' : 'Hinten'}</div>
+            <div className="text-xs text-muted">{v === 'front' ? t('Vorne') : t('Hinten')}</div>
           </div>
         ))}
       </div>
       <div className="flex gap-4 justify-center text-xs text-muted mt-2">
-        <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm inline-block" style={{ background: 'var(--muscle)' }} /> Primär</span>
-        <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm inline-block" style={{ background: 'var(--muscle)', opacity: 0.45 }} /> Sekundär</span>
+        <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm inline-block" style={{ background: 'var(--muscle)' }} /> {t('Primär')}</span>
+        <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm inline-block" style={{ background: 'var(--muscle)', opacity: 0.45 }} /> {t('Sekundär')}</span>
       </div>
     </div>
   )

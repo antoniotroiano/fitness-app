@@ -1,5 +1,6 @@
 import type { Exercise, RestCategory, Settings } from '../types'
 import { MUSCLES } from '../data/muscles'
+import { t } from '../i18n'
 
 /**
  * Pausen-Defaults in Sekunden (alle in den Einstellungen änderbar).
@@ -17,10 +18,10 @@ export const DEFAULT_REST: Record<RestCategory, number> = {
 }
 
 export const REST_LABEL: Record<RestCategory, string> = {
-  compoundUpper: 'Verbund Oberkörper',
-  compoundLower: 'Verbund Unterkörper',
-  isoUpper: 'Isolation Oberkörper',
-  isoLower: 'Isolation Unterkörper',
+  compoundUpper: t('Verbund Oberkörper'),
+  compoundLower: t('Verbund Unterkörper'),
+  isoUpper: t('Isolation Oberkörper'),
+  isoLower: t('Isolation Unterkörper'),
   core: 'Core',
 }
 

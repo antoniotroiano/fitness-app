@@ -1,10 +1,11 @@
 import type { Exercise } from '../types'
+import { t } from '../i18n'
 
 export type LibraryGroup = 'free' | 'machines' | 'bodyweight' | 'cardio'
 
 /** Gruppen der Übungsübersicht in fester Reihenfolge (Cardio zuletzt). */
 export const LIBRARY_GROUPS: { id: LibraryGroup; label: string }[] = [
-  { id: 'free', label: 'Free Weights' },
+  { id: 'free', label: t('Free Weights') },
   { id: 'machines', label: 'Machines' },
   { id: 'bodyweight', label: 'Bodyweight' },
   { id: 'cardio', label: 'Cardio' },

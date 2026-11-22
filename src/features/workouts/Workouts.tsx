@@ -15,6 +15,7 @@ import { extendProgram, programEnded } from '../../engine/programAdmin'
 import type { Program } from '../../types'
 import { WEEKDAYS, addDays, fmt, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 function WeekStrip({ marked }: { marked: Set<string> }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -67,7 +68,7 @@ export default function Workouts() {
 
   const archived = programs.filter((p) => p.archived)
   const menuButton = (
-    <button onClick={() => setMenu('main')} aria-label="Workouts-Menü" className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-fg active:opacity-70">
+    <button onClick={() => setMenu('main')} aria-label={t('Workouts-Menü')} className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-fg active:opacity-70">
       <Icon name="menu" />
     </button>
   )
@@ -76,15 +77,15 @@ export default function Workouts() {
       <Page title="Workouts" right={menuButton}>
         <Card className="text-center space-y-3 py-8">
           <div className="flex justify-center"><ProgramBadge size={56} /></div>
-          <div className="font-semibold">Noch kein Programm</div>
-          <p className="text-sm text-muted">Erstelle dein erstes Programm – automatisch oder selbst.</p>
-          <Button onClick={() => nav('/new')}>Programm erstellen</Button>
+          <div className="font-semibold">{t('Noch kein Programm')}</div>
+          <p className="text-sm text-muted">{t('Erstelle dein erstes Programm – automatisch oder selbst.')}</p>
+          <Button onClick={() => nav('/new')}>{t('Programm erstellen')}</Button>
         </Card>
         {archived.map((p) => (
           <Card key={p.id} className="flex items-center gap-3 !py-3">
             <ProgramBadge icon={p.icon} color={p.color} size={32} />
-            <span className="min-w-0 flex-1 text-sm font-medium truncate">{p.name} <span className="text-muted">· Archiv</span></span>
-            <Button variant="ghost" onClick={() => void activateProgram(p.id as number)}>Aktivieren</Button>
+            <span className="min-w-0 flex-1 text-sm font-medium truncate">{p.name} <span className="text-muted">{t('· Archiv')}</span></span>
+            <Button variant="ghost" onClick={() => void activateProgram(p.id as number)}>{t('Aktivieren')}</Button>
           </Card>
         ))}
       </Page>
@@ -126,20 +127,20 @@ export default function Workouts() {
 
       {ended && (
         <Card className="space-y-3 border-accent">
-          <div className="font-semibold">Programm-Ende erreicht</div>
-          <p className="text-sm text-muted">Alle {program.config?.blocks} Blöcke von „{program.name}“ sind durchlaufen. Wie soll es weitergehen?</p>
+          <div className="font-semibold">{t('Programm-Ende erreicht')}</div>
+          <p className="text-sm text-muted">{t('Alle')} {program.config?.blocks} {t('Blöcke von „')}{program.name}{t('“ sind durchlaufen. Wie soll es weitergehen?')}</p>
           <div className="flex gap-2">
-            <Button className="flex-1" onClick={() => void updateProgram(extendProgram(program))}>Block wiederholen</Button>
-            <Button variant="ghost" className="flex-1" onClick={() => void archiveProgram(program.id as number)}>Abschließen</Button>
+            <Button className="flex-1" onClick={() => void updateProgram(extendProgram(program))}>{t('Block wiederholen')}</Button>
+            <Button variant="ghost" className="flex-1" onClick={() => void archiveProgram(program.id as number)}>{t('Abschließen')}</Button>
           </div>
-          <Button variant="ghost" className="w-full" onClick={() => nav('/new')}>Neues Programm erstellen</Button>
+          <Button variant="ghost" className="w-full" onClick={() => nav('/new')}>{t('Neues Programm erstellen')}</Button>
         </Card>
       )}
 
       {running && (
         <Card className="flex items-center justify-between !py-3 border-accent">
-          <div className="text-sm font-medium">Ein Workout läuft</div>
-          <Button onClick={() => nav(`/workout/${running}`)}>Fortsetzen</Button>
+          <div className="text-sm font-medium">{t('Ein Workout läuft')}</div>
+          <Button onClick={() => nav(`/workout/${running}`)}>{t('Fortsetzen')}</Button>
         </Card>
       )}
 
@@ -149,10 +150,10 @@ export default function Workouts() {
           if (slot === 'rest') {
             return (
               <Card key={i} className="flex items-center justify-between !py-3">
-                <div><div className="text-sm font-medium">{de.common.restDay}</div><div className="text-xs text-muted">Tag {i + 1}</div></div>
+                <div><div className="text-sm font-medium">{de.common.restDay}</div><div className="text-xs text-muted">{t('Tag')} {i + 1}</div></div>
                 <button onClick={() => toggleRest(i)}
                   className={cx('w-8 h-8 rounded-full border flex items-center justify-center', done ? 'bg-accent border-accent text-accent-fg' : 'border-line text-transparent')}
-                  aria-label="Ruhetag abhaken">✓</button>
+                  aria-label={t('Ruhetag abhaken')}>✓</button>
               </Card>
             )
           }
@@ -166,10 +167,10 @@ export default function Workouts() {
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{day.name}</div>
                   <div className="text-xs text-muted">
-                    {isSlotSkipped(week, i) ? 'Übersprungen' : done ? `Geloggt${s ? ` · ${formatDate(s.date)} · ${formatTime(new Date(s.finishedAt), settings.clock)}` : ''}` : `${day.exercises.length} Übungen · Tag ${i + 1}`}
+                    {isSlotSkipped(week, i) ? t('Übersprungen') : done ? t('Geloggt{0}', s ? ` · ${formatDate(s.date)} · ${formatTime(new Date(s.finishedAt), settings.clock)}` : '') : t('{0} Übungen · Tag {1}', day.exercises.length, i + 1)}
                   </div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); open() }} aria-label={`${day.name} öffnen`}
+                <button onClick={(e) => { e.stopPropagation(); open() }} aria-label={t('{0} öffnen', day.name)}
                   className={cx('w-8 h-8 shrink-0 rounded-full border flex items-center justify-center', isSlotSkipped(week, i) ? 'border-line text-muted' : done ? 'bg-accent border-accent text-accent-fg' : 'border-line text-transparent')}>{isSlotSkipped(week, i) ? '–' : '✓'}</button>
               </div>
             </Card>
@@ -179,14 +180,14 @@ export default function Workouts() {
 
       {extra.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs uppercase tracking-wide text-muted">Zusätzliche Workouts</div>
+          <div className="text-xs uppercase tracking-wide text-muted">{t('Zusätzliche Workouts')}</div>
           {extra.map(({ d, i }) => (
             <Card key={d.id} className="!p-0">
               <div role="button" tabIndex={0} onClick={() => nav(`/workout-preview/d${i}`)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nav(`/workout-preview/d${i}`) } }}
                 className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer active:opacity-70">
                 <div className="text-sm font-medium truncate">{d.name}</div>
-                <button onClick={(e) => { e.stopPropagation(); nav(`/workout-preview/d${i}`) }} aria-label={`${d.name} öffnen`}
+                <button onClick={(e) => { e.stopPropagation(); nav(`/workout-preview/d${i}`) }} aria-label={t('{0} öffnen', d.name)}
                   className="w-8 h-8 shrink-0 rounded-full border border-line text-transparent">✓</button>
               </div>
             </Card>
@@ -209,7 +210,7 @@ export default function Workouts() {
                   <ProgramBadge icon={p.icon} color={p.color} size={36} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate">{p.name}</span>
-                    <span className="block text-xs text-muted">{p.days.length} Workouts · {open ? 'Antippen zum Öffnen' : formatDate(fmt(new Date(p.createdAt)))}</span>
+                    <span className="block text-xs text-muted">{p.days.length} Workouts · {open ? t('Antippen zum Öffnen') : formatDate(fmt(new Date(p.createdAt)))}</span>
                   </span>
                   <span className={cx('text-muted transition-transform', open && 'rotate-90')}>›</span>
                 </button>
@@ -218,10 +219,10 @@ export default function Workouts() {
                     {p.weekSlots.map((slot, i) => slot === 'rest' ? null : (
                       <button key={i} onClick={() => nav(`/workout-preview/p${id}-s${i}`)} className="w-full text-left rounded-xl bg-surface2/60 px-4 py-3 active:opacity-70">
                         <div className="text-sm font-medium truncate">{p.days[slot].name}</div>
-                        <div className="text-xs text-muted">{p.days[slot].exercises.length} Übungen · Tag {i + 1}</div>
+                        <div className="text-xs text-muted">{p.days[slot].exercises.length} {t('Übungen · Tag')} {i + 1}</div>
                       </button>
                     ))}
-                    <button className="text-accent text-sm pt-1" onClick={() => setExpanded((x) => ({ ...x, [id]: false }))}>Zuklappen</button>
+                    <button className="text-accent text-sm pt-1" onClick={() => setExpanded((x) => ({ ...x, [id]: false }))}>{t('Zuklappen')}</button>
                   </div>
                 )}
               </Card>
@@ -230,11 +231,11 @@ export default function Workouts() {
         </section>
       )}
 
-      <BottomSheet open={menu !== null} onClose={() => setMenu(null)} title={menu === 'archive' ? 'Archiv' : 'Workouts'}>
+      <BottomSheet open={menu !== null} onClose={() => setMenu(null)} title={menu === 'archive' ? t('Archiv') : 'Workouts'}>
         {menu === 'archive' ? (
           <div className="space-y-2">
-            <button className="text-accent text-sm" onClick={() => setMenu('main')}>‹ Zurück</button>
-            {archived.length === 0 && <p className="text-sm text-muted py-2">Kein archiviertes Programm. Archivierte Programme erscheinen hier.</p>}
+            <button className="text-accent text-sm" onClick={() => setMenu('main')}>{t('‹ Zurück')}</button>
+            {archived.length === 0 && <p className="text-sm text-muted py-2">{t('Kein archiviertes Programm. Archivierte Programme erscheinen hier.')}</p>}
             {archived.map((p) => (
               <button key={p.id} onClick={() => { setMenu(null); nav(`/program/${p.id}`) }} className="w-full flex items-center gap-3 rounded-xl bg-surface2 px-4 py-3 text-left active:opacity-70">
                 <ProgramBadge icon={p.icon} color={p.color} size={32} />
@@ -249,25 +250,25 @@ export default function Workouts() {
         ) : (
           <div className="space-y-4">
             <section>
-              <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">Trainingsverlauf</h3>
-              <MenuRow icon="history" label="Verlauf ansehen und bearbeiten" desc="Einheiten korrigieren, Workouts nachtragen"
+              <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">{t('Trainingsverlauf')}</h3>
+              <MenuRow icon="history" label={t('Verlauf ansehen und bearbeiten')} desc={t('Einheiten korrigieren, Workouts nachtragen')}
                 onClick={() => { setMenu(null); nav('/history', { state: { from: '/workouts' } }) }} />
             </section>
             {program && (
               <section>
-                <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">Programm anpassen</h3>
+                <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">{t('Programm anpassen')}</h3>
                 <div className="divide-y divide-line">
-                  <MenuRow icon="sliders" label="Programm bearbeiten" desc="Name, Blocklänge, Deload, Programm-Ende" onClick={() => { setMenu(null); setEditing(program) }} />
-                  <MenuRow icon="calendar" label="Wochenplan ordnen" desc="Reihenfolge der Workouts und Ruhetage" onClick={() => { setMenu(null); setOrdering(true) }} />
+                  <MenuRow icon="sliders" label={t('Programm bearbeiten')} desc={t('Name, Blocklänge, Deload, Programm-Ende')} onClick={() => { setMenu(null); setEditing(program) }} />
+                  <MenuRow icon="calendar" label={t('Wochenplan ordnen')} desc={t('Reihenfolge der Workouts und Ruhetage')} onClick={() => { setMenu(null); setOrdering(true) }} />
                   <WorkoutImportRow programId={program.id as number} onDone={() => { setMenu(null); nav(`/program/${program.id}`) }} />
-                  <MenuRow icon="copy" label="Programm duplizieren" onClick={() => { setMenu(null); void copyProgram(program.id as number) }} />
-                  <MenuRow icon="archive" label="Programm archivieren" desc="Das neueste andere Programm wird aktiv" onClick={() => { setMenu(null); void archiveProgram(program.id as number) }} />
+                  <MenuRow icon="copy" label={t('Programm duplizieren')} onClick={() => { setMenu(null); void copyProgram(program.id as number) }} />
+                  <MenuRow icon="archive" label={t('Programm archivieren')} desc={t('Das neueste andere Programm wird aktiv')} onClick={() => { setMenu(null); void archiveProgram(program.id as number) }} />
                 </div>
               </section>
             )}
             <section>
-              <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">Archiv</h3>
-              <MenuRow icon="archive" label="Archivierte Programme" desc={archived.length ? `${archived.length} im Archiv` : 'Noch keine'} onClick={() => setMenu('archive')} />
+              <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">{t('Archiv')}</h3>
+              <MenuRow icon="archive" label={t('Archivierte Programme')} desc={archived.length ? t('{0} im Archiv', archived.length) : t('Noch keine')} onClick={() => setMenu('archive')} />
             </section>
           </div>
         )}

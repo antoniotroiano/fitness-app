@@ -12,6 +12,7 @@ import { SwipeRow } from './SwipeRow'
 import { isSegment, type Row } from './state'
 import { SET_BADGE } from './SetTypeSheet'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 export type PadField = 'weight' | 'reps'
 /** Seite eines links/rechts getrennten Satzes (Felder der rechten Seite: `Row.right`) */
@@ -43,7 +44,7 @@ interface Props {
 function previousText(s: Pick<LoggedSet, 'weight' | 'reps' | 'partial' | 'minutes' | 'km'> | undefined, cardio: boolean, settings: Settings): string {
   if (!s) return '–'
   if (cardio) return `${s.minutes ?? 0} min${s.km ? ` · ${kmToDisplay(s.km, settings.distanceUnit)} ${settings.distanceUnit}` : ''}`
-  return `${kgToDisplay(s.weight, settings.weightUnit)} ${settings.weightUnit} × ${s.reps}${s.partial ? ` +${s.partial}T` : ''}`
+  return `${kgToDisplay(s.weight, settings.weightUnit)} ${settings.weightUnit} × ${s.reps}${s.partial ? t(' +{0}T', s.partial) : ''}`
 }
 
 const COLS = 'grid-cols-[2rem_1fr_3.5rem_3.5rem_2rem]'
@@ -79,7 +80,7 @@ export function SetTable({ view, plain, rows, settings, activePad, onPatch, onTo
         <span>{cardio ? 'min' : side ? de.logger.perSide(settings.weightUnit) : settings.weightUnit}</span>
         <span>{cardio ? settings.distanceUnit : isRepless(view.ex.metric) || !side ? metricColumn(view.ex.metric, distanceUnitOf(view.ex)) : de.logger.repsPerSide}</span>
         {plain ? <span aria-hidden /> : <button onClick={onToggleAll} disabled={rows.length === 0} role="checkbox" aria-checked={allDone ? true : doneN > 0 ? 'mixed' : false}
-          aria-label="Alle Sätze abhaken"
+          aria-label={t('Alle Sätze abhaken')}
           className="h-8 flex items-center justify-center disabled:opacity-40">
           <Check state={allDone ? true : doneN > 0 ? 'mixed' : false} />
         </button>}
@@ -92,10 +93,10 @@ export function SetTable({ view, plain, rows, settings, activePad, onPatch, onTo
           if (i !== summaryAt) return null
           const n = hidden.size
           return (
-            <button key={`warm-sum-${r.id}`} onClick={() => setOpenFor(exId)} aria-label={`${n} erledigte Aufwärmsätze anzeigen`}
+            <button key={`warm-sum-${r.id}`} onClick={() => setOpenFor(exId)} aria-label={t('{0} erledigte Aufwärmsätze anzeigen', n)}
               className={cx('grid gap-1.5 px-1 py-1.5 w-full items-center border-b border-line/60 bg-surface2/60 text-left active:opacity-70', COLS)}>
               <span className="justify-self-center w-7 h-7 rounded-full text-xs font-semibold flex items-center justify-center bg-warn/15 text-warn opacity-40">{SET_BADGE.warmup}</span>
-              <span className="col-span-3 text-xs text-muted">{n} {n === 1 ? 'Aufwärmsatz' : 'Aufwärmsätze'} erledigt · anzeigen</span>
+              <span className="col-span-3 text-xs text-muted">{n} {n === 1 ? t('Aufwärmsatz') : t('Aufwärmsätze')} {t('erledigt · anzeigen')}</span>
               <span className="flex items-center justify-center"><Check state={true} /></span>
             </button>
           )
@@ -111,12 +112,12 @@ export function SetTable({ view, plain, rows, settings, activePad, onPatch, onTo
           const padOn = (f: PadField) => activePad?.rowId === r.id && activePad.field === f && (activePad.side === 'r') === (side === 'r')
           const splitOn = partial > 0 || (padOn('reps') && !!activePad?.partial)
           const prevSide = side && prev?.sides ? prev.sides[side] : prev
-          const sideLabel = side === 'l' ? 'Links' : side === 'r' ? 'Rechts' : ''
+          const sideLabel = side === 'l' ? t('Links') : side === 'r' ? t('Rechts') : ''
           return (
             <div data-row-id={side === 'r' ? `${r.id}-r` : r.id} className={cx('grid gap-1.5 px-1 py-1 items-center transition-colors', COLS,
               side === 'l' ? 'border-b border-line/30' : 'border-b border-line/60', done && 'bg-surface2/60')}>
               {side === 'r' ? <span aria-hidden /> : (
-                <button onClick={() => onType(r.id)} aria-label={seg ? `${r.type === 'drop' ? 'Drop' : 'Myo'}-Segment, Optionen` : 'Satztyp ändern'}
+                <button onClick={() => onType(r.id)} aria-label={seg ? t('{0}-Segment, Optionen', r.type === 'drop' ? 'Drop' : 'Myo') : t('Satztyp ändern')}
                   className={cx('justify-self-center rounded-full text-xs font-semibold flex items-center justify-center active:opacity-70',
                     seg ? 'w-6 h-6 ml-2 bg-accent/15 text-accent' : 'w-7 h-7',
                     warm ? 'bg-warn/15 text-warn' : seg ? '' : r.failure ? 'bg-danger/15 text-danger' : 'bg-surface2 text-fg', r.done && 'opacity-40')}>
@@ -136,13 +137,13 @@ export function SetTable({ view, plain, rows, settings, activePad, onPatch, onTo
                 </>
               ) : (
                 <>
-                  <button onClick={() => onPad(r.id, 'weight', side === 'r' ? 'r' : undefined)} aria-label={sideLabel ? `Gewicht ${sideLabel}` : undefined}
+                  <button onClick={() => onPad(r.id, 'weight', side === 'r' ? 'r' : undefined)} aria-label={sideLabel ? t('Gewicht {0}', sideLabel) : undefined}
                     className={cx(cell, done && 'opacity-40', padOn('weight') && 'ring-2 ring-accent !opacity-100')}>{v.weight || '–'}</button>
                   <button onClick={() => onPad(r.id, 'reps', side === 'r' ? 'r' : undefined)}
-                    aria-label={rirN !== null && !warm ? `${sideLabel ? `${sideLabel}: ` : ''}${v.reps || '–'}${r.failure ? ' oder mehr, bis zum Versagen' : ''}, Ziel-RIR ${rirN}` : sideLabel ? `Wiederholungen ${sideLabel}` : undefined}
+                    aria-label={rirN !== null && !warm ? t('{0}{1}{2}, Ziel-RIR {3}', sideLabel ? `${sideLabel}: ` : '', v.reps || '–', r.failure ? t(' oder mehr, bis zum Versagen') : '', rirN) : sideLabel ? t('Wiederholungen {0}', sideLabel) : undefined}
                     className={cx(cell, 'relative', done && 'opacity-40', padOn('reps') && 'ring-2 ring-accent !opacity-100')}>
                     {splitOn ? (
-                      <span className="flex w-full items-stretch" aria-label={`${v.reps || '–'} volle, ${partial || '–'} Teilwiederholungen`}>
+                      <span className="flex w-full items-stretch" aria-label={t('{0} volle, {1} Teilwiederholungen', v.reps || '–', partial || '–')}>
                         <span className={cx('flex-1 flex items-center justify-center rounded-l-lg', padOn('reps') && !activePad?.partial && 'bg-surface')}>{v.reps || '–'}{r.failure && !warm && v.reps ? '+' : ''}</span>
                         <span className="w-px my-1.5 bg-muted/70" aria-hidden />
                         <span className={cx('flex-1 flex items-center justify-center rounded-r-lg', padOn('reps') && activePad?.partial && 'bg-surface')}>{partial || '–'}</span>
@@ -155,7 +156,7 @@ export function SetTable({ view, plain, rows, settings, activePad, onPatch, onTo
                 </>
               )}
               {plain ? <span aria-hidden /> : (
-                <button role="checkbox" aria-checked={done} aria-label={sideLabel ? `Seite ${sideLabel} abhaken` : 'Satz abhaken'}
+                <button role="checkbox" aria-checked={done} aria-label={sideLabel ? t('Seite {0} abhaken', sideLabel) : t('Satz abhaken')}
                   onClick={() => { if (warm && !r.done) setOpenFor(null); onToggleDone(r, side) }}
                   className="h-9 flex items-center justify-center active:opacity-70">
                   <Check state={done} />

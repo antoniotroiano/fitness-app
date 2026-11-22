@@ -11,6 +11,7 @@ import { saveExerciseOverride, useExerciseOverrides, usePrograms, useSessions, u
 import { formatDate } from '../../utils/dates'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
 import { de } from '../../i18n/de'
+import { t, lc } from '../../i18n'
 
 type Tab = 'instructions' | 'details' | 'history'
 const TABS: { id: Tab; label: string }[] = [
@@ -25,14 +26,14 @@ function useGuide(ex: Exercise): Guide | null {
   useEffect(() => {
     let cancelled = false
     void Promise.all([import('../../data/instructions'), import('../../data/media/tips')])
-      .then(([i, t]) => { if (!cancelled) setLoaded({ instructionsFor: i.instructionsFor, tipsFor: t.tipsFor }) })
+      .then(([i, tp]) => { if (!cancelled) setLoaded({ instructionsFor: i.instructionsFor, tipsFor: tp.tipsFor }) })
     return () => { cancelled = true }
   }, [])
   return useMemo(() => (loaded ? { steps: loaded.instructionsFor(ex), tips: loaded.tipsFor(ex.id) } : null), [loaded, ex])
 }
 
-function Tips({ t }: { t?: MediaTips }) {
-  if (!t) return null
+function Tips({ tips }: { tips?: MediaTips }) {
+  if (!tips) return null
   const block = (title: string, items: string[]) => items.length > 0 && (
     <section className="mt-5">
       <h3 className="text-sm font-semibold mb-1.5">{title}</h3>
@@ -41,12 +42,12 @@ function Tips({ t }: { t?: MediaTips }) {
   )
   return (
     <>
-      {block('Tipps', t.cues)}
-      {block('Häufige Fehler', t.mistakes)}
-      {t.breathing && (
+      {block(t('Tipps'), tips.cues)}
+      {block(t('Häufige Fehler'), tips.mistakes)}
+      {tips.breathing && (
         <section className="mt-5">
-          <h3 className="text-sm font-semibold mb-1.5">Atmung</h3>
-          <p className="text-sm text-muted">{t.breathing}</p>
+          <h3 className="text-sm font-semibold mb-1.5">{t('Atmung')}</h3>
+          <p className="text-sm text-muted">{tips.breathing}</p>
         </section>
       )}
     </>
@@ -76,7 +77,7 @@ function History({ ex }: { ex: Exercise }) {
     return out
   }, [sessions, programs, ex, s.weightUnit, s.distanceUnit])
 
-  if (!entries.length) return <p className="text-sm text-muted">Noch keine Einträge für diese Übung.</p>
+  if (!entries.length) return <p className="text-sm text-muted">{t('Noch keine Einträge für diese Übung.')}</p>
   return (
     <ul className="divide-y divide-line">
       {entries.map((e) => (
@@ -86,14 +87,14 @@ function History({ ex }: { ex: Exercise }) {
             <ProgramBadge icon={e.program?.icon} color={e.program?.color ?? '#64748b'} size={36} />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium">{formatDate(e.date)}</span>
-              <span className="block text-xs text-muted truncate">{e.program?.name ?? 'Einzelnes Workout'}</span>
+              <span className="block text-xs text-muted truncate">{e.program?.name ?? t('Einzelnes Workout')}</span>
             </span>
-            <span className="text-muted text-xs">{e.work.length} Sätze {open === e.key ? '▴' : '▾'}</span>
+            <span className="text-muted text-xs">{e.work.length} {lc(t('Sätze'))} {open === e.key ? '▴' : '▾'}</span>
           </button>
           {open === e.key && (
             <div className="pb-3 pl-12 space-y-1 text-sm">
-              {e.warm.map((t, i) => <div key={`w${i}`} className="flex gap-3"><span className="w-6 text-warn font-semibold">W</span><span>{t}</span></div>)}
-              {e.work.map((t, i) => <div key={i} className="flex gap-3"><span className="w-6 text-muted">{i + 1}</span><span>{t}</span></div>)}
+              {e.warm.map((s, i) => <div key={`w${i}`} className="flex gap-3"><span className="w-6 text-warn font-semibold">W</span><span>{s}</span></div>)}
+              {e.work.map((s, i) => <div key={i} className="flex gap-3"><span className="w-6 text-muted">{i + 1}</span><span>{s}</span></div>)}
             </div>
           )}
         </li>
@@ -114,9 +115,9 @@ function InfoSheet({ ex, open, onClose, tab, setTab }: { ex: Exercise; open: boo
   return (
     <BottomSheet tall open={open} onClose={onClose} title={ex.name}>
       <div role="tablist" className="sticky top-0 z-10 flex gap-1 p-1 rounded-xl bg-surface2 mb-4">
-        {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-            className={cx('flex-1 py-2 rounded-lg text-sm', tab === t.id ? 'bg-surface font-semibold shadow-sm' : 'text-muted')}>{t.label}</button>
+        {TABS.map((tb) => (
+          <button key={tb.id} role="tab" aria-selected={tab === tb.id} onClick={() => setTab(tb.id)}
+            className={cx('flex-1 py-2 rounded-lg text-sm', tab === tb.id ? 'bg-surface font-semibold shadow-sm' : 'text-muted')}>{tb.label}</button>
         ))}
       </div>
       {tab === 'instructions' && (
@@ -126,15 +127,15 @@ function InfoSheet({ ex, open, onClose, tab, setTab }: { ex: Exercise; open: boo
             {(guide?.steps ?? []).map((step, i) => <li key={i}>{step}</li>)}
           </ol>
           {!guide && <p className="text-sm text-muted">{de.common.loading}</p>}
-          <Tips t={guide?.tips} />
+          <Tips tips={guide?.tips} />
         </div>
       )}
       {tab === 'details' && (
         <div className="space-y-4">
           {!ex.cardio && <MuscleDetail primary={ex.primary} secondary={ex.secondary} />}
           <dl className="text-sm space-y-1">
-            <div className="flex gap-2"><dt className="text-muted w-24">Primär</dt><dd>{ex.primary.map(muscleLabel).join(', ') || '–'}</dd></div>
-            <div className="flex gap-2"><dt className="text-muted w-24">Sekundär</dt><dd>{ex.secondary.map(muscleLabel).join(', ') || '–'}</dd></div>
+            <div className="flex gap-2"><dt className="text-muted w-24">{t('Primär')}</dt><dd>{ex.primary.map(muscleLabel).join(', ') || '–'}</dd></div>
+            <div className="flex gap-2"><dt className="text-muted w-24">{t('Sekundär')}</dt><dd>{ex.secondary.map(muscleLabel).join(', ') || '–'}</dd></div>
             <div className="flex gap-2"><dt className="text-muted w-24">Equipment</dt><dd>{EQUIPMENT_LABEL[ex.equipment]}</dd></div>
           </dl>
           <NeverRecommend id={ex.id} />
@@ -151,10 +152,10 @@ function NeverRecommend({ id }: { id: string }) {
   return (
     <label className="flex items-center gap-3 border-t border-line pt-4">
       <span className="flex-1 min-w-0">
-        <span className="block text-sm font-medium">Nie empfehlen</span>
-        <span className="block text-xs text-muted">Neue Pläne und Tauschvorschläge lassen die Übung weg. Bestehende Pläne bleiben, von Hand kannst du sie weiter wählen.</span>
+        <span className="block text-sm font-medium">{t('Nie empfehlen')}</span>
+        <span className="block text-xs text-muted">{t('Neue Pläne und Tauschvorschläge lassen die Übung weg. Bestehende Pläne bleiben, von Hand kannst du sie weiter wählen.')}</span>
       </span>
-      <button role="switch" aria-checked={on} aria-label="Nie empfehlen" onClick={() => void saveExerciseOverride(id, { neverRecommend: on ? undefined : true })}
+      <button role="switch" aria-checked={on} aria-label={t('Nie empfehlen')} onClick={() => void saveExerciseOverride(id, { neverRecommend: on ? undefined : true })}
         className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', on ? 'bg-accent' : 'bg-line')}>
         <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', on ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
       </button>

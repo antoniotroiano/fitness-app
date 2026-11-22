@@ -20,6 +20,7 @@ import { addDays, todayStr, weekStart } from '../../utils/dates'
 import { CalendarLegend, HabitBox, MetricBox, MonthCalendar, RingStat, SectionHeader, StatBox } from './widgets'
 import { de } from '../../i18n/de'
 import { BodyMap, VolumeTile } from './BodyMap'
+import { t } from '../../i18n'
 
 const COLOR = { weight: 'var(--habit-weight)', workout: 'var(--habit-workout)' }
 
@@ -31,7 +32,7 @@ function HabitPanel({ open, onClose, title, today, tracked, color, todayText, st
   return (
     <SlideOver open={open} onClose={onClose} title={title}>
       <Card className="flex items-center justify-between">
-        <div><div className="text-xs text-muted">Heute</div><div className="text-lg font-bold">{todayText}</div></div>
+        <div><div className="text-xs text-muted">{t('Heute')}</div><div className="text-lg font-bold">{todayText}</div></div>
         <div className="text-right"><div className="text-xs text-muted">{de.common.streak}</div><div className="text-lg font-bold">{streakText}</div></div>
       </Card>
       {children}
@@ -139,9 +140,9 @@ export default function Dashboard() {
   const sectionNodes: Record<DashboardSection, ReactNode> = {
     habits: (
       <section key="habits" className="space-y-2">
-        <SectionHeader title="Gewohnheiten" />
+        <SectionHeader title={t('Gewohnheiten')} />
         <div className="grid grid-cols-2 gap-3">
-          <HabitBox title="Gewicht" dates={weightDates} today={today} color={COLOR.weight} weekDone={weekCount(weightDates, today)} onClick={() => setPanel('weight')} />
+          <HabitBox title={t('Gewicht')} dates={weightDates} today={today} color={COLOR.weight} weekDone={weekCount(weightDates, today)} onClick={() => setPanel('weight')} />
           <HabitBox title="Workouts" dates={workoutDates} today={today} color={COLOR.workout} weekDone={weekCount(workoutDates, today)} onClick={() => setPanel('workout')} />
         </div>
       </section>
@@ -157,13 +158,13 @@ export default function Dashboard() {
     ),
     volume: (
       <section key="volume" className="space-y-2">
-        <SectionHeader title="Volumen" />
+        <SectionHeader title={t('Volumen')} />
         <VolumeTile onClick={() => setPanel('volume')} />
       </section>
     ),
     muscles: (
       <section key="muscles" className="space-y-2">
-        <SectionHeader title="Muskelgruppen" onAll={() => setPanel('muscles')} />
+        <SectionHeader title={t('Muskelgruppen')} onAll={() => setPanel('muscles')} />
         <div className="grid grid-cols-2 gap-3">
           {top(muscleBoxes).map((b) => (
             <StatBox key={b.id} title={b.title} values={b.values} total={b.total} unit={de.common.sets} onClick={() => nav(`/stats/muscle/${b.id}?m=sets`)} />
@@ -173,8 +174,8 @@ export default function Dashboard() {
     ),
     exercises: (
       <section key="exercises" className="space-y-2">
-        <SectionHeader title="Übungen" onAll={() => setPanel('exercises')} />
-        {exerciseBoxes.length === 0 && <Card className="text-sm text-muted">Noch keine Übungen im Plan.</Card>}
+        <SectionHeader title={t('Übungen')} onAll={() => setPanel('exercises')} />
+        {exerciseBoxes.length === 0 && <Card className="text-sm text-muted">{t('Noch keine Übungen im Plan.')}</Card>}
         <div className="grid grid-cols-2 gap-3">
           {top(exerciseBoxes).map((b) => (
             <StatBox key={b.id} title={b.title} values={b.values} line={b.line} total={b.total} unit={b.unit} onClick={() => nav(`/stats/exercise/${b.id}`)} />
@@ -191,7 +192,7 @@ export default function Dashboard() {
       <div className="bg-surface" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
         <div className="px-4 h-14 flex items-center justify-between max-w-2xl mx-auto">
           <h1 className="font-bold text-lg">Dashboard</h1>
-          <button type="button" onClick={() => setCustomize(true)} aria-label="Dashboard anpassen"
+          <button type="button" onClick={() => setCustomize(true)} aria-label={t('Dashboard anpassen')}
             className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-muted active:opacity-70">
             <Icon name="sliders" size={22} />
           </button>
@@ -202,25 +203,25 @@ export default function Dashboard() {
             {!program && (
               <div className="text-center space-y-3 py-4">
                 <div className="flex justify-center"><ProgramBadge size={56} /></div>
-                <div className="font-semibold">Willkommen bei Lift Lab</div>
-                <p className="text-sm text-muted">Erstelle dein erstes Programm, um Fortschritt zu verfolgen.</p>
-                <Button onClick={() => nav('/new')}>Programm erstellen</Button>
+                <div className="font-semibold">{t('Willkommen bei Lift Lab')}</div>
+                <p className="text-sm text-muted">{t('Erstelle dein erstes Programm, um Fortschritt zu verfolgen.')}</p>
+                <Button onClick={() => nav('/new')}>{t('Programm erstellen')}</Button>
               </div>
             )}
             {program && progress && (
               <>
                 <div className="flex justify-between items-baseline">
-                  <div className="font-semibold">Diese Woche</div>
-                  <div className="text-xs text-muted flex items-center gap-1.5"><ProgramBadge icon={program.icon} color={program.color} size={20} />{program.name} · Woche {week.week + 1}</div>
+                  <div className="font-semibold">{t('Diese Woche')}</div>
+                  <div className="text-xs text-muted flex items-center gap-1.5"><ProgramBadge icon={program.icon} color={program.color} size={20} />{program.name} {t('· Woche')} {week.week + 1}</div>
                 </div>
                 <div className="flex items-end justify-between gap-2">
-                  <RingStat label="Muskeln" done={progress.muscles.done} shown={progress.muscles.full} total={progress.muscles.total} color="var(--ring-muscles)" />
+                  <RingStat label={t('Muskeln')} done={progress.muscles.done} shown={progress.muscles.full} total={progress.muscles.total} color="var(--ring-muscles)" />
                   <RingStat big label={de.common.sets} done={progress.sets.done} total={progress.sets.total} color="var(--ring-sets)" />
-                  <RingStat label="Übungen" done={progress.exercises.done} total={progress.exercises.total} color="var(--ring-ex)" />
+                  <RingStat label={t('Übungen')} done={progress.exercises.done} total={progress.exercises.total} color="var(--ring-ex)" />
                 </div>
                 <div className="flex justify-center">
-                  <div className="inline-flex rounded-xl bg-surface2 p-1" role="group" aria-label="Ringe zählen">
-                    {([['program', 'Programm'], ['all', 'Alle Workouts']] as const).map(([k, l]) => (
+                  <div className="inline-flex rounded-xl bg-surface2 p-1" role="group" aria-label={t('Ringe zählen')}>
+                    {([['program', t('Programm')], ['all', t('Alle Workouts')]] as const).map(([k, l]) => (
                       <button key={k} type="button" aria-pressed={ringScope === k} onClick={() => pickScope(k)}
                         className={`rounded-lg px-3 py-1 text-2xs font-semibold transition-colors ${ringScope === k ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{l}</button>
                     ))}
@@ -232,10 +233,10 @@ export default function Dashboard() {
           <div className="w-full shrink-0 snap-center px-4 pb-2 space-y-3">
             <div className="flex justify-between items-baseline">
               <div className="font-semibold">{de.dashboard.recentRecords}</div>
-              <div className="text-xs text-muted">{recMetric === 'volume' ? `Bester Satz (${u})` : recMetric === 'reps' ? 'Wdh. im besten Satz' : `1RM (${u})`}</div>
+              <div className="text-xs text-muted">{recMetric === 'volume' ? t('Bester Satz ({0})', u) : recMetric === 'reps' ? t('Wdh. im besten Satz') : `1RM (${u})`}</div>
             </div>
             <div className="space-y-2 min-h-[176px]">
-              {records.length === 0 && <p className="text-sm text-muted py-6 text-center">Noch keine Einheiten geloggt.</p>}
+              {records.length === 0 && <p className="text-sm text-muted py-6 text-center">{t('Noch keine Einheiten geloggt.')}</p>}
               {records.map((r) => (
                 <div key={r.exerciseId} className="flex items-center gap-3 text-sm">
                   <span className="w-28 shrink-0 truncate">{lookup(r.exerciseId)?.name ?? r.exerciseId}</span>
@@ -246,8 +247,8 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <div className="flex justify-center"><div className="inline-flex rounded-xl bg-surface2 p-1" role="group" aria-label="Rekord-Art">
-              {([['volume', 'Volumen'], ['reps', de.common.reps], ['rm1', '1RM']] as const).map(([v, label]) => (
+            <div className="flex justify-center"><div className="inline-flex rounded-xl bg-surface2 p-1" role="group" aria-label={t('Rekord-Art')}>
+              {([['volume', t('Volumen')], ['reps', de.common.reps], ['rm1', '1RM']] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setRecMetric(v)} aria-pressed={recMetric === v}
                   className={`rounded-lg px-3 py-1 text-2xs font-semibold transition-colors ${recMetric === v ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{label}</button>
               ))}
@@ -262,24 +263,24 @@ export default function Dashboard() {
       <div className="px-4 py-4 space-y-4 max-w-2xl mx-auto">
       {visibleIds(layout.sections).map((id) => sectionNodes[id as DashboardSection])}
 
-      <HabitPanel open={panel === 'weight'} onClose={close} title="Gewicht" today={today} tracked={weightDates} color={COLOR.weight}
+      <HabitPanel open={panel === 'weight'} onClose={close} title={t('Gewicht')} today={today} tracked={weightDates} color={COLOR.weight}
         todayText={todayWeight ? `${kgToDisplay(todayWeight.kg, u)} ${u}` : `-- ${u}`}
-        streakText={`${streakDays(weightDates, today)} Tage`} onSelect={setSheetDate}>
+        streakText={t('{0} Tage', streakDays(weightDates, today))} onSelect={setSheetDate}>
         <Card className="space-y-3">
           <div className="flex gap-2">
-            <input inputMode="decimal" className={inputCls} placeholder={`Heute (${u})`} value={wVal} onChange={(e) => setWVal(e.target.value)} />
+            <input inputMode="decimal" className={inputCls} placeholder={t('Heute ({0})', u)} value={wVal} onChange={(e) => setWVal(e.target.value)} />
             <Button onClick={async () => {
               const n = Number(wVal.replace(',', '.'))
               if (n > 0) { await saveBodyEntry(today, { kg: Math.round(displayToKg(n, u) * 10) / 10 }); setWVal('') }
-            }}>Eintragen</Button>
+            }}>{t('Eintragen')}</Button>
           </div>
-          <Button variant="ghost" className="w-full" onClick={() => goStats('/weight')}>Verlauf, Details &amp; Import</Button>
+          <Button variant="ghost" className="w-full" onClick={() => goStats('/weight')}>{t('Verlauf, Details &amp; Import')}</Button>
         </Card>
       </HabitPanel>
 
       <HabitPanel open={panel === 'workout'} onClose={close} title="Workouts" today={today} tracked={workoutDates} color={COLOR.workout}
-        todayText={workoutDates.has(today) ? 'Absolviert' : '--'}
-        streakText={`${streakWeeks(workoutDates, today)} Wochen`} />
+        todayText={workoutDates.has(today) ? t('Absolviert') : '--'}
+        streakText={t('{0} Wochen', streakWeeks(workoutDates, today))} />
 
       <SlideOver open={panel === 'body'} onClose={close} title={de.dashboard.bodyMetrics}>
         <section className="space-y-2">
@@ -302,14 +303,14 @@ export default function Dashboard() {
 
       <EntrySheet date={sheetDate} today={today} entry={weights.find((w) => w.date === sheetDate)} unit={u} onClose={() => setSheetDate(null)} />
 
-      <SlideOver open={panel === 'volume'} onClose={close} title="Volumen">
+      <SlideOver open={panel === 'volume'} onClose={close} title={t('Volumen')}>
         <BodyMap onMuscle={(id) => goStats(`/stats/muscle/${id}?m=sets`)} />
       </SlideOver>
 
-      <SlideOver open={panel === 'muscles'} onClose={close} title="Muskelgruppen">
+      <SlideOver open={panel === 'muscles'} onClose={close} title={t('Muskelgruppen')}>
         {(['upper', 'lower'] as const).map((region) => (
           <section key={region} className="space-y-2">
-            <h2 className="text-xs uppercase tracking-wide text-muted">{region === 'upper' ? 'Oberkörper' : 'Unterkörper'}</h2>
+            <h2 className="text-xs uppercase tracking-wide text-muted">{region === 'upper' ? t('Oberkörper') : t('Unterkörper')}</h2>
             <div className="grid grid-cols-2 gap-3">
               {muscleBoxes.filter((b) => b.region === region).map((b) => (
                 <StatBox key={b.id} title={b.title} values={b.values} total={b.total} unit={de.common.sets} onClick={() => goStats(`/stats/muscle/${b.id}?m=sets`)} />
@@ -319,8 +320,8 @@ export default function Dashboard() {
         ))}
       </SlideOver>
 
-      <SlideOver open={panel === 'exercises'} onClose={close} title="Übungen">
-        {exerciseBoxes.length === 0 && <p className="text-sm text-muted">Noch keine Übungen im Plan.</p>}
+      <SlideOver open={panel === 'exercises'} onClose={close} title={t('Übungen')}>
+        {exerciseBoxes.length === 0 && <p className="text-sm text-muted">{t('Noch keine Übungen im Plan.')}</p>}
         <div className="grid grid-cols-2 gap-3">
           {exerciseBoxes.map((b) => (
             <StatBox key={b.id} title={b.title} values={b.values} line={b.line} total={b.total} unit={b.unit} onClick={() => goStats(`/stats/exercise/${b.id}`)} />

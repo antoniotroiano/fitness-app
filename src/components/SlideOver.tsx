@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { t } from '../i18n'
 
 /**
  * Seite, die von rechts hereinschiebt (mit abgedunkeltem Hintergrund).
@@ -50,7 +51,7 @@ export function SlideOver({ open, onClose, title, children }: { open: boolean; o
         style={{ transform: shown ? 'translateX(0)' : 'translateX(100%)' }}>
         <header className="safe-top shrink-0 bg-bg border-b border-line">
           <div className="flex items-center gap-3 px-4 h-14">
-            <button onClick={onClose} aria-label="Zurück" className="text-accent text-xl -ml-1">‹</button>
+            <button onClick={onClose} aria-label={t('Zurück')} className="text-accent text-xl -ml-1">‹</button>
             <h1 className="font-bold text-lg flex-1 truncate">{title}</h1>
           </div>
         </header>

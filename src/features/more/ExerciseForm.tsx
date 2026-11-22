@@ -9,6 +9,7 @@ import {
 import { isRepless } from '../../engine/metric'
 import { saveCustomExercise, useAllExercises } from '../../db/db'
 import { shrinkImage } from '../../utils/image'
+import { t } from '../../i18n'
 
 /** Muskel durchschalten: nicht beteiligt → Haupt- → Nebenmuskel → nicht beteiligt. */
 function cycleMuscle(d: ExerciseDraft, m: MuscleId): ExerciseDraft {
@@ -63,7 +64,7 @@ export function ExerciseFormSheet({ open, onClose, initial, editId, onSaved }: {
 
   const pick = async (f?: File) => {
     if (!f) return
-    try { set({ image: await shrinkImage(f) }); setImgErr('') } catch (e) { setImgErr(e instanceof Error ? e.message : 'Das Bild konnte nicht geladen werden.') }
+    try { set({ image: await shrinkImage(f) }); setImgErr('') } catch (e) { setImgErr(e instanceof Error ? e.message : t('Das Bild konnte nicht geladen werden.')) }
     if (file.current) file.current.value = ''
   }
 
@@ -77,14 +78,14 @@ export function ExerciseFormSheet({ open, onClose, initial, editId, onSaved }: {
   }
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={editId ? 'Übung bearbeiten' : 'Eigene Übung'} tall>
+    <BottomSheet open={open} onClose={onClose} title={editId ? t('Übung bearbeiten') : t('Eigene Übung')} tall>
       <div className="px-4 space-y-5 pb-2">
         <Field label="Name">
-          <input className={inputCls} value={d.name} maxLength={NAME_MAX} placeholder="z. B. Kabel-Pullover" aria-label="Name der Übung"
+          <input className={inputCls} value={d.name} maxLength={NAME_MAX} placeholder={t('z. B. Kabel-Pullover')} aria-label={t('Name der Übung')}
             onChange={(e) => set({ name: e.target.value })} />
         </Field>
 
-        <Field label="Gerät">
+        <Field label={t('Gerät')}>
           <div className="flex flex-wrap gap-2">
             {CUSTOM_EQUIPMENT.map((q) => <Chip key={q} active={d.equipment === q} onClick={() => set({ equipment: q })}>{EQUIPMENT_LABEL[q]}</Chip>)}
           </div>
@@ -92,90 +93,90 @@ export function ExerciseFormSheet({ open, onClose, initial, editId, onSaved }: {
 
         {!cardio && (
           <>
-        <Field label="Muskeln" hint="Antippen: Hauptmuskel, nochmal: Nebenmuskel (zählt halb), nochmal: nicht beteiligt.">
+        <Field label={t('Muskeln')} hint={t('Antippen: Hauptmuskel, nochmal: Nebenmuskel (zählt halb), nochmal: nicht beteiligt.')}>
           <div className="flex flex-wrap gap-2">
             {MUSCLES.map((m) => {
               const p = d.primary.includes(m.id)
               const s = d.secondary.includes(m.id)
               return (
-                <button key={m.id} type="button" aria-label={`${m.label}: ${p ? 'Hauptmuskel' : s ? 'Nebenmuskel' : 'nicht beteiligt'}`}
+                <button key={m.id} type="button" aria-label={`${m.label}: ${p ? t('Hauptmuskel') : s ? t('Nebenmuskel') : t('nicht beteiligt')}`}
                   onClick={() => setD((x) => cycleMuscle(x, m.id))}
                   className={cx('rounded-full px-3 py-1.5 text-xs whitespace-nowrap border',
                     p ? 'bg-accent text-accent-fg border-accent font-semibold' : s ? 'border-accent text-fg bg-surface2' : 'bg-surface2 text-muted border-line')}>
-                  {m.label}{s ? ' (neben)' : ''}
+                  {m.label}{s ? t(' (neben)') : ''}
                 </button>
               )
             })}
           </div>
         </Field>
 
-        <Field label="Bewegungsmuster">
+        <Field label={t('Bewegungsmuster')}>
           <div className="flex flex-wrap gap-2">
             {CUSTOM_PATTERNS.map((p) => <Chip key={p} active={d.pattern === p} onClick={() => set({ pattern: p })}>{PATTERN_LABEL[p]}</Chip>)}
           </div>
         </Field>
 
-        <Field label="Messgröße" hint={d.metric === 'distance' ? `Strecke in ${d.distanceUnit === 'yd' ? 'Yards' : 'Metern'} (z. B. Farmer's Walk, Schlitten): Ziel 20–40 ${d.distanceUnit}, +5 ${d.distanceUnit} je Einheit. Zusatzgewicht bleibt möglich, 1RM und Volumen gibt es nicht. Die Strecke wird in dieser Einheit gespeichert, nicht umgerechnet.`
-          : d.metric === 'time' ? 'Dauer in Sekunden (z. B. Plank): Ziel 30–60 s, +5 s je Einheit, kein 1RM und kein Volumen.' : undefined}>
+        <Field label={t('Messgröße')} hint={d.metric === 'distance' ? t('Strecke in {0} (z. B. Farmer\'s Walk, Schlitten): Ziel 20–40 {1}, +5 {2} je Einheit. Zusatzgewicht bleibt möglich, 1RM und Volumen gibt es nicht. Die Strecke wird in dieser Einheit gespeichert, nicht umgerechnet.', d.distanceUnit === 'yd' ? 'Yards' : t('Metern'), d.distanceUnit, d.distanceUnit)
+          : d.metric === 'time' ? t('Dauer in Sekunden (z. B. Plank): Ziel 30–60 s, +5 s je Einheit, kein 1RM und kein Volumen.') : undefined}>
           <Segmented value={d.metric} onChange={(v) => set({ metric: v })}
-            options={[{ value: 'reps', label: 'Wiederholungen' }, { value: 'time', label: 'Zeit (Sekunden)' }, { value: 'distance', label: 'Distanz' }]} />
+            options={[{ value: 'reps', label: t('Wiederholungen') }, { value: 'time', label: t('Zeit (Sekunden)') }, { value: 'distance', label: t('Distanz') }]} />
         </Field>
 
         {d.metric === 'distance' && (
-          <Field label="Einheit der Strecke">
-            <Segmented value={d.distanceUnit} onChange={(v) => set({ distanceUnit: v })} options={[{ value: 'm', label: 'Meter' }, { value: 'yd', label: 'Yards' }]} />
+          <Field label={t('Einheit der Strecke')}>
+            <Segmented value={d.distanceUnit} onChange={(v) => set({ distanceUnit: v })} options={[{ value: 'm', label: t('Meter') }, { value: 'yd', label: 'Yards' }]} />
           </Field>
         )}
 
         {dbKb && (
-          <Field label="Gewicht" hint="Je Seite: du hältst ein Gerät pro Hand, das Volumen zählt doppelt.">
+          <Field label={t('Gewicht')} hint={t('Je Seite: du hältst ein Gerät pro Hand, das Volumen zählt doppelt.')}>
             <Segmented value={d.load} onChange={(v) => set({ load: v })}
-              options={[{ value: 'perSide', label: 'Je Seite' }, { value: 'single', label: 'Ein Gerät' }]} />
+              options={[{ value: 'perSide', label: t('Je Seite') }, { value: 'single', label: t('Ein Gerät') }]} />
           </Field>
         )}
 
         {bw && (
-          <Field label={`Körpergewichtsanteil: ${Math.round(d.bodyweight * 100)} %`}
-            hint="Anteil deines Körpergewichts, der bewegt wird (Liegestütz ≈ 64 %, Klimmzug ≈ 95 %). 0 % = nur Zusatzgewicht zählt.">
+          <Field label={t('Körpergewichtsanteil: {0} %', Math.round(d.bodyweight * 100))}
+            hint={t('Anteil deines Körpergewichts, der bewegt wird (Liegestütz ≈ 64 %, Klimmzug ≈ 95 %). 0 % = nur Zusatzgewicht zählt.')}>
             <input type="range" min={0} max={100} step={5} value={Math.round(d.bodyweight * 100)} className="w-full accent-[var(--accent)]"
-              aria-label="Körpergewichtsanteil" onChange={(e) => set({ bodyweight: Number(e.target.value) / 100 })} />
+              aria-label={t('Körpergewichtsanteil')} onChange={(e) => set({ bodyweight: Number(e.target.value) / 100 })} />
           </Field>
         )}
 
-        <Field label="Art" hint="Verbund: mehrere Gelenke, längere Pausen, Reserve bleibt ≥ 1. Isolation: ein Gelenk.">
+        <Field label={t('Art')} hint={t('Verbund: mehrere Gelenke, längere Pausen, Reserve bleibt ≥ 1. Isolation: ein Gelenk.')}>
           <Segmented value={d.compound ? 'compound' : 'isolation'} onChange={(v) => set({ compound: v === 'compound' })}
-            options={[{ value: 'compound', label: 'Verbundübung' }, { value: 'isolation', label: 'Isolationsübung' }]} />
+            options={[{ value: 'compound', label: t('Verbundübung') }, { value: 'isolation', label: t('Isolationsübung') }]} />
         </Field>
 
         <div className="space-y-1 divide-y divide-line">
-          <Toggle label="Einseitig" desc="Links und rechts werden getrennt erfasst." on={d.unilateral} onChange={(v) => set({ unilateral: v })} />
+          <Toggle label={t('Einseitig')} desc={t('Links und rechts werden getrennt erfasst.')} on={d.unilateral} onChange={(v) => set({ unilateral: v })} />
           {!isRepless(d.metric) && (
-            <Toggle label="Assistiert" desc="Das Gewicht ist die Unterstützung (weniger = schwerer)." on={d.assisted} onChange={(v) => set({ assisted: v })} />
+            <Toggle label={t('Assistiert')} desc={t('Das Gewicht ist die Unterstützung (weniger = schwerer).')} on={d.assisted} onChange={(v) => set({ assisted: v })} />
           )}
         </div>
 
           </>
         )}
 
-        <Field label="Beschreibung (optional)" hint="Eine Zeile pro Schritt, erscheint als Anleitung in der Übung.">
-          <textarea className={`${inputCls} min-h-24`} rows={4} maxLength={DESCRIPTION_MAX} value={d.description} aria-label="Beschreibung"
-            placeholder={'Ausgangsposition einnehmen\nGewicht kontrolliert bewegen'} onChange={(e) => set({ description: e.target.value })} />
+        <Field label={t('Beschreibung (optional)')} hint={t('Eine Zeile pro Schritt, erscheint als Anleitung in der Übung.')}>
+          <textarea className={`${inputCls} min-h-24`} rows={4} maxLength={DESCRIPTION_MAX} value={d.description} aria-label={t('Beschreibung')}
+            placeholder={t('Ausgangsposition einnehmen\nGewicht kontrolliert bewegen')} onChange={(e) => set({ description: e.target.value })} />
         </Field>
 
-        <Field label="Bild (optional)" hint="Wird automatisch verkleinert und nur auf dem Gerät gespeichert.">
+        <Field label={t('Bild (optional)')} hint={t('Wird automatisch verkleinert und nur auf dem Gerät gespeichert.')}>
           <div className="flex items-center gap-3">
-            {d.image && <img src={d.image} alt="Vorschau" className="w-20 h-20 rounded-xl object-cover border border-line" />}
+            {d.image && <img src={d.image} alt={t('Vorschau')} className="w-20 h-20 rounded-xl object-cover border border-line" />}
             <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" className="!py-2" onClick={() => file.current?.click()}>{d.image ? 'Bild ersetzen' : 'Bild wählen'}</Button>
-              {d.image && <Button variant="ghost" className="!py-2" onClick={() => set({ image: '' })}>Entfernen</Button>}
+              <Button variant="ghost" className="!py-2" onClick={() => file.current?.click()}>{d.image ? t('Bild ersetzen') : t('Bild wählen')}</Button>
+              {d.image && <Button variant="ghost" className="!py-2" onClick={() => set({ image: '' })}>{t('Entfernen')}</Button>}
             </div>
-            <input ref={file} type="file" accept="image/*" className="hidden" aria-label="Bilddatei" onChange={(e) => void pick(e.target.files?.[0])} />
+            <input ref={file} type="file" accept="image/*" className="hidden" aria-label={t('Bilddatei')} onChange={(e) => void pick(e.target.files?.[0])} />
           </div>
           {imgErr && <p role="alert" className="text-sm text-danger">{imgErr}</p>}
         </Field>
 
         {shown && error && <p role="alert" className="text-sm text-danger">{error}</p>}
-        <Button className="w-full" disabled={shown && !!error} onClick={() => void save()}>{editId ? 'Speichern' : 'Übung anlegen'}</Button>
+        <Button className="w-full" disabled={shown && !!error} onClick={() => void save()}>{editId ? t('Speichern') : t('Übung anlegen')}</Button>
       </div>
     </BottomSheet>
   )

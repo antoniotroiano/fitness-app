@@ -86,9 +86,11 @@ Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Paramete
 - Neue Übungen: Zeile in `data/exercises.ts` ergänzen, Anleitung in `data/instr/*` (Test prüft Vollständigkeit). Tests prüfen eindeutige IDs/Namen und Mindestabdeckung pro Muskel.
 - Schemaänderungen an Dexie: neue `this.version(n)` ergänzen, alte nie ändern. Backup-Format (`exportAll`) mitpflegen.
 - UI-Texte auf Deutsch, Design über CSS-Variablen in `index.css` (Hell/Dunkel).
+- **Sprache (DE/EN)** (`src/i18n/`): Quelltexte bleiben Deutsch, `t('Deutscher Text', …args)` (`index.ts`) liefert bei Sprache `en` die Übersetzung aus `dictEn.ts` (Schlüssel = deutscher Text, Platzhalter `{0}`, `{1}`; fehlt der Eintrag, bleibt Deutsch). Strukturierte Texte: `de.ts` (`deBase`, `de` wählt je Sprache) und `en.ts` (gleiche Struktur, typgeprüft). **Neuer UI-Text immer mit `t()`** und Eintrag in `dictEn.ts` (Test prüft Platzhalter). Die Sprache liest `index.ts` beim Start synchron aus localStorage `liftlab-lang` (Spiegel von `Settings.language`, `useLanguageSync` in `App.tsx` gleicht nach Backup-Import ab); ein Wechsel (Mehr › Sprache, `setLanguage`) lädt die App neu, daher sind `t()`-Aufrufe in Modul-Konstanten erlaubt. Zahlen/Datum über `LOCALE` (`de-DE`/`en-US`), nie `'de-DE'` fest. Englische Zählwörter mitten im Satz über `lc()` klein schreiben. Nicht übersetzt (bewusst): Übungsanleitungen und -tipps (`data/instr/*`, `data/media/tips-*`), Such-Aliase, CSV-Spaltenköpfe des Exports (Import-Format), Aufwärm-/Programmnamen, die beim Anlegen gespeichert werden.
 - Keine Secrets, kein Backend, keine externen Netzwerkaufrufe. Alle Daten bleiben lokal.
 
 ## Bekannte Grenzen / Offen
+- Englisch: Oberfläche, Übungs- und Muskelnamen übersetzt; Anleitungen/Tipps der Übungen bleiben Deutsch. Gespeicherte Texte (Programm-/Workout-Namen, Notizen) behalten die Sprache vom Anlegen.
 - Pausen-Ton: als PWA nur hörbar, wenn die App im Vordergrund läuft; über Musik wird nichts leiser oder unterbrochen (Audio-Session-Versuch wirkt auf dem Gerät nicht), im Hintergrund/Sperrbildschirm kein Ton. Richtiges Ducking und Hintergrund-Signal erst mit Capacitor-Wrapper.
 - Kein direkter Apple-Health/Health-Connect-Zugriff (Web-App): nur Datei-Import. Automatik erst mit Capacitor-Wrapper.
 - App-Icons sind Platzhalter (`public/favicon.svg`), Deployment/Hosting steht aus.

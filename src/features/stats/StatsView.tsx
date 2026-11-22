@@ -4,6 +4,7 @@ import { groupByMonth, summary, type Point } from '../../engine/stats'
 import { formatDate, formatMonth } from '../../utils/dates'
 import { TimeSeries } from './TimeSeries'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 export function StatsView<M extends string>({
   metrics, metric, onMetric, daily, bar, fmt, showAveraging = true,
@@ -24,8 +25,8 @@ export function StatsView<M extends string>({
           return (
             <div className="flex gap-2">
               <Stat label="Ø" value={fmt(sum.avg)} />
-              <Stat label={bar ? 'Bester Tag' : de.common.best} value={fmt(sum.best)} />
-              {bar && <Stat label="Gesamt" value={fmt(sum.total)} />}
+              <Stat label={bar ? t('Bester Tag') : de.common.best} value={fmt(sum.best)} />
+              {bar && <Stat label={t('Gesamt')} value={fmt(sum.total)} />}
             </div>
           )
         }}
@@ -51,7 +52,7 @@ function History({ points, fmt }: { points: Point[]; fmt: (v: number) => string 
           </ul>
         </div>
       ))}
-      {!history.length && <p className="text-sm text-muted text-center py-4">Keine Einträge</p>}
+      {!history.length && <p className="text-sm text-muted text-center py-4">{t('Keine Einträge')}</p>}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { BottomSheet, cx } from '../../components/ui'
 import type { Row } from './state'
+import { t } from '../../i18n'
 
 export type SetTypeChoice = 'warmup' | 'work' | 'failure' | 'drop' | 'myo' | 'addSegment'
 
@@ -32,24 +33,24 @@ export function SetTypeSheet({ open, row, onPick, onClose }: {
   const seg = row?.type === 'drop' || row?.type === 'myo'
   const cur = !row ? 'work' : row.type === 'warmup' ? 'warmup' : row.failure ? 'failure' : row.type
   return (
-    <BottomSheet open={open} onClose={onClose} title={seg ? (row?.type === 'drop' ? 'Drop-Satz' : 'Myo-Satz') : 'Satztyp'}>
+    <BottomSheet open={open} onClose={onClose} title={seg ? (row?.type === 'drop' ? t('Drop-Satz') : t('Myo-Satz')) : t('Satztyp')}>
       <div className="space-y-2">
         {seg ? (
           <>
-            <Option badge="+" title="Weiteres Segment" onClick={() => onPick('addSegment')}
-              text={row?.type === 'drop' ? 'Gewicht nochmals reduzieren und weitermachen' : 'Nach kurzer Pause noch ein Mini-Satz'} />
-            <p className="text-xs text-muted px-1">Segment entfernen: Zeile nach links wischen.</p>
+            <Option badge="+" title={t('Weiteres Segment')} onClick={() => onPick('addSegment')}
+              text={row?.type === 'drop' ? t('Gewicht nochmals reduzieren und weitermachen') : t('Nach kurzer Pause noch ein Mini-Satz')} />
+            <p className="text-xs text-muted px-1">{t('Segment entfernen: Zeile nach links wischen.')}</p>
           </>
         ) : (
           <>
-            <Option badge="1" title="Standardsatz" text="Gewicht und Wdh. im Zielbereich" active={cur === 'work'} onClick={() => onPick('work')} />
-            <Option badge={SET_BADGE.failure} tone="bg-danger/15 text-danger" title="Failure-Satz" text="Bis zum technischen Versagen, RIR 0"
+            <Option badge="1" title={t('Standardsatz')} text={t('Gewicht und Wdh. im Zielbereich')} active={cur === 'work'} onClick={() => onPick('work')} />
+            <Option badge={SET_BADGE.failure} tone="bg-danger/15 text-danger" title={t('Failure-Satz')} text={t('Bis zum technischen Versagen, RIR 0')}
               active={cur === 'failure'} onClick={() => onPick('failure')} />
-            <Option badge={SET_BADGE.drop} tone="bg-accent/15 text-accent" title="Drop-Satz" text="Danach mit leichterem Gewicht weiter, ohne Pause"
+            <Option badge={SET_BADGE.drop} tone="bg-accent/15 text-accent" title={t('Drop-Satz')} text={t('Danach mit leichterem Gewicht weiter, ohne Pause')}
               onClick={() => onPick('drop')} />
-            <Option badge={SET_BADGE.myo} tone="bg-accent/15 text-accent" title="Myo-Satz" text="Danach Mini-Sätze mit gleichem Gewicht, 10–20 s Pause"
+            <Option badge={SET_BADGE.myo} tone="bg-accent/15 text-accent" title={t('Myo-Satz')} text={t('Danach Mini-Sätze mit gleichem Gewicht, 10–20 s Pause')}
               onClick={() => onPick('myo')} />
-            <Option badge={SET_BADGE.warmup} tone="bg-warn/15 text-warn" title="Aufwärmsatz" text="Zählt nicht für Volumen und Progression"
+            <Option badge={SET_BADGE.warmup} tone="bg-warn/15 text-warn" title={t('Aufwärmsatz')} text={t('Zählt nicht für Volumen und Progression')}
               active={cur === 'warmup'} onClick={() => onPick('warmup')} />
           </>
         )}

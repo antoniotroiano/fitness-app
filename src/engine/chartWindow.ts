@@ -1,5 +1,6 @@
 import { addDays, daysBetween, WEEKDAYS, weekdayIndex, parse, weekStart, monthKey } from '../utils/dates'
 import type { Averaging, Period, Point } from './stats'
+import { LOCALE } from '../i18n'
 
 /** Länge des Zeitfensters in Tagen; "All" richtet sich nach den Daten. */
 export const PERIOD_DAYS: Record<Exclude<Period, 'All'>, number> = { '1W': 7, '1M': 30, '3M': 91, '6M': 182, '1Y': 365 }
@@ -32,7 +33,7 @@ export const windowDates = (w: ChartWindow): string[] => Array.from({ length: w.
 
 export const inWindow = (points: Point[], w: ChartWindow): Point[] => points.filter((p) => p.date >= w.start && p.date <= w.end)
 
-const dayMonth = (d: string) => parse(d).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })
+const dayMonth = (d: string) => parse(d).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' })
 // Nur der Monat, mit Abkürzungspunkt wie im Datum ("Nov.")
 const monthShort = (d: string) => dayMonth(d).replace(/^\d+\.\s*/, '')
 

@@ -1,4 +1,5 @@
 import { cx } from './ui'
+import { t } from '../i18n'
 
 const key = 'h-12 rounded-xl bg-surface2 text-xl font-medium active:bg-line'
 
@@ -13,7 +14,7 @@ export function NumberPad({ onDigit, onComma, onBack, allowComma = true }: {
       ))}
       <button type="button" className={cx(key, !allowComma && 'opacity-30')} disabled={!allowComma} onClick={onComma}>,</button>
       <button type="button" className={key} onClick={() => onDigit('0')}>0</button>
-      <button type="button" className={key} onClick={onBack} aria-label="Löschen">⌫</button>
+      <button type="button" className={key} onClick={onBack} aria-label={t('Löschen')}>⌫</button>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import type { Exercise, PlannedExercise, Program, Session, WorkoutDay } from '../types'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
+import { t } from '../i18n'
 
 /**
  * Exporte: Einheiten als CSV (eine Zeile pro Satz, gleiche Spalten wie der Trainingsimport, damit der Rundlauf klappt)
@@ -110,14 +111,14 @@ export function parseProgramFile(
   json: string, existingNames: string[], existingExerciseIds: Set<string>, newId: () => string, now = Date.now(),
 ): ProgramImport {
   let data: Partial<ProgramFile> | null
-  try { data = JSON.parse(json) } catch { throw new Error('Die Datei ist kein gültiges JSON.') }
-  if (data?.app !== 'liftlab') throw new Error('Keine Lift-Lab-Datei.')
-  if ((data as { kind?: string }).kind === 'workout') throw new Error('Das ist ein Workout-Export: importiere ihn im Menü (⋯) eines Programms über „Workout importieren“.')
-  if (data.kind !== 'program') throw new Error('Das ist kein Programm-Export (Backups über „Backup importieren“).')
+  try { data = JSON.parse(json) } catch { throw new Error(t('Die Datei ist kein gültiges JSON.')) }
+  if (data?.app !== 'liftlab') throw new Error(t('Keine Lift-Lab-Datei.'))
+  if ((data as { kind?: string }).kind === 'workout') throw new Error(t('Das ist ein Workout-Export: importiere ihn im Menü (⋯) eines Programms über „Workout importieren“.'))
+  if (data.kind !== 'program') throw new Error(t('Das ist kein Programm-Export (Backups über „Backup importieren“).'))
   const p = data.program
-  if (!p || !Array.isArray(p.days) || p.days.length === 0 || !Array.isArray(p.weekSlots)) throw new Error('Das Programm in der Datei ist unvollständig.')
+  if (!p || !Array.isArray(p.days) || p.days.length === 0 || !Array.isArray(p.weekSlots)) throw new Error(t('Das Programm in der Datei ist unvollständig.'))
   const migrated = migrateProgram({ ...p, id: undefined, createdAt: 0, active: false } as Program)
-  const name = uniqueName(String(p.name || 'Programm').slice(0, 60), existingNames)
+  const name = uniqueName(String(p.name || t('Programm')).slice(0, 60), existingNames)
   const program: Omit<Program, 'id'> = {
     ...migrated, name, active: false, archived: false, createdAt: now,
     days: migrated.days.map((d) => ({ ...d, id: newId() })),
@@ -161,14 +162,14 @@ export interface WorkoutImport {
 /** Workout-Datei prüfen; Name wird im Zielprogramm eindeutig. Wirft einen verständlichen Fehler bei fremden oder kaputten Dateien. */
 export function parseWorkoutFile(json: string, existingDayNames: string[], existingExerciseIds: Set<string>): WorkoutImport {
   let data: Partial<WorkoutFile> | null
-  try { data = JSON.parse(json) } catch { throw new Error('Die Datei ist kein gültiges JSON.') }
-  if (data?.app !== 'liftlab') throw new Error('Keine Lift-Lab-Datei.')
-  if ((data as { kind?: string }).kind === 'program') throw new Error('Das ist ein Programm-Export (Mehr › Daten › Programm importieren).')
-  if (data.kind !== 'workout') throw new Error('Das ist kein Workout-Export.')
+  try { data = JSON.parse(json) } catch { throw new Error(t('Die Datei ist kein gültiges JSON.')) }
+  if (data?.app !== 'liftlab') throw new Error(t('Keine Lift-Lab-Datei.'))
+  if ((data as { kind?: string }).kind === 'program') throw new Error(t('Das ist ein Programm-Export (Mehr › Daten › Programm importieren).'))
+  if (data.kind !== 'workout') throw new Error(t('Das ist kein Workout-Export.'))
   const w = data.workout
   if (!w || !Array.isArray(w.exercises) || w.exercises.length === 0
     || w.exercises.some((e) => !e || typeof e.exerciseId !== 'string' || !(e.sets > 0) || !(e.repMin > 0) || !(e.repMax >= e.repMin))) {
-    throw new Error('Das Workout in der Datei ist unvollständig.')
+    throw new Error(t('Das Workout in der Datei ist unvollständig.'))
   }
   const migrated = migrateProgram({ name: '', icon: '', color: '', config: null, days: [{ id: 'x', name: String(w.name || 'Workout'), exercises: w.exercises }], weekSlots: [0], createdAt: 0, active: false } as Program)
   const day = migrated.days[0]

@@ -21,6 +21,7 @@ import { SetTypeSheet, type SetTypeChoice } from '../workouts/SetTypeSheet'
 import { isSegment, uid, withSides, type Row, type SideRow } from '../workouts/state'
 import { num, rowHasValue, rowToSet, setToRow } from '../workouts/sessionRows'
 import { sessionProgram, sessionTitle } from './format'
+import { t } from '../../i18n'
 
 interface DraftExercise { exerciseId: string; rows: Row[] }
 interface Draft { date: string; time: string; durationMin: string; week: number; notes: Record<string, string>; exercises: DraftExercise[] }
@@ -29,8 +30,8 @@ export default function SessionEditorPage() {
   const { id } = useParams()
   const nav = useNavigate()
   const session = useSession(Number(id))
-  if (session === undefined) return <Page title="Verlauf" back={() => nav('/history')}><div className="text-sm text-muted">Lädt …</div></Page>
-  if (session === null) return <Page title="Verlauf" back={() => nav('/history', { replace: true })}><Card>Diese Einheit gibt es nicht (mehr).</Card></Page>
+  if (session === undefined) return <Page title={t('Verlauf')} back={() => nav('/history')}><div className="text-sm text-muted">{t('Lädt …')}</div></Page>
+  if (session === null) return <Page title={t('Verlauf')} back={() => nav('/history', { replace: true })}><Card>{t('Diese Einheit gibt es nicht (mehr).')}</Card></Page>
   return <SessionEditor key={session.id} session={session} />
 }
 
@@ -148,8 +149,8 @@ function SessionEditor({ session }: { session: Session }) {
 
   const save = async () => {
     setError(null)
-    if (draft.date > today) { setError('Das Datum liegt in der Zukunft.'); return }
-    if (!draft.date) { setError('Bitte ein Datum wählen.'); return }
+    if (draft.date > today) { setError(t('Das Datum liegt in der Zukunft.')); return }
+    if (!draft.date) { setError(t('Bitte ein Datum wählen.')); return }
     const exercises: LoggedExercise[] = []
     for (const e of draft.exercises) {
       const ex = lookup(e.exerciseId)
@@ -162,7 +163,7 @@ function SessionEditor({ session }: { session: Session }) {
       const sets = e.rows.filter((r) => rowHasValue(r, ex)).map((r) => rowToSet(r, ex, bodyLoad, units))
       if (sets.length) exercises.push({ exerciseId: e.exerciseId, sets })
     }
-    if (!exercises.length) { setError('Die Einheit hat keinen Satz mit Wiederholungen. Zum Entfernen „Einheit löschen“ wählen.'); return }
+    if (!exercises.length) { setError(t('Die Einheit hat keinen Satz mit Wiederholungen. Zum Entfernen „Einheit löschen“ wählen.')); return }
     let next: Session = { ...session, exercises, week: draft.week }
     const notes = Object.fromEntries(Object.entries(draft.notes).map(([k, v]) => [k, v.trim()]).filter(([k, v]) => v && exercises.some((e) => e.exerciseId === k)))
     if (Object.keys(notes).length) next.notes = notes; else delete next.notes
@@ -178,7 +179,7 @@ function SessionEditor({ session }: { session: Session }) {
       nav('/history', { replace: true })
     } catch (e) {
       setBusy(false)
-      setError(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : 'unbekannter Fehler'}`)
+      setError(t('Speichern fehlgeschlagen: {0}', e instanceof Error ? e.message : t('unbekannter Fehler')))
     }
   }
   const remove = async (freeSlot: boolean) => {
@@ -203,18 +204,18 @@ function SessionEditor({ session }: { session: Session }) {
       <div style={{ paddingBottom: pad ? '20rem' : undefined }} className="space-y-4">
         <Card className="space-y-3">
           <div className="text-xs text-muted">
-            {program ? `${program.name} · ${weekLabel(program, session.week)}` : session.programId === null ? 'Ohne Programm (Import)' : 'Programm nicht mehr vorhanden'}
+            {program ? `${program.name} · ${weekLabel(program, session.week)}` : session.programId === null ? t('Ohne Programm (Import)') : t('Programm nicht mehr vorhanden')}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs text-muted">Datum
+            <label className="block text-xs text-muted">{t('Datum')}
               <input type="date" className={`${inputCls} mt-1`} value={draft.date} max={today} onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))} />
             </label>
-            <label className="block text-xs text-muted">Startzeit
+            <label className="block text-xs text-muted">{t('Startzeit')}
               <input type="time" className={`${inputCls} mt-1`} value={draft.time} onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))} />
             </label>
           </div>
           {program && (
-            <label className="block text-xs text-muted">Programmwoche
+            <label className="block text-xs text-muted">{t('Programmwoche')}
               <select className={`${inputCls} mt-1`} value={draft.week} onChange={(e) => setDraft((d) => ({ ...d, week: Number(e.target.value) }))}>
                 {weekChoices.map((o) => (
                   <option key={o.week} value={o.week}>{o.label}{o.block > 0 ? ` · Block ${o.block + 1}` : ''}</option>
@@ -222,15 +223,15 @@ function SessionEditor({ session }: { session: Session }) {
               </select>
             </label>
           )}
-          <label className="block text-xs text-muted">Dauer (Minuten, leer = unbekannt)
-            <input inputMode="numeric" className={`${inputCls} mt-1`} value={draft.durationMin} placeholder="z. B. 60"
+          <label className="block text-xs text-muted">{t('Dauer (Minuten, leer = unbekannt)')}
+            <input inputMode="numeric" className={`${inputCls} mt-1`} value={draft.durationMin} placeholder={t('z. B. 60')}
               onChange={(e) => setDraft((d) => ({ ...d, durationMin: e.target.value.replace(/[^\d]/g, '') }))} />
           </label>
         </Card>
 
         {draft.exercises.map((e) => {
           const ex = lookup(e.exerciseId)
-          if (!ex) return <Card key={e.exerciseId} className="text-sm text-muted">Übung „{e.exerciseId}“ ist nicht mehr vorhanden, ihre Sätze bleiben unverändert.</Card>
+          if (!ex) return <Card key={e.exerciseId} className="text-sm text-muted">{t('Übung „')}{e.exerciseId}{t('“ ist nicht mehr vorhanden, ihre Sätze bleiben unverändert.')}</Card>
           const before = sessions.filter((o) => o.id !== session.id && (o.date < session.date || (o.date === session.date && o.finishedAt < session.finishedAt)))
           const view = { ex, pe: { exerciseId: e.exerciseId }, previous: previousSets(before, e.exerciseId) }
           return (
@@ -238,8 +239,8 @@ function SessionEditor({ session }: { session: Session }) {
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-semibold">{ex.name}</h2>
                 {removeEx === e.exerciseId
-                  ? <Button variant="danger" className="!py-1.5 !px-3 text-xs" onClick={() => removeExercise(e.exerciseId)}>Wirklich entfernen?</Button>
-                  : <button onClick={() => setRemoveEx(e.exerciseId)} aria-label={`${ex.name} aus der Einheit entfernen`} className="text-muted active:opacity-70 p-1"><Icon name="trash" size={18} /></button>}
+                  ? <Button variant="danger" className="!py-1.5 !px-3 text-xs" onClick={() => removeExercise(e.exerciseId)}>{t('Wirklich entfernen?')}</Button>
+                  : <button onClick={() => setRemoveEx(e.exerciseId)} aria-label={t('{0} aus der Einheit entfernen', ex.name)} className="text-muted active:opacity-70 p-1"><Icon name="trash" size={18} /></button>}
               </div>
               <Card className="!p-2">
                 <SetTable view={view} plain rows={e.rows} settings={settings} activePad={pad && pad.exId === e.exerciseId ? pad : null}
@@ -248,21 +249,21 @@ function SessionEditor({ session }: { session: Session }) {
                   onType={(rowId) => setTypeRow({ exId: e.exerciseId, rowId })}
                   onPad={(rowId, field, side) => setPad({ exId: e.exerciseId, rowId, field, side })} />
               </Card>
-              <textarea aria-label={`Notiz zu ${ex.name}`} rows={2} placeholder="Notiz zur Übung" className={inputCls} value={draft.notes[e.exerciseId] ?? ''}
+              <textarea aria-label={t('Notiz zu {0}', ex.name)} rows={2} placeholder={t('Notiz zur Übung')} className={inputCls} value={draft.notes[e.exerciseId] ?? ''}
                 onChange={(ev) => setDraft((d) => ({ ...d, notes: { ...d.notes, [e.exerciseId]: ev.target.value } }))} />
             </section>
           )
         })}
 
-        <LinkButton onClick={() => setAddOpen(true)} className="w-full py-2"><span className="text-lg leading-none">+</span> Übung hinzufügen</LinkButton>
+        <LinkButton onClick={() => setAddOpen(true)} className="w-full py-2"><span className="text-lg leading-none">+</span> {t('Übung hinzufügen')}</LinkButton>
 
         {error && <div role="alert" className="rounded-xl bg-danger/15 text-danger text-sm p-3">{error}</div>}
-        <Button variant="danger" className="w-full" onClick={() => setDelOpen(true)}>Einheit löschen</Button>
+        <Button variant="danger" className="w-full" onClick={() => setDelOpen(true)}>{t('Einheit löschen')}</Button>
       </div>
 
       {!pad && (
         <BottomBar>
-          <Button className="w-full" disabled={!dirty || busy} onClick={() => void save()}>{busy ? 'Speichert …' : 'Änderungen speichern'}</Button>
+          <Button className="w-full" disabled={!dirty || busy} onClick={() => void save()}>{busy ? t('Speichert …') : t('Änderungen speichern')}</Button>
         </BottomBar>
       )}
 
@@ -270,11 +271,11 @@ function SessionEditor({ session }: { session: Session }) {
         const r = pad.side === 'r' ? padRow.right : undefined
         const vals = r ?? padRow
         const set = (p: Partial<SideRow>) => (r ? patchRight(pad.exId, padRow.id, p) : patch(pad.exId, padRow.id, p))
-        const sideLabel = !padRow.right ? '' : r ? ' · rechts' : ' · links'
+        const sideLabel = !padRow.right ? '' : r ? t(' · rechts') : t(' · links')
         const ex = lookup(pad.exId)
         return (
           <NumpadSheet key={`${pad.rowId}-${pad.side ?? ''}-${pad.field}`} field={pad.field}
-            label={`${pad.field === 'weight' ? `Gewicht (${wl})` : metricLabel(ex?.metric, distanceUnitOf(ex))}${sideLabel}`}
+            label={`${pad.field === 'weight' ? t('Gewicht ({0})', wl) : metricLabel(ex?.metric, distanceUnitOf(ex))}${sideLabel}`}
             value={pad.field === 'weight' ? vals.weight : vals.reps} rir={vals.rir} showRir={!isSegment(padRow) && padRow.type !== 'warmup'}
             partial={vals.partial ?? ''} onPartial={(v) => set({ partial: v })}
             onTarget={(partial) => setPad((p) => (p ? { ...p, partial } : p))}
@@ -287,27 +288,27 @@ function SessionEditor({ session }: { session: Session }) {
       <SetTypeSheet open={typeRow !== null} onClose={() => setTypeRow(null)} onPick={changeType}
         row={typeRow ? draft.exercises.find((e) => e.exerciseId === typeRow.exId)?.rows.find((r) => r.id === typeRow.rowId) : undefined} />
 
-      <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title="Übung hinzufügen" />
+      <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title={t('Übung hinzufügen')} />
 
-      <BottomSheet open={delOpen} onClose={() => setDelOpen(false)} title="Einheit löschen">
+      <BottomSheet open={delOpen} onClose={() => setDelOpen(false)} title={t('Einheit löschen')}>
         <div className="space-y-2">
-          <p className="text-sm text-muted">{title} vom {formatDate(session.date, { day: '2-digit', month: 'long', year: 'numeric' })} wird endgültig gelöscht. Progression, 1RM und Statistiken rechnen ohne sie weiter.</p>
+          <p className="text-sm text-muted">{title} {t('vom')} {formatDate(session.date, { day: '2-digit', month: 'long', year: 'numeric' })} {t('wird endgültig gelöscht. Progression, 1RM und Statistiken rechnen ohne sie weiter.')}</p>
           {freeable ? (
             <>
-              <Button variant="danger" className="w-full" onClick={() => void remove(true)}>Löschen, Tag wieder freigeben</Button>
-              <Button variant="ghost" className="w-full" onClick={() => void remove(false)}>Löschen, Tag bleibt erledigt</Button>
-              <p className="text-xs text-muted px-1">Freigeben: der Trainingstag steht in dieser Woche wieder offen und kann neu trainiert werden.</p>
+              <Button variant="danger" className="w-full" onClick={() => void remove(true)}>{t('Löschen, Tag wieder freigeben')}</Button>
+              <Button variant="ghost" className="w-full" onClick={() => void remove(false)}>{t('Löschen, Tag bleibt erledigt')}</Button>
+              <p className="text-xs text-muted px-1">{t('Freigeben: der Trainingstag steht in dieser Woche wieder offen und kann neu trainiert werden.')}</p>
             </>
-          ) : <Button variant="danger" className="w-full" onClick={() => void remove(false)}>Endgültig löschen</Button>}
-          <Button variant="ghost" className="w-full" onClick={() => setDelOpen(false)}>Abbrechen</Button>
+          ) : <Button variant="danger" className="w-full" onClick={() => void remove(false)}>{t('Endgültig löschen')}</Button>}
+          <Button variant="ghost" className="w-full" onClick={() => setDelOpen(false)}>{t('Abbrechen')}</Button>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={backOpen} onClose={() => setBackOpen(false)} title="Änderungen verwerfen?">
+      <BottomSheet open={backOpen} onClose={() => setBackOpen(false)} title={t('Änderungen verwerfen?')}>
         <div className="space-y-2">
-          <p className="text-sm text-muted">Die Änderungen an dieser Einheit sind noch nicht gespeichert.</p>
-          <Button variant="danger" className="w-full" onClick={() => nav('/history')}>Verwerfen</Button>
-          <Button variant="ghost" className="w-full" onClick={() => setBackOpen(false)}>Weiter bearbeiten</Button>
+          <p className="text-sm text-muted">{t('Die Änderungen an dieser Einheit sind noch nicht gespeichert.')}</p>
+          <Button variant="danger" className="w-full" onClick={() => nav('/history')}>{t('Verwerfen')}</Button>
+          <Button variant="ghost" className="w-full" onClick={() => setBackOpen(false)}>{t('Weiter bearbeiten')}</Button>
         </div>
       </BottomSheet>
     </Page>

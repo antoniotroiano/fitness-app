@@ -1,8 +1,10 @@
 /**
- * UI-Texte (Deutsch). Zentrale Stelle für Beschriftungen, damit später ein Sprachumschalter möglich ist
- * (weitere Sprachdateien mit derselben Struktur). Reine Daten, keine Logik außer kleinen Formatierern.
+ * UI-Texte (Deutsch) als strukturiertes Objekt (`deBase`); `de` liefert je nach Sprache Deutsch oder die Entsprechung aus `en.ts`.
  */
-export const de = {
+import { LANG } from './index'
+import { en } from './en'
+
+export const deBase = {
   nav: { more: 'Mehr' },
   wizard: {
     q: {
@@ -79,4 +81,7 @@ export const de = {
     bestSetReps: 'Bester Satz (Wdh.)', totalSets: 'Gesamt-Sätze', daily: 'Täglich', weekly: 'Wöchentlich', monthly: 'Monatlich',
     averaging: 'Diagramm-Glättung',
   },
-} as const
+}
+
+/** Texte der gewählten Sprache (gleiche Struktur). */
+export const de: typeof deBase = LANG === 'en' ? en : deBase

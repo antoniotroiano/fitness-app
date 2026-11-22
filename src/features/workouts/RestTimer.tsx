@@ -3,6 +3,7 @@ import { BottomSheet, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { useSettings } from '../../db/db'
 import { playRestEnd } from '../../utils/sound'
+import { t } from '../../i18n'
 
 export interface RestState { endsAt: number; total: number }
 
@@ -40,7 +41,7 @@ export function RestChip({ rest, onDone, onOpen }: { rest: RestState | null; onD
   const circ = 2 * Math.PI * r
   const frac = rest ? Math.min(1, left / Math.max(1, rest.total)) : 0
   return (
-    <button onClick={onOpen} aria-haspopup="dialog" aria-label={rest ? `Pausen-Timer, noch ${mmss(left)}` : 'Pausen-Timer'}
+    <button onClick={onOpen} aria-haspopup="dialog" aria-label={rest ? t('Pausen-Timer, noch {0}', mmss(left)) : t('Pausen-Timer')}
       className={cx('h-9 rounded-full flex items-center gap-1.5 active:opacity-70', rest ? 'bg-accent/15 text-fg pl-1.5 pr-3' : 'w-9 justify-center bg-surface2 text-fg')}>
       {rest ? (
         <>
@@ -64,7 +65,7 @@ export function RestSheet({ open, onClose, rest, onAdjust, onStop, onStart }: {
   const left = useRemaining(open ? rest : null)
   const btn = 'flex-1 h-11 rounded-xl bg-surface2 text-sm font-medium active:opacity-70'
   return (
-    <BottomSheet open={open} onClose={onClose} title="Pausen-Timer">
+    <BottomSheet open={open} onClose={onClose} title={t('Pausen-Timer')}>
       <div className="space-y-4">
         {rest ? (
           <>
@@ -72,12 +73,12 @@ export function RestSheet({ open, onClose, rest, onAdjust, onStop, onStart }: {
             <div className="flex gap-2">
               <button className={btn} onClick={() => onAdjust(-15)}>−15 s</button>
               <button className={btn} onClick={() => onAdjust(15)}>+15 s</button>
-              <button className={cx(btn, 'text-danger')} onClick={() => { onStop(); onClose() }}>Stoppen</button>
+              <button className={cx(btn, 'text-danger')} onClick={() => { onStop(); onClose() }}>{t('Stoppen')}</button>
             </div>
           </>
-        ) : <p className="text-sm text-muted">Kein Timer aktiv. Nach jedem abgehakten Satz startet die Pause automatisch.</p>}
+        ) : <p className="text-sm text-muted">{t('Kein Timer aktiv. Nach jedem abgehakten Satz startet die Pause automatisch.')}</p>}
         <div>
-          <div className="text-xs text-muted mb-2">{rest ? 'Neu starten mit' : 'Timer starten'}</div>
+          <div className="text-xs text-muted mb-2">{rest ? t('Neu starten mit') : t('Timer starten')}</div>
           <div className="flex gap-2">
             {PRESETS.map((sec) => (
               <button key={sec} className={btn} onClick={() => { onStart(sec); onClose() }}>{mmss(sec)}</button>

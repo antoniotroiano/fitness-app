@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
+import { t } from '../../i18n'
 
 const OPEN = -72
 
@@ -36,7 +37,7 @@ export function SwipeRow({ children, onDelete }: { children: ReactNode; onDelete
 
   return (
     <div className="relative overflow-hidden" style={{ touchAction: 'pan-y' }}>
-      <button aria-label="Satz löschen" onClick={onDelete} tabIndex={dx === 0 ? -1 : 0}
+      <button aria-label={t('Satz löschen')} onClick={onDelete} tabIndex={dx === 0 ? -1 : 0}
         style={{ visibility: dx === 0 && !dragging ? 'hidden' : 'visible' }}
         className="absolute inset-y-0 right-0 w-[72px] bg-danger text-danger-fg text-2xl flex items-center justify-center">−</button>
       <div className="relative bg-surface" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}

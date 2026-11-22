@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 /** Eigene Übungsbilder werden verkleinert gespeichert (Performance, Backup-Größe). */
 export const IMAGE_MAX_SIDE = 480
 /** Obergrenze der gespeicherten Data-URL in Zeichen (≈ 100 kB) */
@@ -11,7 +12,7 @@ export function fitSize(w: number, h: number, max = IMAGE_MAX_SIDE): { w: number
 
 /** Bilddatei → verkleinerte JPEG-Data-URL. Wirft bei Nicht-Bildern oder wenn das Ergebnis trotz Qualitätsstufen zu groß bleibt. */
 export async function shrinkImage(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('Bitte wähle eine Bilddatei.')
+  if (!file.type.startsWith('image/')) throw new Error(t('Bitte wähle eine Bilddatei.'))
   const bmp = await createImageBitmap(file)
   try {
     const { w, h } = fitSize(bmp.width, bmp.height)
@@ -19,7 +20,7 @@ export async function shrinkImage(file: File): Promise<string> {
     canvas.width = w
     canvas.height = h
     const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Das Bild konnte nicht verarbeitet werden.')
+    if (!ctx) throw new Error(t('Das Bild konnte nicht verarbeitet werden.'))
     ctx.fillStyle = '#fff' // PNG mit Transparenz: weißer Grund statt schwarz
     ctx.fillRect(0, 0, w, h)
     ctx.drawImage(bmp, 0, 0, w, h)
@@ -27,7 +28,7 @@ export async function shrinkImage(file: File): Promise<string> {
       const url = canvas.toDataURL('image/jpeg', q)
       if (url.length <= IMAGE_MAX_CHARS) return url
     }
-    throw new Error('Das Bild ist zu groß, bitte ein kleineres wählen.')
+    throw new Error(t('Das Bild ist zu groß, bitte ein kleineres wählen.'))
   } finally {
     bmp.close()
   }
