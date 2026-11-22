@@ -211,6 +211,36 @@ function Stepper({ label, value, onChange, min = 15, step = 15 }: { label: strin
   )
 }
 
+/** Zeile im Stil der übrigen Einstellungen: zeigt die aktuelle Wahl, ein Tipp öffnet ein Sheet mit den Optionen und ihren Erklärungen. */
+function ChoiceRow<T extends string>({ icon, label, value, options, onChange }: {
+  icon: IconName; label: string; value: T; options: { value: T; label: string; desc: string }[]; onChange: (v: T) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const cur = options.find((o) => o.value === value) ?? options[0]!
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="w-full flex items-center gap-3 py-3.5 text-left">
+        <Icon name={icon} />
+        <span className="flex-1 min-w-0"><span className="block text-sm font-medium">{label}</span><span className="block text-xs text-muted">{cur.label}</span></span>
+        <span className="text-muted">›</span>
+      </button>
+      <BottomSheet open={open} onClose={() => setOpen(false)} title={label}>
+        <ul className="space-y-2" role="radiogroup" aria-label={label}>
+          {options.map((o) => (
+            <li key={o.value}>
+              <button role="radio" aria-checked={o.value === value} onClick={() => { onChange(o.value); setOpen(false) }}
+                className={cx('w-full text-left rounded-xl border px-4 py-3 active:opacity-70', o.value === value ? 'border-accent bg-accent/10' : 'border-line bg-surface2')}>
+                <span className="flex items-center gap-3 text-sm font-semibold"><span className="flex-1">{o.label}</span>{o.value === value && <Icon name="check" size={18} />}</span>
+                <span className="block text-xs text-muted mt-1">{o.desc}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </BottomSheet>
+    </>
+  )
+}
+
 function SwitchRow({ icon, label, desc, checked, onChange }: { icon: IconName; label: string; desc: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className="flex items-center gap-3 py-3.5">
@@ -241,34 +271,16 @@ export function WorkoutSettingsPage() {
         <Row icon="warmup" label="Aufwärmen" desc="Smart-Aufwärmen und Schemata" to="/more/workouts/warmup" />
       </Section>
       <Section title="Progression">
-        <div className="py-3.5 space-y-2">
-          <span className="block text-sm font-medium">Zielwert nach einer Steigerung</span>
-          <div role="radiogroup" aria-label="Zielwert" className="grid grid-cols-2 gap-1 rounded-xl bg-surface2 p-1">
-            {([['mid', 'Mitte des Bereichs'], ['min', 'Untergrenze']] as const).map(([v, label]) => (
-              <button key={v} role="radio" aria-checked={s.progressionTarget === v} onClick={() => update({ progressionTarget: v })}
-                className={cx('rounded-lg py-2 text-sm font-medium', s.progressionTarget === v ? 'bg-surface shadow text-fg' : 'text-muted')}>{label}</button>
-            ))}
-          </div>
-          <span className="block text-xs text-muted">
-            {s.progressionTarget === 'mid'
-              ? 'Gewicht und Wdh. werden so gewählt, dass du nach einer Steigerung um die Mitte des Bereichs landest (bei 6–10 um 8). Kleinere Sprünge.'
-              : 'Klassische Double Progression: Wdh. bis zur Obergrenze, dann mehr Gewicht und zurück an die Untergrenze.'}
-          </span>
-        </div>
-        <div className="py-3.5 space-y-2">
-          <span className="block text-sm font-medium">Sätze im Workout vorbelegen mit</span>
-          <div role="radiogroup" aria-label="Vorbelegung" className="grid grid-cols-2 gap-1 rounded-xl bg-surface2 p-1">
-            {([['suggestion', 'Vorschlag'], ['last', 'Letzten Werten']] as const).map(([v, label]) => (
-              <button key={v} role="radio" aria-checked={s.prefillMode === v} onClick={() => update({ prefillMode: v })}
-                className={cx('rounded-lg py-2 text-sm font-medium', s.prefillMode === v ? 'bg-surface shadow text-fg' : 'text-muted')}>{label}</button>
-            ))}
-          </div>
-          <span className="block text-xs text-muted">
-            {s.prefillMode === 'last'
-              ? 'Gewicht und Wdh. wie in der letzten Einheit, Satz für Satz. Der Progressionsvorschlag steht über der Tabelle.'
-              : 'Gewicht und Wdh. aus der Progression: so steigerst du dich Schritt für Schritt.'}
-          </span>
-        </div>
+        <ChoiceRow icon="flag" label="Zielwert nach einer Steigerung" value={s.progressionTarget} onChange={(v) => update({ progressionTarget: v })}
+          options={[
+            { value: 'mid', label: 'Mitte des Bereichs', desc: 'Gewicht und Wdh. werden so gewählt, dass du nach einer Steigerung um die Mitte des Bereichs landest (bei 6–10 um 8). Kleinere Sprünge.' },
+            { value: 'min', label: 'Untergrenze', desc: 'Klassische Double Progression: Wdh. bis zur Obergrenze, dann mehr Gewicht und zurück an die Untergrenze.' },
+          ]} />
+        <ChoiceRow icon="history" label="Sätze im Workout vorbelegen" value={s.prefillMode} onChange={(v) => update({ prefillMode: v })}
+          options={[
+            { value: 'suggestion', label: 'Vorschlag', desc: 'Gewicht und Wdh. aus der Progression: so steigerst du dich Schritt für Schritt.' },
+            { value: 'last', label: 'Letzte Werte', desc: 'Gewicht und Wdh. wie in der letzten Einheit, Satz für Satz. Der Progressionsvorschlag steht über der Tabelle.' },
+          ]} />
         {s.progressionTarget === 'mid' && (
           <SwitchRow icon="dumbbell" label="Weight Match" desc="Gewicht halten, solange die Wdh. damit im Bereich bleiben. Aus: das Gewicht passt sich öfter an, die Wdh. bleiben nahe der Mitte."
             checked={s.weightMatch} onChange={(v) => update({ weightMatch: v })} />
@@ -328,6 +340,48 @@ export function RestSettingsPage() {
   )
 }
 
+/** Geburtstag über Tag/Monat/Jahr-Auswahl: das native Datumsfeld startet beim Jahr 1 und ist für ältere Jahrgänge kaum bedienbar. */
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+function BirthdayField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const split = (v: string) => { const [y = '', m = '', d = ''] = v.split('-'); return { y, m: m ? String(+m) : '', d: d ? String(+d) : '' } }
+  const [part, setPart] = useState(() => split(value))
+  useEffect(() => { if (value) setPart(split(value)) }, [value])
+  const thisYear = new Date().getFullYear()
+  const years = Array.from({ length: thisYear - 1900 + 1 }, (_, i) => thisYear - i)
+  const set = (patch: Partial<typeof part>) => {
+    const next = { ...part, ...patch }
+    if (next.y && next.m && next.d) {
+      const day = Math.min(+next.d, new Date(+next.y, +next.m, 0).getDate())
+      next.d = String(day)
+      setPart(next)
+      onChange(`${next.y}-${next.m.padStart(2, '0')}-${String(day).padStart(2, '0')}`)
+      return
+    }
+    setPart(next)
+  }
+  const sel = `${inputCls} mt-1`
+  return (
+    <div>
+      <div className="text-xs text-muted">Geburtstag</div>
+      <div className="grid grid-cols-[1fr_1.6fr_1.2fr] gap-2">
+        <select aria-label="Tag" className={sel} value={part.d} onChange={(e) => set({ d: e.target.value })}>
+          <option value="">Tag</option>
+          {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
+        </select>
+        <select aria-label="Monat" className={sel} value={part.m} onChange={(e) => set({ m: e.target.value })}>
+          <option value="">Monat</option>
+          {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+        </select>
+        <select aria-label="Jahr" className={sel} value={part.y} onChange={(e) => set({ y: e.target.value })}>
+          <option value="">Jahr</option>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+      {value && <button type="button" onClick={() => { setPart({ y: '', m: '', d: '' }); onChange('') }} className="mt-1.5 text-xs text-muted underline">Geburtstag löschen</button>}
+    </div>
+  )
+}
+
 export function ProfilePage() {
   const nav = useNavigate()
   const { s, update } = useSettingsForm()
@@ -337,8 +391,7 @@ export function ProfilePage() {
       <Card className="space-y-4">
         <label className="block text-xs text-muted">Name
           <input className={`${inputCls} mt-1`} value={s.name} onChange={(e) => update({ name: e.target.value })} /></label>
-        <label className="block text-xs text-muted">Geburtstag
-          <input type="date" className={`${inputCls} mt-1`} value={s.birthday} onChange={(e) => update({ birthday: e.target.value })} /></label>
+        <BirthdayField value={s.birthday} onChange={(v) => update({ birthday: v })} />
         <div>
           <div className="text-xs text-muted mb-1">Geschlecht</div>
           <Segmented value={s.sex || 'x'} onChange={(v) => update({ sex: v })}
@@ -567,6 +620,7 @@ export function DataPage() {
 }
 
 export function AboutPage() {
+  const [confirmReset, setConfirmReset] = useState(false)
   const nav = useNavigate()
   return (
     <Page title="About" back={() => nav('/more')}>
@@ -580,7 +634,17 @@ export function AboutPage() {
         <div className="font-semibold">Quellen</div>
         <p className="text-muted text-xs">Übungsbilder (und ausgewählte Texte) stammen aus dem Projekt „free-exercise-db-with-videos“ (MIT-Lizenz, © 2026 Arham Wani). Muskelfiguren und Anleitungen sind eigene Arbeit.</p>
       </Card>
-      <Button variant="danger" className="w-full" onClick={() => { void resetSettings() }}>Einstellungen zurücksetzen</Button>
+      <Button variant="danger" className="w-full" onClick={() => setConfirmReset(true)}>Einstellungen zurücksetzen</Button>
+      <BottomSheet open={confirmReset} onClose={() => setConfirmReset(false)} title="Einstellungen zurücksetzen?">
+        <p className="text-sm text-muted mb-4">
+          Alle Einstellungen gehen auf den Standard zurück (Einheiten, Pausen, Aufwärmen, Progression, Theme …).
+          Profil, Programme, Workouts, Körpergewicht, Maße und eigene Übungen bleiben erhalten.
+        </p>
+        <div className="space-y-2">
+          <Button variant="danger" className="w-full" onClick={async () => { await resetSettings(); setConfirmReset(false) }}>Zurücksetzen</Button>
+          <Button variant="ghost" className="w-full" onClick={() => setConfirmReset(false)}>Abbrechen</Button>
+        </div>
+      </BottomSheet>
     </Page>
   )
 }
