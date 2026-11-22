@@ -30,6 +30,13 @@ const MAX_E1RM_JUMP = 0.05
 
 /** Annahme für Sätze ohne erfasstes RIR: überall gleich, damit Statistik und Progression dieselbe Einheit gleich bewerten. */
 export const FALLBACK_RIR = 2
+/**
+ * RIR eines Satzes für Progression und 1RM. Teilwiederholungen nach den vollen Wdh. heißen: bis zum Versagen gegangen,
+ * also RIR 0, auch wenn ein anderer Wert (oder keiner) eingetragen ist. Gespeichert wird der eingetragene Wert.
+ */
+export function rirOf(s: { rir?: number; partial?: number }, fallback = FALLBACK_RIR): number {
+  return s.partial && s.partial > 0 ? 0 : s.rir ?? fallback
+}
 /** Ab dieser Zahl effektiver Wiederholungen (Wdh. + RIR) wächst der Epley-Faktor nur noch halb so schnell. */
 const EPLEY_KNEE = 12
 
@@ -277,7 +284,7 @@ function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, me
   const lastWeight = Math.max(...sets.map((s) => s.weight))
   const topSets = sets.filter((s) => s.weight === lastWeight)
   const minReps = Math.min(...topSets.map((s) => s.reps))
-  const avgE1rm = sets.reduce((a, s) => a + e1rm(s.weight, s.reps, s.rir ?? FALLBACK_RIR), 0) / sets.length
+  const avgE1rm = sets.reduce((a, s) => a + e1rm(s.weight, s.reps, rirOf(s)), 0) / sets.length
   // Nach langer Pause: Gewicht höchstens so hoch, wie das reduzierte e1RM für die vorgeschlagenen Wdh. erlaubt
   const detrain = detrainFactor(daysSince)
   const afterBreak = (sug: Suggestion): Suggestion => {
@@ -322,7 +329,7 @@ function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, me
     // Machbare Wdh. mit der nächsten Stufe; reicht es nicht einmal für die Untergrenze − 1: Bereich erweitern.
     // Hier ungedämpfter Epley: die Dämpfung ab 12 Wdh. ist für die 1RM-Schätzung bewusst vorsichtig, überschätzt aber
     // den Wdh.-Verlust beim Sprung (+10 % ≈ −8 Wdh. statt ≈ −3 bis −4 nach RM-Tabellen).
-    const plainE1rm = sets.reduce((a, s) => a + s.weight * (1 + (s.reps + Math.max(0, s.rir ?? FALLBACK_RIR)) / 30), 0) / sets.length
+    const plainE1rm = sets.reduce((a, s) => a + s.weight * (1 + (s.reps + Math.max(0, rirOf(s))) / 30), 0) / sets.length
     const repsAtUp = Math.floor(30 * (plainE1rm / minUp - 1) - targetRir + 1e-9)
     if (repsAtUp < range.min - 1 && candidate <= minUp) {
       if (minReps < extCap) return afterBreak({ weight: lastWeight, reps: minReps + 1, note: 'extend', nextWeight: minUp })
@@ -366,8 +373,7 @@ function suggestMid({ range, targetRir, sets, minReps, held, lowest, snap, up, d
   // Ungedämpfter Epley (wie bei den Equipment-Grenzen): die Dämpfung ab 12 Wdh. ist für die 1RM-Schätzung gedacht und
   // würde den Wdh.-Verlust beim Wechsel der Gewichtsstufe überschätzen.
   const est = (w: number, reps: number, rir: number) => w * (1 + (reps + Math.max(0, rir)) / 30)
-  const rirOf = (s: LoggedSet) => s.rir ?? FALLBACK_RIR
-  const avg = sets.reduce((a, s) => a + est(s.weight, s.reps, rirOf(s)), 0) / sets.length
+    const avg = sets.reduce((a, s) => a + est(s.weight, s.reps, rirOf(s)), 0) / sets.length
   const plusOne = Math.min(...sets.map((s) => est(s.weight, s.reps + 1, rirOf(s))))
   const cap = Math.min(...sets.map((s) => est(s.weight, s.reps, rirOf(s)))) * (1 + MAX_E1RM_JUMP)
   const goal = Math.max(plusOne, Math.min(avg, cap))
@@ -422,7 +428,7 @@ export function isStalled(history: number[]): boolean {
 
 /** e1RM einer Einheit: bester Satz */
 export function sessionE1rm(sets: LoggedSet[], fallbackRir = FALLBACK_RIR): number {
-  return Math.max(0, ...sets.filter((s) => !s.warmup && !s.segment).map((s) => e1rm(s.weight, s.reps, s.rir ?? fallbackRir)))
+  return Math.max(0, ...sets.filter((s) => !s.warmup && !s.segment).map((s) => e1rm(s.weight, s.reps, rirOf(s, fallbackRir))))
 }
 
 /**

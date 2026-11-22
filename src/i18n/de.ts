@@ -69,7 +69,7 @@ export const de = {
     resetDefault: 'Zurück zum Standard',
   },
   more: {
-    title: 'Mehr', general: 'Allgemein', units: 'Einheiten', language: 'Sprache', features: 'Funktionen', theme: 'Design',
+    title: 'Mehr', general: 'Allgemein', units: 'Einheiten', language: 'Sprache', features: 'Funktionseinstellungen', theme: 'Design',
     themeSystem: 'System', themeLight: 'Hell', themeDark: 'Dunkel', data: 'Daten', other: 'Sonstiges', about: 'Über',
     keepAlive: 'Display aktiv halten', keepAliveDesc: 'Hält das Display während eines laufenden Workouts an.',
     seeLess: 'Weniger anzeigen', seeMore: (n: number) => `${n} weitere anzeigen`,

@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, inputCls } from '../../components/ui'
-import { ProgramBadge } from '../../components/icons'
+import { Icon, ProgramBadge } from '../../components/icons'
 import { SlideOver } from '../../components/SlideOver'
 import { MUSCLES } from '../../data/muscles'
 import { exerciseById } from '../../data/exercises'
-import { saveBodyEntry, useActiveProgram, useAllExercises, useMeasures, useSessions, useSettings, useStatSessions, useWeekState, useWeights } from '../../db/db'
+import { saveBodyEntry, useActiveProgram, useAllExercises, useLayoutPrefs, useMeasures, useSessions, useSettings, useStatSessions, useWeekState, useWeights } from '../../db/db'
 import { MEASURE_GROUPS, RATIOS, bodyLabel, bodySeries, lastEntries, type BodyKey } from '../../engine/body'
 import { bodyUnit, formatBody } from '../body/format'
 import { EntrySheet } from '../body/EntrySheet'
 import { cardioDaily, exerciseDaily, muscleDaily, noLoadStats } from '../../engine/stats'
 import { dailySeries, dailyValues, sessionDates, streakDays, streakWeeks, weekCount } from '../../engine/habits'
+import { visibleIds, type DashboardSection } from '../../engine/layout'
+import { LayoutSheet } from './LayoutSheet'
 import { weekProgress } from '../../engine/weekProgress'
 import { recentRecords, type RecordMetric } from '../../engine/records'
 import { displayToKg, kgToDisplay } from '../../utils/units'
@@ -48,6 +50,8 @@ export default function Dashboard() {
   const settings = useSettings()
   const weights = useWeights()
   const [panel, setPanel] = useState<null | 'weight' | 'workout' | 'muscles' | 'exercises' | 'body' | 'volume'>(null)
+  const layout = useLayoutPrefs()
+  const [customize, setCustomize] = useState(false)
   const [sheetDate, setSheetDate] = useState<string | null>(null)
   const measures = useMeasures()
   const [wVal, setWVal] = useState('')
@@ -132,12 +136,66 @@ export default function Dashboard() {
     window.history.back()
   }
 
+  const sectionNodes: Record<DashboardSection, ReactNode> = {
+    habits: (
+      <section key="habits" className="space-y-2">
+        <SectionHeader title="Gewohnheiten" />
+        <div className="grid grid-cols-2 gap-3">
+          <HabitBox title="Gewicht" dates={weightDates} today={today} color={COLOR.weight} weekDone={weekCount(weightDates, today)} onClick={() => setPanel('weight')} />
+          <HabitBox title="Workouts" dates={workoutDates} today={today} color={COLOR.workout} weekDone={weekCount(workoutDates, today)} onClick={() => setPanel('workout')} />
+        </div>
+      </section>
+    ),
+    body: (
+      <section key="body" className="space-y-2">
+        <SectionHeader title={de.dashboard.bodyMetrics} onAll={() => setPanel('body')} />
+        <div className="grid grid-cols-2 gap-3">
+          {bodyBox('weight')}
+          {bodyBox('bodyFat')}
+        </div>
+      </section>
+    ),
+    volume: (
+      <section key="volume" className="space-y-2">
+        <SectionHeader title="Volumen" />
+        <VolumeTile onClick={() => setPanel('volume')} />
+      </section>
+    ),
+    muscles: (
+      <section key="muscles" className="space-y-2">
+        <SectionHeader title="Muskelgruppen" onAll={() => setPanel('muscles')} />
+        <div className="grid grid-cols-2 gap-3">
+          {top(muscleBoxes).map((b) => (
+            <StatBox key={b.id} title={b.title} values={b.values} total={b.total} unit={de.common.sets} onClick={() => nav(`/stats/muscle/${b.id}?m=sets`)} />
+          ))}
+        </div>
+      </section>
+    ),
+    exercises: (
+      <section key="exercises" className="space-y-2">
+        <SectionHeader title="Übungen" onAll={() => setPanel('exercises')} />
+        {exerciseBoxes.length === 0 && <Card className="text-sm text-muted">Noch keine Übungen im Plan.</Card>}
+        <div className="grid grid-cols-2 gap-3">
+          {top(exerciseBoxes).map((b) => (
+            <StatBox key={b.id} title={b.title} values={b.values} line={b.line} total={b.total} unit={b.unit} onClick={() => nav(`/stats/exercise/${b.id}`)} />
+          ))}
+        </div>
+      </section>
+    ),
+  }
+
   return (
     <div className="min-h-full pb-28">
       {/* Oberer Bereich: randlos weiß, geht in die Notch über (Farbe über --notch) */}
       {/* Extra Abstand unter der Notch: der System-Blur am oberen Rand reicht sonst in den Titel */}
       <div className="bg-surface" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-        <h1 className="px-4 h-14 flex items-center font-bold text-lg max-w-2xl mx-auto">Dashboard</h1>
+        <div className="px-4 h-14 flex items-center justify-between max-w-2xl mx-auto">
+          <h1 className="font-bold text-lg">Dashboard</h1>
+          <button type="button" onClick={() => setCustomize(true)} aria-label="Dashboard anpassen"
+            className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-muted active:opacity-70">
+            <Icon name="sliders" size={22} />
+          </button>
+        </div>
         <div ref={pager} onScroll={onPagerScroll}
           className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar max-w-2xl mx-auto" style={{ scrollbarWidth: 'none' }}>
           <div className="w-full shrink-0 snap-center px-4 pb-2 space-y-4">
@@ -202,45 +260,7 @@ export default function Dashboard() {
       </div>
 
       <div className="px-4 py-4 space-y-4 max-w-2xl mx-auto">
-      <section className="space-y-2">
-        <SectionHeader title="Gewohnheiten" />
-        <div className="grid grid-cols-2 gap-3">
-          <HabitBox title="Gewicht" dates={weightDates} today={today} color={COLOR.weight} weekDone={weekCount(weightDates, today)} onClick={() => setPanel('weight')} />
-          <HabitBox title="Workouts" dates={workoutDates} today={today} color={COLOR.workout} weekDone={weekCount(workoutDates, today)} onClick={() => setPanel('workout')} />
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <SectionHeader title={de.dashboard.bodyMetrics} onAll={() => setPanel('body')} />
-        <div className="grid grid-cols-2 gap-3">
-          {bodyBox('weight')}
-          {bodyBox('bodyFat')}
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <SectionHeader title="Volumen" />
-        <VolumeTile onClick={() => setPanel('volume')} />
-      </section>
-
-      <section className="space-y-2">
-        <SectionHeader title="Muskelgruppen" onAll={() => setPanel('muscles')} />
-        <div className="grid grid-cols-2 gap-3">
-          {top(muscleBoxes).map((b) => (
-            <StatBox key={b.id} title={b.title} values={b.values} total={b.total} unit={de.common.sets} onClick={() => nav(`/stats/muscle/${b.id}?m=sets`)} />
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <SectionHeader title="Übungen" onAll={() => setPanel('exercises')} />
-        {exerciseBoxes.length === 0 && <Card className="text-sm text-muted">Noch keine Übungen im Plan.</Card>}
-        <div className="grid grid-cols-2 gap-3">
-          {top(exerciseBoxes).map((b) => (
-            <StatBox key={b.id} title={b.title} values={b.values} line={b.line} total={b.total} unit={b.unit} onClick={() => nav(`/stats/exercise/${b.id}`)} />
-          ))}
-        </div>
-      </section>
+      {visibleIds(layout.sections).map((id) => sectionNodes[id as DashboardSection])}
 
       <HabitPanel open={panel === 'weight'} onClose={close} title="Gewicht" today={today} tracked={weightDates} color={COLOR.weight}
         todayText={todayWeight ? `${kgToDisplay(todayWeight.kg, u)} ${u}` : `-- ${u}`}
@@ -277,6 +297,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3">{RATIOS.map((r) => bodyBox(r.id, r.label))}</div>
         </section>
       </SlideOver>
+
+      <LayoutSheet open={customize} onClose={() => setCustomize(false)} prefs={layout} />
 
       <EntrySheet date={sheetDate} today={today} entry={weights.find((w) => w.date === sheetDate)} unit={u} onClose={() => setSheetDate(null)} />
 

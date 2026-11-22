@@ -7,7 +7,8 @@ import { kgToDisplay } from '../../utils/units'
 import { downloadText } from '../../utils/download'
 import { ExercisePicker } from '../wizard/shared'
 import { TrainingImportCard } from './TrainingImport'
-import { DEFAULT_SETTINGS, exportAll, exportSessionsCsv, importAll, importProgramJson, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
+import { DEFAULT_SETTINGS, exportAll, exportSessionsCsv, importAll, importProgramJson, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useLayoutPrefs, useSettings } from '../../db/db'
+import { LayoutEditor } from '../dashboard/LayoutSheet'
 import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
@@ -99,6 +100,7 @@ export default function More() {
       </Section>
 
       <Section title={de.more.features}>
+        <Row icon="dashboard" label="Dashboard" desc="Bereiche und Plus-Menü anpassen" to="/more/dashboard" />
         <Row icon="workouts" label="Workouts" desc="Pause, Aufwärmen, Progression" to="/more/workouts" />
         <Row icon="calendar" label="Verlauf" desc="Einheiten ansehen, korrigieren, nachtragen" to="/history" />
         <Row icon="library" label="Übungen" desc="Übungsbibliothek durchsuchen" to="/more/library" />
@@ -119,6 +121,17 @@ export default function More() {
         <Row icon="help" label="Hilfe" to="/more/help" />
         <Row icon="about" label={de.more.about} to="/more/about" />
       </Section>
+    </Page>
+  )
+}
+
+/** Funktionseinstellungen → Dashboard (PLAN-6 B17) */
+export function DashboardSettingsPage() {
+  const nav = useNavigate()
+  const prefs = useLayoutPrefs()
+  return (
+    <Page title="Dashboard" back={() => nav('/more')}>
+      <LayoutEditor prefs={prefs} />
     </Page>
   )
 }

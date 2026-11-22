@@ -30,7 +30,7 @@ interface Props {
   plain?: boolean
   rows: Row[]
   settings: Settings
-  activePad: { rowId: string; field: PadField; side?: Side } | null
+  activePad: { rowId: string; field: PadField; side?: Side; partial?: boolean } | null
   onPatch: (rowId: string, p: Partial<Row>) => void
   onToggleDone: (row: Row, side?: Side) => void
   onToggleAll: () => void
@@ -109,6 +109,7 @@ export function SetTable({ view, plain, rows, settings, activePad, onPatch, onTo
           const partial = Number(v.partial) || 0
           const rirN = v.rir === '' ? null : Number(v.rir)
           const padOn = (f: PadField) => activePad?.rowId === r.id && activePad.field === f && (activePad.side === 'r') === (side === 'r')
+          const splitOn = partial > 0 || (padOn('reps') && !!activePad?.partial)
           const prevSide = side && prev?.sides ? prev.sides[side] : prev
           const sideLabel = side === 'l' ? 'Links' : side === 'r' ? 'Rechts' : ''
           return (
@@ -140,8 +141,13 @@ export function SetTable({ view, plain, rows, settings, activePad, onPatch, onTo
                   <button onClick={() => onPad(r.id, 'reps', side === 'r' ? 'r' : undefined)}
                     aria-label={rirN !== null && !warm ? `${sideLabel ? `${sideLabel}: ` : ''}${v.reps || '–'}${r.failure ? ' oder mehr, bis zum Versagen' : ''}, Ziel-RIR ${rirN}` : sideLabel ? `Wiederholungen ${sideLabel}` : undefined}
                     className={cx(cell, 'relative', done && 'opacity-40', padOn('reps') && 'ring-2 ring-accent !opacity-100')}>
-                    {v.reps || '–'}{r.failure && !warm && v.reps ? '+' : ''}
-                    {partial > 0 && <span className="absolute bottom-0.5 left-1.5 text-[10px] font-semibold leading-none text-muted" aria-label={`plus ${partial} Teilwiederholungen`}>+{partial}T</span>}
+                    {splitOn ? (
+                      <span className="flex w-full items-stretch" aria-label={`${v.reps || '–'} volle, ${partial || '–'} Teilwiederholungen`}>
+                        <span className={cx('flex-1 flex items-center justify-center rounded-l-lg', padOn('reps') && !activePad?.partial && 'bg-surface')}>{v.reps || '–'}{r.failure && !warm && v.reps ? '+' : ''}</span>
+                        <span className="w-px my-1.5 bg-muted/70" aria-hidden />
+                        <span className={cx('flex-1 flex items-center justify-center rounded-r-lg', padOn('reps') && activePad?.partial && 'bg-surface')}>{partial || '–'}</span>
+                      </span>
+                    ) : <>{v.reps || '–'}{r.failure && !warm && v.reps ? '+' : ''}</>}
                     {rirN !== null && !warm && (
                       <span className="absolute bottom-0.5 right-1.5 text-[10px] font-bold leading-none" style={{ color: rirColor(rirN) }}>{rirN}</span>
                     )}
