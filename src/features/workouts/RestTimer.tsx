@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { BottomSheet, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
+import { useSettings } from '../../db/db'
+import { playRestEnd } from '../../utils/sound'
 
 export interface RestState { endsAt: number; total: number }
 
@@ -11,6 +13,7 @@ const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padSta
 /** Restsekunden eines laufenden Pausen-Timers (zeitstempelbasiert), meldet das Ende einmal. */
 function useRemaining(rest: RestState | null, onDone?: () => void): number {
   const [now, setNow] = useState(Date.now())
+  const { restSound } = useSettings()
   useEffect(() => {
     if (!rest) return
     setNow(Date.now())
@@ -21,8 +24,9 @@ function useRemaining(rest: RestState | null, onDone?: () => void): number {
   useEffect(() => {
     if (!rest || !onDone || rest.endsAt > now) return
     try { navigator.vibrate?.([200, 100, 200]) } catch { /* nicht verfügbar */ }
+    if (restSound) playRestEnd()
     onDone()
-  }, [rest, now, onDone])
+  }, [rest, now, onDone, restSound])
   return left
 }
 

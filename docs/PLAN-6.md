@@ -28,7 +28,7 @@ Legende: `[ ]` offen · `[~]` in Arbeit · `[x]` erledigt · `[-]` bewusst nicht
 **Mittel**
 - [x] **B7** Dashboard-Ringe: Umschalter „Aktives Programm / Alle“ (Vorwoche entfällt). Notiz: erledigt 2026-11-22. `weekProgress(..., opts)` mit `scope: 'program' | 'all'`, `week`, `from`/`to` (`WeekProgressOptions`), Test in `engine.test.ts`. Dashboard: Umschalter „Programm / Alle Workouts“ (merkt sich die Wahl in localStorage `ringScope`) und Knopf „Vorwoche" (Programm: Woche−1, bei Woche 1 gesperrt; Alle: vorherige Kalenderwoche Mo–So). „Alle“ = Ziele aus dem aktiven Plan, gezählt werden Sätze der geplanten Übungen aus jeder Einheit der Kalenderwoche (andere Programme, Importe, Nachträge), unabhängig vom Tag. Nicht umgesetzt: eigene Ziele ohne Programm. Im Browser nur geladen (leere DB), Ablauf siehe Testanleitung.
 - [ ] **A5** Gerätestufen: mehrere Bereiche und Mikro-Stufen im Editor (Liste wird erzeugt). Notiz: –
-- [ ] **B12** Pausentimer-Ton (schaltbar). Notiz: –
+- [x] **B12** Pausentimer-Ton (schaltbar). Notiz: erledigt 2026-11-22. Neu: `utils/sound.ts` (`playRestEnd`: zwei Sinus-Töne per Web Audio, `unlockAudio` legt/setzt den AudioContext bei der ersten Nutzeraktion fort), `Settings.restSound` (Standard an, Einstellungen › Workouts › Anzeige), Aufruf in `RestTimer.tsx` `useRemaining` neben der Vibration. Schalter im Browser geprüft (speichert), Ton selbst nicht hörbar prüfbar. Nicht umgesetzt: ±10 s und Neustart in 15-s-Schritten (Plan-Zeile nannte es, Menü hat weiter ±15 s und Presets).
 - [ ] **B8** Gewichts-Trend (geglättet), Körpergewichtsanteil nutzt Trend. Notiz: –
 - [ ] **B9** Export: Programm/Workout als JSON, Sessions als CSV. Notiz: –
 - [ ] **B11** Tausch/Targets pro Satz in der Sitzung prüfen (Rest von B11 nach B1). Notiz: –
@@ -63,6 +63,7 @@ Eine Zeile pro Rest, nach Aufgabe sortiert. Status: `[ ]` offen · `[~]` in Arbe
 | [ ] | B4 | Programm-Ende: „Abschließen“ der Karte nicht einzeln im Browser durchgespielt (Archivieren selbst getestet) | Test | 2026-11-22 |
 | [ ] | B4 | Zurück aus dem Verlauf über **Mehr** nicht im Browser nachgeklickt (über Workouts getestet) | Test | 2026-11-22 |
 | [ ] | B7 | Ringe im Browser mit echten Daten nicht durchgeklickt | Test | 2026-11-22 |
+| [ ] | B12 | Ton auf echtem Gerät (iOS-PWA, Stumm-Schalter, Sperrbildschirm) nicht gehört | Test | 2026-11-22 |
 | [ ] | B5 | Einzelne Sätze der letzten Übung abhaken und Supersatz-Wechsel bei Schalter aus nicht im Browser getestet (nur „alle abhaken“) | Test | 2026-11-22 |
 
 ## 0. Vorgehen und Grenzen
