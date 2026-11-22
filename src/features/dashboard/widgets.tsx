@@ -138,7 +138,7 @@ export function HabitBox({ title, dates, today, color, weekDone, onClick }: {
 }
 
 /** Monatskalender mit Kreisen; Wischen nach links/rechts wechselt den Monat. */
-export function MonthCalendar({ tracked, today, color, onSelect }: { tracked: Set<string>; today: string; color: string; onSelect?: (date: string) => void }) {
+export function MonthCalendar({ tracked, today, color, textColor = '#fff', onSelect }: { tracked: Set<string>; today: string; color: string; textColor?: string; onSelect?: (date: string) => void }) {
   const [view, setView] = useState(() => monthOf(today))
   const down = useRef<{ x: number; y: number } | null>(null)
   const go = (d: number) => setView((v) => shiftMonth(v.year, v.month0, d))
@@ -170,7 +170,7 @@ export function MonthCalendar({ tracked, today, color, onSelect }: { tracked: Se
             <div key={d} className="flex justify-center">
               <button type="button" disabled={!onSelect} onClick={() => onSelect?.(d)} aria-label={d}
                 className={cx('w-9 h-9 rounded-full flex items-center justify-center text-sm tabular-nums', d === today && 'font-bold', future && 'opacity-40', onSelect && 'active:opacity-60')}
-                style={on ? { background: color, color: '#fff' } : { border: `1px solid ${d === today ? 'var(--fg)' : 'var(--line)'}` }}>
+                style={on ? { background: color, color: textColor } : { border: `1px solid ${d === today ? 'var(--fg)' : 'var(--line)'}` }}>
                 {Number(d.slice(8))}
               </button>
             </div>

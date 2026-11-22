@@ -2,7 +2,8 @@ import { Fragment, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Card, Page, inputCls } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import { HELP_CATEGORIES, HELP_INTRO, findArticle, searchArticles, type HelpBlock } from '../../data/help'
+import { findArticle, searchArticles, type HelpBlock } from '../../data/help'
+import { CATS, INTRO } from '../../data/helpLang'
 import { t } from '../../i18n'
 
 const APP_NAME = 'Lift Lab'
@@ -26,12 +27,12 @@ function ArticleRow({ id, title, sub }: { id: string; title: string; sub?: strin
 export function KnowledgeBasePage() {
   const nav = useNavigate()
   const [q, setQ] = useState('')
-  const hits = searchArticles(q.trim())
+  const hits = searchArticles(q.trim(), CATS)
   return (
     <Page title={t('Wissensdatenbank')} back={() => nav('/more')}>
       <div className="px-1 pt-2 space-y-1.5">
         <div className="flex items-center gap-2 text-accent"><Icon name="guide" size={26} /><span className="text-xl font-bold text-fg">{APP_NAME}</span></div>
-        <p className="text-sm text-muted">{HELP_INTRO}</p>
+        <p className="text-sm text-muted">{INTRO}</p>
       </div>
       <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Artikel durchsuchen')} aria-label={t('Artikel durchsuchen')} className={inputCls} />
       {q.trim() ? (
@@ -42,7 +43,7 @@ export function KnowledgeBasePage() {
         ) : <p className="text-sm text-muted text-center py-6">{t('Keine Artikel gefunden.')}</p>
       ) : (
         <div className="space-y-3">
-          {HELP_CATEGORIES.map((c) => (
+          {CATS.map((c) => (
             <button key={c.id} onClick={() => nav(`/more/help/c/${c.id}`)}
               className="w-full flex items-center gap-4 rounded-2xl bg-surface border border-line p-4 text-left active:opacity-70">
               <span className="shrink-0 w-11 h-11 rounded-xl bg-surface2 flex items-center justify-center"><Icon name={c.icon} size={24} /></span>
@@ -63,7 +64,7 @@ export function KnowledgeBasePage() {
 export function HelpCategoryPage() {
   const nav = useNavigate()
   const { cat } = useParams()
-  const c = HELP_CATEGORIES.find((x) => x.id === cat)
+  const c = CATS.find((x) => x.id === cat)
   if (!c) return <Page title={t('Wissensdatenbank')} back={() => nav('/more/help')}><p className="text-sm text-muted">{t('Kategorie nicht gefunden.')}</p></Page>
   return (
     <Page title={c.title} back={() => nav('/more/help')}>
@@ -88,10 +89,10 @@ export function HelpArticlePage() {
   const loc = useLocation()
   const { id } = useParams()
   const helpBack = (loc.state as { helpBack?: string } | null)?.helpBack
-  const found = id ? findArticle(id) : undefined
+  const found = id ? findArticle(id, CATS) : undefined
   if (!found) return <Page title={t('Wissensdatenbank')} back={() => nav('/more/help')}><p className="text-sm text-muted">{t('Artikel nicht gefunden.')}</p></Page>
   const { cat, article } = found
-  const related = (article.related ?? []).map(findArticle).filter((x) => !!x)
+  const related = (article.related ?? []).map((r) => findArticle(r, CATS)).filter((x) => !!x)
   return (
     <Page title={cat.title} back={() => nav(helpBack ?? `/more/help/c/${cat.id}`)}>
       <h2 className="text-xl font-bold px-1">{article.title}</h2>
