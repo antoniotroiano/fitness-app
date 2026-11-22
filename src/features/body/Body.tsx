@@ -63,7 +63,7 @@ export function WeightPage() {
       <EntrySheet date={sheetDate} today={todayStr()} entry={weights.find((w) => w.date === sheetDate)} unit={u} onClose={() => setSheetDate(null)} />
 
       <Card className="space-y-3">
-        <TimeSeries daily={points} trend={trend} bar={false} fmt={(v) => `${kgToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
+        <TimeSeries daily={points} trend={trend} bar={false} lineColor="var(--c-weight)" fmt={(v) => `${kgToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
         <p className="text-xs text-muted">Punkte = Messwerte, Linie = Trend (geglättet, gleicht Tagesschwankungen aus). Der Körpergewichtsanteil bei Klimmzügen, Dips und Co. rechnet mit dem Trend.</p>
       </Card>
 

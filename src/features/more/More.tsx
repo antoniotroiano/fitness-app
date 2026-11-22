@@ -7,7 +7,7 @@ import { kgToDisplay } from '../../utils/units'
 import { downloadText } from '../../utils/download'
 import { ExercisePicker } from '../wizard/shared'
 import { TrainingImportCard } from './TrainingImport'
-import { DEFAULT_SETTINGS, exportAll, exportSessionsCsv, importAll, importProgramJson, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useLayoutPrefs, useSettings } from '../../db/db'
+import { DEFAULT_SETTINGS, exportAll, exportSessionsCsv, importAll, importProgramJson, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useLayoutPrefs, useSettings, useWeights } from '../../db/db'
 import { LayoutEditor } from '../dashboard/LayoutSheet'
 import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
@@ -20,6 +20,7 @@ import { MuscleThumb } from '../../components/MuscleFigure'
 import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/library'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
 import { de } from '../../i18n/de'
+import { todayStr, daysBetween } from '../../utils/dates'
 
 export { WarmupSettingsPage } from './WarmupSettings'
 
@@ -87,10 +88,43 @@ function ThemePicker({ value, onChange }: { value: Settings['theme']; onChange: 
   )
 }
 
+const SEX_LABEL = { m: 'Männlich', f: 'Weiblich', x: 'Divers' } as const
+
+/** Kopf der Mehr-Seite: Initialen-Kreis, Name und eine Zeile aus Geschlecht, Alter, Größe, Gewicht. */
+function ProfileHeader() {
+  const nav = useNavigate()
+  const s = useSettings()
+  const weights = useWeights()
+  const last = weights.length ? weights[weights.length - 1] : null
+  const age = s.birthday ? Math.floor(daysBetween(s.birthday, todayStr()) / 365.25) : null
+  const parts = [
+    s.sex ? SEX_LABEL[s.sex] : null,
+    age !== null && age >= 0 && age < 130 ? `${age} J.` : null,
+    s.heightCm ? formatHeight(s.heightCm, s.lengthUnit) : null,
+    last ? `${kgToDisplay(last.kg, s.weightUnit)} ${s.weightUnit}` : null,
+  ].filter(Boolean)
+  const name = s.name.trim()
+  const initials = name ? name.split(/\s+/).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') : ''
+  return (
+    <button onClick={() => nav('/more/profile', { state: { fromMore: true } })}
+      className="w-full flex items-center gap-4 rounded-2xl bg-surface border border-line p-4 text-left active:opacity-70">
+      <span className="shrink-0 w-14 h-14 rounded-full bg-surface2 text-lg font-semibold flex items-center justify-center" aria-hidden>
+        {initials || <Icon name="profile" />}
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block font-semibold truncate">{name || 'Profil ausfüllen'}</span>
+        <span className="block text-xs text-muted">{parts.length ? parts.join(' · ') : 'Name, Geburtstag, Größe …'}</span>
+      </span>
+      <span className="text-muted">›</span>
+    </button>
+  )
+}
+
 export default function More() {
   const { s, update } = useSettingsForm()
   return (
     <Page title={de.more.title}>
+      <ProfileHeader />
       <Section title={de.more.general}>
         <Row icon="profile" label="Profil" desc="Name, Geburtstag, Geschlecht, Größe" to="/more/profile" />
         <Row icon="units" label={de.more.units} desc={`${s.weightUnit}, ${s.lengthUnit === 'in' ? 'in / ft' : 'cm'}, ${s.distanceUnit}, ${s.clock === '12h' ? '12 h' : '24 h'}`} to="/more/units" />

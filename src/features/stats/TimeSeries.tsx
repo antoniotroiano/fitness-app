@@ -17,8 +17,8 @@ const AVG: { value: Averaging; letter: string; label: string }[] = [
 const H = 208
 const M = { top: 12, right: 56, bottom: 24, left: 6 }
 
-function Chart({ w, points, trend, bar, fmt, mode, canPan, offset, onOffset, today, firstDate }: {
-  w: ChartWindow; points: Point[]; trend: Point[]; bar: boolean; fmt: (v: number) => string; mode: Averaging
+function Chart({ w, points, trend, bar, fmt, mode, canPan, offset, onOffset, today, firstDate, lineColor }: {
+  lineColor: string; w: ChartWindow; points: Point[]; trend: Point[]; bar: boolean; fmt: (v: number) => string; mode: Averaging
   canPan: boolean; offset: number; onOffset: (o: number) => void; today: string; firstDate: string | null
 }) {
   const box = useRef<HTMLDivElement>(null)
@@ -120,7 +120,7 @@ function Chart({ w, points, trend, bar, fmt, mode, canPan, offset, onOffset, tod
             fill="var(--chart-bar)" opacity={sel === null || sel === i ? 1 : 0.5} onClick={() => setSel(sel === i ? null : i)} />
         })}
         {!bar && !trendPlaced.length && linePts.length > 1 && (
-          <polyline fill="none" stroke="var(--chart-line)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
+          <polyline fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
             points={linePts.map((p) => `${p.cx},${y(p.value)}`).join(' ')} />
         )}
         {!bar && trendPlaced.length > 1 && (
@@ -128,7 +128,7 @@ function Chart({ w, points, trend, bar, fmt, mode, canPan, offset, onOffset, tod
             points={trendPlaced.map((p) => `${p.cx},${y(p.value)}`).join(' ')} />
         )}
         {!bar && placed.map((p, i) => (
-          <circle key={p.date} cx={p.cx} cy={y(p.value)} r={sel === i ? 5 : trendPlaced.length ? 2.5 : 3.5} fill="var(--chart-line)"
+          <circle key={p.date} cx={p.cx} cy={y(p.value)} r={sel === i ? 5 : trendPlaced.length ? 2.5 : 3.5} fill={lineColor}
             opacity={trendPlaced.length && sel !== i ? 0.6 : 1} onClick={() => setSel(sel === i ? null : i)} />
         ))}
         </g></g>
@@ -156,10 +156,11 @@ function Chart({ w, points, trend, bar, fmt, mode, canPan, offset, onOffset, tod
  * Zeitreihen-Diagramm mit Zeitraum-Auswahl, Datumsbereich als Titel, Wischen durch die Zeit
  * und Mittelung (Daily/Weekly/Monthly) im Auswahlfenster.
  */
-export function TimeSeries({ daily, trend, bar, fmt, defaultPeriod = '1W', showAveraging = true, stats, below }: {
+export function TimeSeries({ daily, trend, bar, fmt, defaultPeriod = '1W', showAveraging = true, stats, below, lineColor = 'var(--chart-line)' }: {
   daily: Point[]; /** Trendlinie über die Rohpunkte (nur Linien-Diagramm, Tageswerte). */ trend?: Point[]; bar: boolean; fmt: (v: number) => string; defaultPeriod?: Period; showAveraging?: boolean
   stats?: (shown: Point[]) => ReactNode
   below?: (visible: Point[], w: ChartWindow) => ReactNode
+  lineColor?: string
 }) {
   const today = todayStr()
   const [period, setPeriod] = useState<Period>(defaultPeriod)
@@ -183,7 +184,7 @@ export function TimeSeries({ daily, trend, bar, fmt, defaultPeriod = '1W', showA
     <div className="space-y-3">
       <div className="text-sm font-semibold text-center" aria-live="polite">{formatRange(w)}</div>
       <Chart w={w} points={shown} trend={visibleTrend} bar={bar} fmt={fmt} mode={mode} canPan={period !== 'All'} offset={offset}
-        onOffset={pan} today={today} firstDate={firstDate} />
+        onOffset={pan} today={today} firstDate={firstDate} lineColor={lineColor} />
       {stats?.(shown)}
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex gap-1.5">

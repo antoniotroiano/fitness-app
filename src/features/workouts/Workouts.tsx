@@ -132,6 +132,7 @@ export default function Workouts() {
             <Button className="flex-1" onClick={() => void updateProgram(extendProgram(program))}>Block wiederholen</Button>
             <Button variant="ghost" className="flex-1" onClick={() => void archiveProgram(program.id as number)}>Abschließen</Button>
           </div>
+          <Button variant="ghost" className="w-full" onClick={() => nav('/new')}>Neues Programm erstellen</Button>
         </Card>
       )}
 

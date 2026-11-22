@@ -240,7 +240,7 @@ export default function Dashboard() {
                 <div key={r.exerciseId} className="flex items-center gap-3 text-sm">
                   <span className="w-28 shrink-0 truncate">{lookup(r.exerciseId)?.name ?? r.exerciseId}</span>
                   <span className="flex-1 h-2.5 rounded-full bg-surface2 overflow-hidden">
-                    <span className="block h-full rounded-full transition-all duration-300" style={{ width: `${Math.max(4, (r.value / recMax) * 100)}%`, background: 'var(--ring-sets)' }} />
+                    <span className="block h-full rounded-full transition-all duration-300" style={{ width: `${Math.max(4, (r.value / recMax) * 100)}%`, background: 'var(--c-records)' }} />
                   </span>
                   <span className="w-16 shrink-0 text-right font-semibold tabular-nums">{recFmt(r.value)}</span>
                 </div>
