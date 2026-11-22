@@ -62,3 +62,27 @@ describe('Anleitungen', () => {
     expect(Object.keys(INSTRUCTIONS).filter((id) => !ids.has(id))).toEqual([])
   })
 })
+
+import { INSTRUCTIONS_EN } from './instructionsEn'
+import { TIPS } from './media/tips'
+import { TIPS_EN } from './media-en/tips'
+
+describe('Englische Anleitungen und Tipps', () => {
+  it('gleiche Übungen und gleiche Schrittzahl wie Deutsch', () => {
+    expect(Object.keys(INSTRUCTIONS_EN).sort()).toEqual(Object.keys(INSTRUCTIONS).sort())
+    const diff = Object.keys(INSTRUCTIONS).filter((id) => INSTRUCTIONS_EN[id].length !== INSTRUCTIONS[id].length)
+    expect(diff).toEqual([])
+  })
+  it('Tipps: gleiche Übungen und gleiche Listenlängen', () => {
+    expect(Object.keys(TIPS_EN).sort()).toEqual(Object.keys(TIPS).sort())
+    const diff = Object.keys(TIPS).filter((id) => {
+      const a = TIPS[id], b = TIPS_EN[id]
+      return a.cues.length !== b.cues.length || a.mistakes.length !== b.mistakes.length || !b.breathing === !!a.breathing || (a.steps?.length ?? 0) !== (b.steps?.length ?? 0)
+    })
+    expect(diff).toEqual([])
+  })
+  it('keine deutschen Reste', () => {
+    const all = [...Object.values(INSTRUCTIONS_EN).flat(), ...Object.values(TIPS_EN).flatMap((t) => [...t.cues, ...t.mistakes, t.breathing])]
+    expect(all.filter((s) => /[äöüß]|\b(Atme|Drücke|Halte|und die)\b/.test(s))).toEqual([])
+  })
+})

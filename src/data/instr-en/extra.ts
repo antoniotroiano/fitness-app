@@ -1,0 +1,21 @@
+/** English instructions: finer muscle groups (same IDs and step counts as `../instr/extra.ts`) */
+export const EXTRA_EN: Record<string, string[]> = {
+  'superman': ['Lie face down on the floor, arms stretched out in front.', 'Lift arms and legs a few centimeters at the same time, eyes on the floor.', 'Hold the tension in your lower back briefly and lower under control.'],
+  'weighted-hyperextension': ['Secure your feet in the machine, hips on the pad, hold a dumbbell at your chest.', 'Lower your torso with a straight back.', 'Come up to a straight body line without arching your lower back.'],
+  'neck-curl-plate': ['Lie on your back on a bench with your head hanging over the edge and a weight plate on your forehead.', 'Slowly lift your head, your chin moves toward your chest.', 'Lower under control, using light weight.'],
+  'neck-extension-machine': ['Adjust the pad at the back of your head, torso upright.', 'Press your head back under control.', 'Return slowly, use only light loads.'],
+  'neck-band-extension': ['Anchor the band behind you and loop it around the back of your head.', 'Tilt your head forward against the resistance and extend it again.', 'Move slowly and without jerking.'],
+  'neck-lateral-band': ['Anchor the band at the side and place it at head height.', 'Tilt your head toward your shoulder against the resistance.', 'Return under control, then switch sides.'],
+  'scapular-pushup': ['Get into the push-up position with straight arms.', 'Let your chest sink between your shoulder blades without bending your elbows.', 'Push your shoulder blades wide apart and hold briefly.'],
+  'cable-serratus-punch': ['Cable at chest height, handle in one hand, stand sideways to the cable.', 'Extend your arm forward while actively pushing your shoulder forward.', 'Return slowly.'],
+  'band-serratus-punch': ['Anchor the band behind you at chest height.', 'Extend your arm forward and spread your shoulder blades apart.', 'Give in slowly.'],
+  'db-serratus-press': ['Lie on the bench with a dumbbell over your chest, arm straight.', 'Push your shoulder up toward the ceiling without bending your arm.', 'Lower your shoulder under control.'],
+  'wall-slide': ['Stand with your back to the wall, forearms against the wall.', 'Slide your arms up while pushing your shoulder blades forward.', 'Return slowly.'],
+  'tibialis-raise': ['Lean your back against a wall, feet a step in front of the wall.', 'Pull your toes up toward your shins as far as possible.', 'Lower your toes under control.'],
+  'tibialis-machine': ['Sit at the machine with your feet under the pad.', 'Pull your toes up.', 'Lower slowly.'],
+  'db-tibialis-raise': ['Sit down with a dumbbell resting on your forefoot.', 'Pull your toes up.', 'Lower under control.'],
+  'band-tibialis': ['Anchor the band on the floor in front of you and loop it over your forefoot.', 'Pull your toes toward you against the resistance.', 'Give in slowly.'],
+  'cable-side-bend': ['Cable low, handle in one hand, stand sideways to the cable.', 'Bend your torso sideways away from the cable.', 'Straighten back up slowly.'],
+  'db-side-bend': ['Hold a dumbbell in one hand at your side.', 'Bend your torso toward the side with the dumbbell.', 'Straighten up without swinging.'],
+  'bicycle-crunch': ['Lie on your back, hands at your temples, legs raised.', 'Bring your elbow to the opposite knee while the other leg extends.', 'Alternate sides in a steady rhythm.'],
+}
