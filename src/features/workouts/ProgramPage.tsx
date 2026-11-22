@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BottomSheet, Button, Card, Page, cx } from '../../components/ui'
 import { Icon, ProgramBadge, type IconName } from '../../components/icons'
-import { activateProgram, archiveProgram, copyProgram, deleteProgram, restoreProgram, updateProgram, usePrograms, useProgramsLoaded } from '../../db/db'
+import { downloadText, safeFileName } from '../../utils/download'
+import { activateProgram, archiveProgram, copyProgram, deleteProgram, exportProgramJson, restoreProgram, updateProgram, usePrograms, useProgramsLoaded } from '../../db/db'
 import { ProgramSettingsSheet } from './ProgramSettingsSheet'
 import WorkoutPreview from './WorkoutPreview'
 
@@ -84,6 +85,11 @@ export default function ProgramPage() {
         <div className="divide-y divide-line">
           <MenuRow icon="sliders" label="Programm bearbeiten" desc="Name, Blocklänge, Deload, Programm-Ende" onClick={() => { close(); setEditing(true) }} />
           <MenuRow icon="copy" label="Programm duplizieren" onClick={async () => { close(); const n = await copyProgram(id); if (n) nav(`/program/${n}`, { replace: true }) }} />
+          <MenuRow icon="data" label="Programm exportieren" desc="Datei mit Programm und eigenen Übungen" onClick={async () => {
+            close()
+            const r = await exportProgramJson(id)
+            if (r) downloadText(`liftlab-programm-${safeFileName(r.name)}.json`, r.json, 'application/json')
+          }} />
           {!program.active && <MenuRow icon="check" label="Programm aktivieren" desc="Wird zum aktiven Programm" onClick={async () => { close(); await activateProgram(id); nav('/workouts') }} />}
           {program.archived
             ? <MenuRow icon="archive" label="Aus dem Archiv holen" onClick={async () => { close(); await restoreProgram(id) }} />

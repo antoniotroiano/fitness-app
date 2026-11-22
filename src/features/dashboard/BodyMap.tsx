@@ -4,7 +4,7 @@ import { Card, Chip, cx, LinkButton } from '../../components/ui'
 import { MusclePair } from '../../components/MuscleFigure'
 import { MUSCLES } from '../../data/muscles'
 import { exerciseById } from '../../data/exercises'
-import { useAllExercises, useSessions, useSettings, useWeights } from '../../db/db'
+import { useAllExercises, useSessions, useSettings, useBodyweights } from '../../db/db'
 import { kgToDisplay } from '../../utils/units'
 import { muscleContributions, setTier, volumeSplit, weeklyMuscleSets } from '../../engine/stats'
 
@@ -125,7 +125,7 @@ export function BodyMap({ onMuscle }: { onMuscle: (id: MuscleId) => void }) {
 function VolumeSplitCard({ weeks }: { weeks: number }) {
   const sessions = useSessions()
   const all = useAllExercises()
-  const weights = useWeights()
+  const weights = useBodyweights()
   const unit = useSettings().weightUnit
   const v = useMemo(() => volumeSplit(sessions, (id) => exerciseById(id, all), weights, weeks), [sessions, all, weights, weeks])
   const total = v.external + v.bodyweight

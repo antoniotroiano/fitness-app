@@ -7,7 +7,7 @@ import {
   DEFAULT_WARMUP_SCHEMES, collapsedWarmups, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
   type WarmupContext,
 } from './warmup'
-import { effectiveStep, floorToScale, snapToScale, stepDown, stepUp } from './weightScale'
+import { effectiveStep, floorToScale, scaleFromSegments, snapToScale, stepDown, stepUp } from './weightScale'
 import type { WeightScale } from '../types'
 import { volumeFactor, exerciseValue, noLoadStats, setVolume } from './stats'
 import { migrateExercise, migrateFocus, migrateMuscles } from '../data/muscleMigration'
@@ -16,7 +16,7 @@ import { axisTicks, bucketSpan, chartWindow, clampOffset, formatRange, niceTicks
 import { dailyValues, dailySeries, habitDots, monthGrid, shiftMonth, streakDays, streakWeeks, weekCount } from './habits'
 import { elapsedMs, formatClock, pauseClock, resumeClock, startClock } from './workoutClock'
 import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
-import { baseRepRange, effectiveSets, exerciseTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
+import { baseRepRange, effectiveSets, exerciseTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, setWeekTargetForDay, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives, recommendable, swapPlanned } from './swap'
 import { removeFromDay, swapInDay } from './dayEdit'
@@ -28,6 +28,7 @@ import { isRepless, metricColumn, metricLabel, metricUnit } from './metric'
 import { instructionsFor } from '../data/instructions'
 import { targetMuscles } from './targetMuscles'
 import { weekProgress } from './weekProgress'
+import { parseProgramFile, programToFile, sessionsToCsv } from './exportData'
 import { deloadSessionOf, plannedDay } from './plannedDay'
 import { MEDIA_MAP, posterSlug } from '../data/media'
 import { TIPS } from '../data/media/tips'
@@ -43,7 +44,7 @@ import { BODYWEIGHT_SHARE } from '../data/exercises'
 import { canFreeSlot, moveSessionToDate, sessionSummary, setSessionDuration, setSessionStartTime, weekStateAfterDelete, weekStateAfterMove } from './history'
 import { buildImportSessions, parseTrainingCsv, suggestMapping } from './trainingImport'
 import { IMPORT_ALIASES } from '../data/importAliases'
-import { bodySeries, lastEntries, ratioSeries, weightSeries } from './body'
+import { bodySeries, lastEntries, ratioSeries, smoothWeights, trendSeries, weightSeries } from './body'
 import type { MeasureEntry, Program, ProgramConfig, Session, WeightEntry } from '../types'
 
 const range = { min: 6, max: 10 }
@@ -697,6 +698,73 @@ describe('weekProgress Umschalter und Vorwoche', () => {
     expect(p.exercises.done).toBe(1)
     const prev = weekProgress(program, state, sessions, ex, { scope: 'all', week: 0, from: '2026-01-05', to: '2026-01-11' })
     expect(prev.sets.done).toBe(2)
+  })
+})
+
+describe('Export CSV und Programmdatei', () => {
+  const lookup = (id: string) => exerciseById(id, ALL_EXERCISES)
+  const sess = {
+    programId: 1, dayIndex: 0, date: '2026-02-01', finishedAt: 5, week: 0, durationSec: 3600,
+    exercises: [
+      { exerciseId: 'bb-bench', sets: [{ weight: 20, reps: 10, warmup: true }, { weight: 60.5, reps: 8, rir: 2 }, { weight: 60, reps: 6, failure: true }] },
+    ],
+  } as unknown as Parameters<typeof sessionsToCsv>[0][number]
+  const programs = [{ id: 1, days: [{ id: 'a', name: 'Push, "A"', exercises: [] }] }] as unknown as Parameters<typeof sessionsToCsv>[1]
+
+  it('CSV hat Kopf, eine Zeile pro Satz und maskiert Sonderzeichen', () => {
+    const lines = sessionsToCsv([sess], programs, lookup).trim().split('\n')
+    expect(lines).toHaveLength(4)
+    expect(lines[0].startsWith('Datum,Training,Übung')).toBe(true)
+    expect(lines[1]).toContain('"Push, ""A"""')
+    expect(lines[1]).toContain('Aufwärmen')
+    expect(lines[3]).toContain('Versagen')
+  })
+  it('CSV lässt sich mit dem Trainingsimport wieder lesen (Rundlauf)', () => {
+    const rows = parseTrainingCsv(sessionsToCsv([sess], programs, lookup))
+    expect(rows).toHaveLength(3)
+    expect(rows[0]).toMatchObject({ date: '2026-02-01', type: 'warmup', weight: 20, reps: 10, sessionSec: 3600 })
+    expect(rows[1]).toMatchObject({ type: 'work', weight: 60.5, reps: 8, rir: 2 })
+    expect(rows[2]).toMatchObject({ type: 'failure', rir: 0 })
+    const map = suggestMapping([rows[0].exercise], ALL_EXERCISES)
+    expect(map[rows[0].exercise]).toBe('bb-bench')
+  })
+  it('Cardio steht als Sekunden und km in der CSV', () => {
+    const cardio = ALL_EXERCISES.find((e) => e.cardio)!
+    const c = { ...sess, exercises: [{ exerciseId: cardio.id, sets: [{ weight: 0, reps: 0, minutes: 20, km: 3.5 }] }] } as unknown as typeof sess
+    const rows = parseTrainingCsv(sessionsToCsv([c], programs, lookup))
+    expect(rows[0]).toMatchObject({ seconds: 1200, km: 3.5 })
+  })
+
+  const program = {
+    id: 7, name: 'Mein Plan', icon: 'x', color: '#fff', config: null, weekSlots: [0, 'rest'], createdAt: 1, active: true,
+    days: [{ id: 'd1', name: 'A', exercises: [{ exerciseId: 'custom-x', sets: 3, repMin: 8, repMax: 12, rir: 2 }, { exerciseId: 'bb-bench', sets: 3, repMin: 8, repMax: 12, rir: 2 }] }],
+  } as unknown as Parameters<typeof programToFile>[0]
+  const customX = { id: 'custom-x', name: 'X', primary: ['chest'], secondary: [], custom: true } as unknown as Parameters<typeof programToFile>[1][number]
+  const customY = { ...customX, id: 'custom-y' }
+
+  it('Programmdatei enthält nur verwendete eigene Übungen und keine ID/Aktiv', () => {
+    const f = programToFile(program, [customX, customY])
+    expect(f.customExercises.map((e) => e.id)).toEqual(['custom-x'])
+    expect(f.program).not.toHaveProperty('id')
+    expect(f.program).not.toHaveProperty('active')
+  })
+  it('Import legt inaktives Programm mit neuem Namen, neuen Tag-IDs und fehlenden Übungen an', () => {
+    const json = JSON.stringify(programToFile(program, [customX]))
+    const r = parseProgramFile(json, ['Mein Plan'], new Set(['bb-bench']), () => 'neu', 99)
+    expect(r.program.name).toBe('Mein Plan (2)')
+    expect(r.program.active).toBe(false)
+    expect(r.program.days[0].id).toBe('neu')
+    expect(r.program.createdAt).toBe(99)
+    expect(r.newExercises.map((e) => e.id)).toEqual(['custom-x'])
+    const again = parseProgramFile(json, [], new Set(['custom-x']), () => 'n')
+    expect(again.newExercises).toEqual([])
+    expect(again.keptExercises).toEqual(['custom-x'])
+  })
+  it('Import lehnt fremde Dateien verständlich ab', () => {
+    expect(() => parseProgramFile('kein json', [], new Set(), () => 'x')).toThrow(/JSON/)
+    expect(() => parseProgramFile('{"app":"andere"}', [], new Set(), () => 'x')).toThrow(/Lift-Lab/)
+    expect(() => parseProgramFile('{"app":"liftlab","version":2}', [], new Set(), () => 'x')).toThrow(/Programm-Export/)
+    expect(() => parseProgramFile('{"app":"liftlab","kind":"program","program":{"days":[]}}', [], new Set(), () => 'x')).toThrow(/unvollständig/)
   })
 })
 
@@ -1363,6 +1431,42 @@ describe('Körpergewichtsanteil', () => {
     expect(exerciseById('plank')!.bodyweight).toBeUndefined()
   })
 
+  it('Gerätestufen aus mehreren Bereichen und Mikro-Stufe', () => {
+    const sc = scaleFromSegments([{ from: 15, to: 25, step: 5 }, { from: 25, to: 55, step: 10 }, { from: 55, to: 190, step: 15 }])!
+    expect(sc.kind === 'list' && sc.weights.slice(0, 7)).toEqual([15, 20, 25, 35, 45, 55, 70])
+    expect(sc.kind === 'list' && sc.weights.at(-1)).toBe(190)
+    expect(stepUp(25, sc)).toBe(35)
+    expect(snapToScale(52, sc)).toBe(55)
+    const micro = scaleFromSegments([{ from: 10, to: 20, step: 5 }], 1.25)!
+    expect(micro.kind === 'list' && micro.weights).toEqual([10, 11.25, 15, 16.25, 20, 21.25])
+    // Mikro-Stufe passt nicht in zu kleine Lücke
+    expect(scaleFromSegments([{ from: 10, to: 11, step: 1 }], 1.5)!).toMatchObject({ weights: [10, 11, 12.5] })
+    expect(scaleFromSegments([{ from: 0, to: 10, step: 5 }])).toMatchObject({ weights: [5, 10] })
+    expect(scaleFromSegments([{ from: 10, to: 10, step: 5 }])).toBeNull()
+    expect(scaleFromSegments([{ from: 5, to: 10, step: 0 }])).toBeNull()
+    expect(sc.kind === 'list' && sc.segments).toHaveLength(3)
+  })
+
+  it('Gewichts-Trend: glättet Ausreißer, toleriert Lücken, ändert Rohwerte nicht', () => {
+    expect(trendSeries([])).toEqual([])
+    const flat = trendSeries([{ date: '2026-01-01', value: 80 }, { date: '2026-01-02', value: 80 }])
+    expect(flat.map((p) => p.value)).toEqual([80, 80])
+    // Ausreißer (+3 kg an einem Tag) zieht den Trend nur um einen Bruchteil
+    const spike = trendSeries([{ date: '2026-01-01', value: 80 }, { date: '2026-01-02', value: 83 }])
+    expect(spike[1].value).toBeGreaterThan(80)
+    expect(spike[1].value).toBeLessThan(80.6)
+    // lange Lücke: neuer Wert zählt fast voll
+    const gap = trendSeries([{ date: '2026-01-01', value: 80 }, { date: '2026-03-01', value: 76 }])
+    expect(gap[1].value).toBeCloseTo(76, 1)
+    // unsortiert und 0-Werte
+    expect(trendSeries([{ date: '2026-01-02', value: 81 }, { date: '2026-01-01', value: 80 }, { date: '2026-01-03', value: 0 }]).map((p) => p.date)).toEqual(['2026-01-01', '2026-01-02'])
+    const raw = [{ date: '2026-01-01', kg: 80 }, { date: '2026-01-02', kg: 83 }]
+    const sm = smoothWeights(raw)
+    expect(raw[1].kg).toBe(83)
+    expect(sm[1].kg).toBeLessThan(80.6)
+    expect(bodyweightAt(sm, '2026-01-02')).toBe(sm[1].kg)
+  })
+
   it('Körpergewicht am Datum: letzter Eintrag davor, vor der ersten Messung der früheste', () => {
     expect(bodyweightAt(weights, '2026-02-15')).toBe(80)
     expect(bodyweightAt(weights, '2026-03-01')).toBe(78)
@@ -1690,6 +1794,25 @@ describe('Periodisierung: Blocklänge, Deload am Anfang, Wochenziele', () => {
     // ohne Periodisierung: nur einmalige Ziele
     expect(isSkipped(edited, neutralWeek(6))).toBe(true)
     expect(isSkipped(edited, neutralWeek(1))).toBe(false)
+  })
+  it('Wochenziel für alle Übungen des Tages', () => {
+    const a = { ...pe, exerciseId: 'a' }, b = setWeekTarget({ ...pe, exerciseId: 'b' }, 'b1', { rir: 3 }), c = { ...pe, exerciseId: 'c' }
+    const day = [a, b, c]
+    // ohne dayWide nur die bearbeitete Übung
+    expect(setWeekTargetForDay(day, 0, 'b1', { sets: 5 })[1].weeks).toEqual({ b1: { rir: 3 } })
+    // mit dayWide: Felder aus raw, bestehende andere Felder bleiben, Zeitübung bekommt keine Wdh.
+    const out = setWeekTargetForDay(day, 0, 'b1', { sets: 5 }, { raw: { sets: 5, repMin: 4, repMax: 6 } }, (x) => x.exerciseId !== 'c')
+    expect(out[0].weeks?.b1).toEqual({ sets: 5 })
+    expect(out[1].weeks?.b1).toEqual({ rir: 3, sets: 5, repMin: 4, repMax: 6 })
+    expect(out[2].weeks?.b1).toEqual({ sets: 5 })
+    // skip nur wenn gesetzt, false überschreibt fremdes skip nicht
+    const sk = setWeekTarget(c, 'b1', { skip: true })
+    expect(setWeekTargetForDay([a, sk], 0, 'b1', { sets: 2 }, { raw: { sets: 2, skip: false } })[1].weeks?.b1).toEqual({ skip: true, sets: 2 })
+    expect(setWeekTargetForDay([a, c], 0, 'b1', { skip: true }, { raw: { skip: true } })[1].weeks?.b1).toEqual({ skip: true })
+    // Zurücksetzen entfernt überall
+    const reset = setWeekTargetForDay(out, 0, 'b1', undefined, {})
+    expect(reset.every((x) => !x.weeks?.b1)).toBe(true)
+    expect(reset[1].weeks).toBeUndefined()
   })
   it('Zurücksetzen entfernt den Eintrag (und das Feld, wenn leer)', () => {
     const edited = setWeekTarget(pe, 'b0', { skip: true })

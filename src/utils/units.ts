@@ -3,7 +3,8 @@ import type { Settings } from '../types'
 export const KG_PER_LB = 0.45359237
 const round = (v: number, d = 1) => Math.round(v * 10 ** d) / 10 ** d
 
-export const kgToDisplay = (kg: number, unit: Settings['weightUnit']) => round(unit === 'lb' ? kg / KG_PER_LB : kg)
+/** kg mit bis zu 2 Nachkommastellen (Mikro-Stufen wie 1,25 bleiben sichtbar), lb auf 0,1 gerundet. */
+export const kgToDisplay = (kg: number, unit: Settings['weightUnit']) => (unit === 'lb' ? round(kg / KG_PER_LB) : round(kg, 2))
 export const displayToKg = (v: number, unit: Settings['weightUnit']) => (unit === 'lb' ? v * KG_PER_LB : v)
 export const formatWeight = (kg: number, unit: Settings['weightUnit']) => `${kgToDisplay(kg, unit)} ${unit}`
 

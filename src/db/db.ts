@@ -8,9 +8,11 @@ import type {
 } from '../types'
 import { ALL_EXERCISES, exerciseById } from '../data/exercises'
 import { applyBodyweight } from '../engine/bodyweight'
+import { smoothWeights } from '../engine/body'
 import { emptyWeek, jumpToWeek, maxReachedWeek } from '../engine/weekCycle'
 import { weekStateAfterDelete, weekStateAfterMove } from '../engine/history'
 import { duplicateProgram } from '../engine/programAdmin'
+import { parseProgramFile, programToFile, sessionsToCsv } from '../engine/exportData'
 import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
@@ -136,9 +138,18 @@ export function useStatSessions(): Session[] {
   const all = useAllExercises()
   return useMemo(() => applyBodyweight(sessions, (id) => exerciseById(id, all), weights ?? []), [sessions, weights, all])
 }
-/** Wie useWeights, aber undefined, solange die Abfrage noch lädt (für Werte, die einmalig daraus berechnet werden). */
+/**
+ * Körpergewicht als Trend (`smoothWeights`) für den Körpergewichtsanteil: stabiler als der Tageswert.
+ * Nur für Berechnungen, die Anzeige der Einträge nutzt `useWeights`.
+ */
+export function useBodyweights(): WeightEntry[] {
+  const raw = useWeights()
+  return useMemo(() => smoothWeights(raw), [raw])
+}
+/** Wie useBodyweights, aber undefined, solange die Abfrage noch lädt (für Werte, die einmalig daraus berechnet werden). */
 export function useWeightsLoaded(): WeightEntry[] | undefined {
-  return useLiveQuery(() => db.weights.orderBy('date').toArray(), [])
+  const raw = useLiveQuery(() => db.weights.orderBy('date').toArray(), [])
+  return useMemo(() => (raw ? smoothWeights(raw) : undefined), [raw])
 }
 export function useMeasures(): MeasureEntry[] {
   return useLiveQuery(() => db.measures.orderBy('date').toArray(), [], []) ?? []
@@ -384,6 +395,31 @@ export async function copyProgram(id: number): Promise<number | undefined> {
     if (!p) return undefined
     const copy = duplicateProgram(p, (await db.programs.toArray()).map((x) => x.name), () => Math.random().toString(36).slice(2, 10))
     return (await db.programs.add({ ...copy, createdAt: Date.now(), active: false })) as number
+  })
+}
+
+/** Einheiten als CSV-Text (alle gespeicherten Einheiten, eine Zeile pro Satz). */
+export async function exportSessionsCsv(): Promise<string> {
+  const [sessions, programs, custom] = await Promise.all([db.sessions.toArray(), db.programs.toArray(), db.customExercises.toArray()])
+  return sessionsToCsv(sessions, programs, (id) => exerciseById(id, [...ALL_EXERCISES, ...custom]))
+}
+
+/** Ein Programm als JSON-Text (mit seinen eigenen Übungen). */
+export async function exportProgramJson(id: number): Promise<{ name: string; json: string } | null> {
+  const p = await db.programs.get(id)
+  if (!p) return null
+  return { name: p.name, json: JSON.stringify(programToFile(p, await db.customExercises.toArray()), null, 2) }
+}
+
+/** Programm-Datei importieren: neues, inaktives Programm; fehlende eigene Übungen werden angelegt. Gibt die neue ID zurück. */
+export async function importProgramJson(json: string): Promise<{ id: number; added: number }> {
+  return db.transaction('rw', db.programs, db.customExercises, async () => {
+    const custom = await db.customExercises.toArray()
+    const known = new Set([...ALL_EXERCISES, ...custom].map((e) => e.id))
+    const r = parseProgramFile(json, (await db.programs.toArray()).map((p) => p.name), known, () => Math.random().toString(36).slice(2, 10))
+    if (r.newExercises.length) await db.customExercises.bulkAdd(r.newExercises)
+    const id = (await db.programs.add(r.program as Program)) as number
+    return { id, added: r.newExercises.length }
   })
 }
 

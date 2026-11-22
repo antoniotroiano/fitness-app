@@ -1,4 +1,4 @@
-import type { WeightScale } from '../types'
+import type { ScaleSegment, WeightScale } from '../types'
 
 /**
  * Verfügbare Gewichte eines Geräts (kg). Reine Funktionen: Vorschläge der Progression werden auf diese Stufen
@@ -81,4 +81,35 @@ export function effectiveStep(s: WeightScale): number {
 export function isValidScale(s: WeightScale): boolean {
   if (s.kind === 'list') return normalizeWeights(s.weights).length > 0
   return s.step > 0 && s.min >= 0 && s.max > s.min
+}
+
+/** Gültiger Bereich: Schritt > 0, Anfang ≥ 0 (0 wird in der Liste verworfen), Ende > Anfang. */
+export const isValidSegment = (s: ScaleSegment): boolean =>
+  Number.isFinite(s.from) && Number.isFinite(s.to) && Number.isFinite(s.step) && s.step > 0 && s.from >= 0 && s.to > s.from
+
+/**
+ * Gewichtsstapel aus mehreren Bereichen (z. B. 15–25 in 5er-, 25–55 in 10er-, 55–190 in 15er-Schritten) und
+ * optionaler Mikro-Stufe (Zusatzscheibe/Pin, z. B. 1,25): zu jedem Stufengewicht kommt „Gewicht + Mikro“ hinzu,
+ * solange es unter dem nächsthöheren Stufengewicht bleibt (oder es das oberste ist). Ergebnis: sortierte Liste
+ * ohne Duplikate (Überlappung der Bereiche ist erlaubt). Quelle bleibt in `segments`/`micro` erhalten.
+ * Ungültige Bereiche werden ignoriert; ohne gültigen Bereich `null`.
+ */
+export function scaleFromSegments(segments: ScaleSegment[], micro = 0): WeightScale | null {
+  const valid = segments.filter(isValidSegment)
+  if (valid.length === 0) return null
+  const base: number[] = []
+  for (const s of valid) {
+    const n = Math.floor((s.to - s.from) / s.step + EPS)
+    for (let i = 0; i <= n; i++) base.push(clean(s.from + i * s.step))
+  }
+  const steps = normalizeWeights(base)
+  const out = [...steps]
+  if (micro > 0) {
+    steps.forEach((w, i) => {
+      const m = clean(w + micro)
+      const next = steps[i + 1]
+      if (next === undefined || m < next - EPS) out.push(m)
+    })
+  }
+  return { kind: 'list', weights: normalizeWeights(out), segments: valid.map((s) => ({ ...s })), ...(micro > 0 ? { micro } : {}) }
 }

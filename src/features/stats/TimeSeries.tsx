@@ -17,8 +17,8 @@ const AVG: { value: Averaging; letter: string; label: string }[] = [
 const H = 208
 const M = { top: 12, right: 56, bottom: 24, left: 6 }
 
-function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, firstDate }: {
-  w: ChartWindow; points: Point[]; bar: boolean; fmt: (v: number) => string; mode: Averaging
+function Chart({ w, points, trend, bar, fmt, mode, canPan, offset, onOffset, today, firstDate }: {
+  w: ChartWindow; points: Point[]; trend: Point[]; bar: boolean; fmt: (v: number) => string; mode: Averaging
   canPan: boolean; offset: number; onOffset: (o: number) => void; today: string; firstDate: string | null
 }) {
   const box = useRef<HTMLDivElement>(null)
@@ -46,7 +46,12 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
     return { ...p, from: span.from, to: span.to, cx: M.left + ((span.from + span.to + 1) / 2) * dayW }
   }), [points, mode, w, dayW])
 
-  const vals = placed.map((p) => p.value)
+  const trendPlaced = useMemo(() => trend.map((p) => {
+    const span = bucketSpan(p.date, 'daily', w)
+    return { ...p, cx: M.left + ((span.from + span.to + 1) / 2) * dayW }
+  }).sort((a, b) => a.cx - b.cx), [trend, w, dayW])
+
+  const vals = [...placed, ...trendPlaced].map((p) => p.value)
   const ticksY = bar
     ? niceTicks(0, Math.max(1, ...vals), 4)
     : vals.length ? niceTicks(Math.min(...vals) - (Math.max(...vals) - Math.min(...vals)) * 0.1, Math.max(...vals) + (Math.max(...vals) - Math.min(...vals)) * 0.1, 4) : [0, 1]
@@ -114,12 +119,17 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
           return <rect key={p.date} x={p.cx - spanW / 2} y={y(p.value)} width={spanW} height={Math.max(1, y(lo) - y(p.value))} rx={3}
             fill="var(--chart-bar)" opacity={sel === null || sel === i ? 1 : 0.5} onClick={() => setSel(sel === i ? null : i)} />
         })}
-        {!bar && linePts.length > 1 && (
+        {!bar && !trendPlaced.length && linePts.length > 1 && (
           <polyline fill="none" stroke="var(--chart-line)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
             points={linePts.map((p) => `${p.cx},${y(p.value)}`).join(' ')} />
         )}
+        {!bar && trendPlaced.length > 1 && (
+          <polyline fill="none" stroke="var(--accent)" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round"
+            points={trendPlaced.map((p) => `${p.cx},${y(p.value)}`).join(' ')} />
+        )}
         {!bar && placed.map((p, i) => (
-          <circle key={p.date} cx={p.cx} cy={y(p.value)} r={sel === i ? 5 : 3.5} fill="var(--chart-line)" onClick={() => setSel(sel === i ? null : i)} />
+          <circle key={p.date} cx={p.cx} cy={y(p.value)} r={sel === i ? 5 : trendPlaced.length ? 2.5 : 3.5} fill="var(--chart-line)"
+            opacity={trendPlaced.length && sel !== i ? 0.6 : 1} onClick={() => setSel(sel === i ? null : i)} />
         ))}
         </g></g>
         {selected && (() => {
@@ -146,8 +156,8 @@ function Chart({ w, points, bar, fmt, mode, canPan, offset, onOffset, today, fir
  * Zeitreihen-Diagramm mit Zeitraum-Auswahl, Datumsbereich als Titel, Wischen durch die Zeit
  * und Mittelung (Daily/Weekly/Monthly) im Auswahlfenster.
  */
-export function TimeSeries({ daily, bar, fmt, defaultPeriod = '1W', showAveraging = true, stats, below }: {
-  daily: Point[]; bar: boolean; fmt: (v: number) => string; defaultPeriod?: Period; showAveraging?: boolean
+export function TimeSeries({ daily, trend, bar, fmt, defaultPeriod = '1W', showAveraging = true, stats, below }: {
+  daily: Point[]; /** Trendlinie über die Rohpunkte (nur Linien-Diagramm, Tageswerte). */ trend?: Point[]; bar: boolean; fmt: (v: number) => string; defaultPeriod?: Period; showAveraging?: boolean
   stats?: (shown: Point[]) => ReactNode
   below?: (visible: Point[], w: ChartWindow) => ReactNode
 }) {
@@ -161,6 +171,7 @@ export function TimeSeries({ daily, bar, fmt, defaultPeriod = '1W', showAveragin
   const firstDate = useMemo(() => daily.reduce<string | null>((m, p) => (m === null || p.date < m ? p.date : m), null), [daily])
   const w = useMemo(() => chartWindow(period, today, firstDate, offset), [period, today, firstDate, offset])
   const visible = useMemo(() => inWindow(daily, w), [daily, w])
+  const visibleTrend = useMemo(() => (trend && mode === 'daily' ? inWindow(trend, w) : []), [trend, mode, w])
   const shown = useMemo(() => (mode === 'daily' ? visible : average(visible, mode, bar)), [visible, mode, bar])
 
   const pick = (p: Period) => { setPeriod(p); setOffset(0); setHighlight(true) }
@@ -171,7 +182,7 @@ export function TimeSeries({ daily, bar, fmt, defaultPeriod = '1W', showAveragin
   return (
     <div className="space-y-3">
       <div className="text-sm font-semibold text-center" aria-live="polite">{formatRange(w)}</div>
-      <Chart w={w} points={shown} bar={bar} fmt={fmt} mode={mode} canPan={period !== 'All'} offset={offset}
+      <Chart w={w} points={shown} trend={visibleTrend} bar={bar} fmt={fmt} mode={mode} canPan={period !== 'All'} offset={offset}
         onOffset={pan} today={today} firstDate={firstDate} />
       {stats?.(shown)}
       <div className="flex items-center justify-between gap-1.5">

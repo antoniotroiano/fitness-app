@@ -11,13 +11,16 @@ export interface WeekValues { sets: number; repMin: number; repMax: number; rir:
  * Ziele einer Übung für eine Woche bearbeiten: Sätze, Wdh.-Bereich, RIR, auslassen. Leere Felder = berechneter Wert.
  * `scopes`: wofür das Ziel gilt (z. B. nur diese Woche / jeden Block); das erste ist vorausgewählt.
  */
-export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: computedIn, current, scopes: scopesIn, onSave, onClose }: {
+export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: computedIn, current, scopes: scopesIn, dayWide, onSave, onClose }: {
   open: boolean; title: string; unit?: string
   computed: WeekValues
   /** Bestehende eigene Ziele je Scope-Schlüssel */
   current: (key: string) => WeekTarget | undefined
   scopes: WeekScope[]
-  onSave: (key: string, target: WeekTarget | undefined) => void
+  /** Schalter „Auf alle Übungen des Tages anwenden“ anbieten (Beschriftung der Anzahl) */
+  dayWide?: boolean
+  /** `day`: gilt für alle Übungen des Tages; `raw` = alle eingetragenen Felder ungefiltert (undefined beim Zurücksetzen) */
+  onSave: (key: string, target: WeekTarget | undefined, day?: { raw?: WeekTarget }) => void
   onClose: () => void
 }) {
   // Beim Schließen (Animation) die letzten Werte weiter zeigen, auch wenn der Aufrufer schon zurückgesetzt hat
@@ -26,6 +29,7 @@ export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: 
   const { title, computed, scopes } = last.current
   const [scope, setScope] = useState(scopes[0]?.key ?? '')
   const [f, setF] = useState({ sets: '', repMin: '', repMax: '', rir: '', skip: false })
+  const [wide, setWide] = useState(false)
   const load = (key: string) => {
     const t = current(key)
     const str = (n: number | undefined) => (n == null ? '' : String(n))
@@ -36,6 +40,7 @@ export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: 
     const first = scopes.find((s) => current(s.key))?.key ?? scopes[0]?.key ?? ''
     setScope(first)
     load(first)
+    setWide(false)
   }, [open])
 
   const num = (v: string, min: number, base: number) => {
@@ -45,10 +50,14 @@ export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: 
   const save = () => {
     const repMin = num(f.repMin, 1, computed.repMin)
     const repMax = num(f.repMax, 1, computed.repMax)
-    onSave(scope, {
+    const target = {
       sets: num(f.sets, 1, computed.sets), repMin, repMax: repMax != null && repMin != null && repMax < repMin ? repMin : repMax,
       rir: num(f.rir, 0, computed.rir), skip: f.skip || undefined,
-    })
+    }
+    const raw = wide ? {
+      sets: num(f.sets, 1, -1), repMin: num(f.repMin, 1, -1), repMax: num(f.repMax, 1, -1), rir: num(f.rir, 0, -1), skip: f.skip || undefined,
+    } : undefined
+    onSave(scope, target, raw ? { raw } : undefined)
     onClose()
   }
   const has = !!current(scope)
@@ -88,8 +97,20 @@ export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: 
             <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', f.skip ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
           </button>
         </label>
+        {dayWide && (
+          <label className="flex items-center gap-3">
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-medium">Auf alle Übungen des Tages anwenden</span>
+              <span className="block text-xs text-muted">Nur die ausgefüllten Felder. Zurücksetzen entfernt das Ziel bei allen Übungen des Tages.</span>
+            </span>
+            <button role="switch" aria-checked={wide} aria-label="Auf alle Übungen des Tages anwenden" onClick={() => setWide((x) => !x)}
+              className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', wide ? 'bg-accent' : 'bg-line')}>
+              <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', wide ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
+            </button>
+          </label>
+        )}
         <div className="flex gap-2">
-          {has && <Button variant="ghost" className="flex-1" onClick={() => { onSave(scope, undefined); onClose() }}>Zurücksetzen</Button>}
+          {(has || wide) && <Button variant="ghost" className="flex-1" onClick={() => { onSave(scope, undefined, wide ? {} : undefined); onClose() }}>Zurücksetzen</Button>}
           <Button className="flex-1" onClick={save}>Speichern</Button>
         </div>
       </div>

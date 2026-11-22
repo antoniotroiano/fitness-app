@@ -4,8 +4,9 @@ import type { Equipment, Exercise, MuscleId, Settings } from '../../types'
 import { BottomSheet, Button, Card, Chip, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
 import { PLATE_OPTIONS } from '../../engine/plates'
 import { kgToDisplay } from '../../utils/units'
+import { downloadText } from '../../utils/download'
 import { TrainingImportCard } from './TrainingImport'
-import { DEFAULT_SETTINGS, exportAll, importAll, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
+import { DEFAULT_SETTINGS, exportAll, exportSessionsCsv, importAll, importProgramJson, parseWeightFile, patchSettings, resetAllData, resetSettings, setWeight, useAllExercises, useSettings } from '../../db/db'
 import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
@@ -414,16 +415,24 @@ export function DataPage() {
   const [msg, setMsg] = useState('')
   const file = useRef<HTMLInputElement>(null)
   const hFile = useRef<HTMLInputElement>(null)
+  const pFile = useRef<HTMLInputElement>(null)
   const [resetOpen, setResetOpen] = useState(false)
 
   const doExport = async () => {
-    const blob = new Blob([await exportAll()], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `liftlab-backup-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(a.href)
+    downloadText(`liftlab-backup-${new Date().toISOString().slice(0, 10)}.json`, await exportAll(), 'application/json')
     setMsg('Backup exportiert')
+  }
+  const csvExport = async () => {
+    downloadText(`liftlab-einheiten-${new Date().toISOString().slice(0, 10)}.csv`, await exportSessionsCsv(), 'text/csv')
+    setMsg('Einheiten als CSV exportiert')
+  }
+  const doProgramImport = async (f?: File) => {
+    if (!f) return
+    try {
+      const r = await importProgramJson(await f.text())
+      setMsg(`Programm importiert (inaktiv)${r.added ? `, ${r.added} eigene Übung${r.added > 1 ? 'en' : ''} angelegt` : ''}`)
+      nav(`/program/${r.id}`)
+    } catch (e) { setMsg(`Fehler: ${(e as Error).message}`) }
   }
   const doImport = async (f?: File) => {
     if (!f) return
@@ -443,6 +452,15 @@ export function DataPage() {
         <Button className="w-full" onClick={doExport}>Backup exportieren (JSON)</Button>
         <input ref={file} type="file" accept=".json" className="hidden" onChange={(e) => doImport(e.target.files?.[0])} />
         <Button variant="ghost" className="w-full" onClick={() => file.current?.click()}>Backup importieren</Button>
+      </Card>
+      <Card className="space-y-3">
+        <p className="text-sm text-muted">Einheiten als CSV (eine Zeile pro Satz) exportieren, z. B. für Tabellen. Das Format passt zum Trainingsimport unten.</p>
+        <Button variant="ghost" className="w-full" onClick={csvExport}>Einheiten exportieren (CSV)</Button>
+      </Card>
+      <Card className="space-y-3">
+        <p className="text-sm text-muted">Ein einzelnes Programm aus einer Datei importieren (Export über das Menü der Programm-Seite). Es wird als inaktives Programm angelegt.</p>
+        <input ref={pFile} type="file" accept=".json" className="hidden" onChange={(e) => { void doProgramImport(e.target.files?.[0]); e.target.value = '' }} />
+        <Button variant="ghost" className="w-full" onClick={() => pFile.current?.click()}>Programm importieren</Button>
       </Card>
       <Card className="space-y-3">
         <TrainingImportCard onDone={setMsg} />

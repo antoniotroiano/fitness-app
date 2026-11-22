@@ -6,6 +6,7 @@ import { db, parseWeightFile, saveBodyEntry, setWeight, useMeasures, useSettings
 import { EntrySheet } from './EntrySheet'
 import { cmToDisplay, displayToCm, displayToKg, kgToDisplay } from '../../utils/units'
 import { formatDate, todayStr } from '../../utils/dates'
+import { trendSeries } from '../../engine/body'
 import { streakDays } from '../../engine/habits'
 import { CalendarLegend, MonthCalendar } from '../dashboard/widgets'
 import { TimeSeries } from '../stats/TimeSeries'
@@ -23,6 +24,7 @@ export function WeightPage() {
   const u = settings.weightUnit
 
   const points = useMemo(() => weights.map((w) => ({ date: w.date, value: w.kg })), [weights])
+  const trend = useMemo(() => trendSeries(points), [points])
   const dates = useMemo(() => new Set(weights.map((w) => w.date)), [weights])
   const latest = weights.at(-1)
   const todayW = weights.find((w) => w.date === todayStr())
@@ -53,14 +55,15 @@ export function WeightPage() {
           <input inputMode="decimal" className={inputCls} placeholder={u} value={value} onChange={(e) => setValue(e.target.value)} />
         </div>
         <Button className="w-full" onClick={save}>Eintragen</Button>
-        {latest && <div className="text-xs text-muted">Zuletzt: {kgToDisplay(latest.kg, u)} {u} am {formatDate(latest.date)}</div>}
+        {latest && <div className="text-xs text-muted">Zuletzt: {kgToDisplay(latest.kg, u)} {u} am {formatDate(latest.date)}{trend.length > 1 && <> · Trend {kgToDisplay(trend.at(-1)!.value, u)} {u}</>}</div>}
       </Card>
 
       <Card><MonthCalendar tracked={dates} today={todayStr()} color="var(--habit-weight)" onSelect={setSheetDate} /><CalendarLegend color="var(--habit-weight)" /></Card>
       <EntrySheet date={sheetDate} today={todayStr()} entry={weights.find((w) => w.date === sheetDate)} unit={u} onClose={() => setSheetDate(null)} />
 
       <Card className="space-y-3">
-        <TimeSeries daily={points} bar={false} fmt={(v) => `${kgToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
+        <TimeSeries daily={points} trend={trend} bar={false} fmt={(v) => `${kgToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
+        <p className="text-xs text-muted">Punkte = Messwerte, Linie = Trend (geglättet, gleicht Tagesschwankungen aus). Der Körpergewichtsanteil bei Klimmzügen, Dips und Co. rechnet mit dem Trend.</p>
       </Card>
 
       <Card className="space-y-2">
