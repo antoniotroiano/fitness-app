@@ -104,6 +104,10 @@ export default function Workouts() {
         </Card>
       )}
 
+      <div className="flex justify-end">
+        <LinkButton onClick={() => nav('/history')}>Verlauf ansehen und bearbeiten</LinkButton>
+      </div>
+
       <div className="space-y-2">
         {program.weekSlots.map((slot, i) => {
           const done = week.done[i]

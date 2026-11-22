@@ -16,7 +16,7 @@ Legende: `[ ]` offen · `[~]` in Arbeit · `[x]` erledigt · `[-]` bewusst nicht
 ### Checkliste
 
 **Hoch**
-- [ ] **B2** Workout-Verlauf ansehen/bearbeiten/löschen, Datum und Dauer ändern, Workout nachtragen (inkl. **B10**). Hinweis: zuerst, Engine-Konsistenz (`historyUpTo`, Wochenstand) testen. Notiz: –
+- [x] **B2** Workout-Verlauf ansehen/bearbeiten/löschen, Datum und Dauer ändern, Workout nachtragen (inkl. **B10**). Hinweis: zuerst, Engine-Konsistenz (`historyUpTo`, Wochenstand) testen. Notiz: erledigt 2026-11-22. Neu: `engine/history.ts` (Datum/Start/Dauer, Wochenstand nach Löschen/Datumsänderung, Zusammenfassung), `features/history/*` (Liste `/history`, Editor `/history/:id`, `BackfillSheet`), `features/workouts/sessionRows.ts` (Satz ⇄ Zeile, vom Logger mitgenutzt), `db.ts` `saveSessionEdit`/`deleteSession`/`useSession`. Löschen fragt: Tag wieder freigeben (nur aktive Programmwoche) oder erledigt lassen. Nachtragen = Logger mit Route `p<id>-d<Tag>@<Datum>@<Woche>`, Wochenplan bleibt unverändert, Uhrzeit 12:00, Dauer unbekannt. Nicht umgesetzt: Programmwoche einer vorhandenen Einheit ändern, Notizen im Editor bearbeiten.
 - [ ] **B1** Übung tauschen und entfernen im Logger und Programm. Hinweis: zusammen mit A4. Notiz: –
 - [ ] **A4** Schalter „Im Programm übernehmen / nur heute“. Hinweis: nach oder mit B1. Notiz: –
 - [ ] **A1** Begründung (`reason`) und Warnstufe (`level`) der Progressionsvorschläge. Hinweis: unabhängig, parallel möglich. Notiz: –

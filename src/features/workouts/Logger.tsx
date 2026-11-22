@@ -12,7 +12,7 @@ import { DEFAULT_SETTINGS } from '../../db/db'
 import { smartSteps, resolveWarmup, effectiveMode, dedupeWarmups } from '../../engine/warmup'
 import { restCategory } from '../../engine/rest'
 import { noLoadStats, volumeFactor } from '../../engine/stats'
-import { mergeSides, splitsSides, weakerSide } from '../../engine/sides'
+import { splitsSides, weakerSide } from '../../engine/sides'
 import { prefillSets } from '../../engine/prefill'
 import { platesFor } from '../../engine/plates'
 import { usesBodyweight } from '../../engine/bodyweight'
@@ -24,10 +24,10 @@ import { MYO_REST_SEC, nextSegment } from '../../engine/setTypes'
 import { linksOf, nextInSuperset, setSupersetLink, supersetMembers, withLinks } from '../../engine/superset'
 import { neutralWeek, TIME_RANGE, weekPlan } from '../../engine/periodization'
 import { restSecondsFor } from '../../engine/rest'
-import { historyUpTo, markSlot, maxReachedWeek } from '../../engine/weekCycle'
+import { historyUpTo, markSlot, maxReachedWeek, weekLabel } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
-import { displayToKg, displayToKm, kgToDisplay } from '../../utils/units'
-import { fmt, todayStr } from '../../utils/dates'
+import { displayToKg, kgToDisplay } from '../../utils/units'
+import { fmt, formatDate, parse, todayStr } from '../../utils/dates'
 import { ExerciseStrip } from './ExerciseStrip'
 import { NumpadSheet } from './NumpadSheet'
 import { RestChip, RestSheet, type RestState } from './RestTimer'
@@ -39,14 +39,9 @@ import { CompleteSheet, FinishChoiceSheet, SupersetSheet, WorkoutMenuSheet } fro
 import { NoteSheet, scopeLabel, type NoteScope } from './sheets'
 import { WarmupSheet } from './WarmupSheet'
 import { isSegment, uid, withSides, type ActiveWorkout, type Row, type SideRow } from './state'
+import { num, rowToSet, sideSet } from './sessionRows'
 import { de } from '../../i18n/de'
 import { progressionNote } from './progressionNote'
-
-/** Werte einer Seite (Anzeige-Strings) als gespeicherte Seite */
-function sideSet(v: Pick<Row, 'weight' | 'reps' | 'rir' | 'partial'>, wl: Settings['weightUnit']) {
-  const partial = num(v.partial ?? '')
-  return { weight: displayToKg(num(v.weight), wl), reps: num(v.reps), ...(v.rir === '' ? {} : { rir: Number(v.rir) }), ...(partial > 0 ? { partial } : {}) }
-}
 
 /** Scheiben pro Seite als Text für das Numpad (Langhantel), leer ohne Gewicht */
 function plateHint(kg: number, s: Settings, wl: Settings['weightUnit']): string | undefined {
@@ -62,7 +57,6 @@ function plateHint(kg: number, s: Settings, wl: Settings['weightUnit']): string 
 /** Körperlast für die Anzeige (eine Nachkommastelle) */
 const fmtLoad = (n: number) => (Math.round(n * 10) / 10).toLocaleString('de-DE')
 
-const num = (s: string) => Number(s.replace(',', '.')) || 0
 /** Startzeilen einer Übung: Aufwärmsätze und Arbeitssätze aus der Planung. */
 function buildRows(v: PlannedView, wl: Settings['weightUnit'], sides = false, mode: Settings['prefillMode'] = 'suggestion'): Row[] {
   const fill = prefillSets(v.ex.cardio ? 'suggestion' : mode, v.sug, v.sets, v.previous.work)
@@ -138,13 +132,19 @@ export default function Logger() {
   const [addOpen, setAddOpen] = useState(false)
   const [supersetOpen, setSupersetOpen] = useState(false)
 
-  const local = param.replace(/^p\d+-/, '')
+  // Nachgetragenes Workout: `<Programm/Tag>@<Datum>@<Woche>` (siehe history/BackfillSheet)
+  const [baseParam, bDate, bWeek] = param.split('@')
+  const backfill = bDate && /^\d{4}-\d{2}-\d{2}$/.test(bDate) ? { date: bDate, week: Math.max(0, Number(bWeek) || 0) } : null
+  const asOf = backfill?.date ?? todayStr()
+  const local = baseParam.replace(/^p\d+-/, '')
   const slotIdx = local.startsWith('s') ? Number(local.slice(1)) : null
   const dayIdx = !program ? -1 : slotIdx !== null
     ? (program.weekSlots[slotIdx] === 'rest' ? -1 : (program.weekSlots[slotIdx] as number)) : Number(local.slice(1))
   // Programme aus der Bibliothek haben keinen eigenen Wochenstand: die höchste erreichte Woche zählt
   const foreign = !!program && !program.active
-  const curWeek = foreign ? maxReachedWeek(program, sessions, 0) : week.week
+  const curWeek = backfill ? backfill.week : foreign ? maxReachedWeek(program, sessions, 0) : week.week
+  // Nachtragen: Vorschläge beruhen auf dem Stand zu diesem Datum, später geloggte Einheiten zählen nicht
+  const history = useMemo(() => (backfill ? sessions.filter((s) => s.date <= backfill.date) : sessions), [sessions, backfill?.date]) // eslint-disable-line react-hooks/exhaustive-deps
   const day = program?.days[dayIdx]
   const plan = useMemo(
     () => (program?.config ? weekPlan(program.config, curWeek) : neutralWeek(curWeek)),
@@ -156,8 +156,8 @@ export default function Logger() {
   const fullDay = useMemo(() => (day && added?.length ? { ...day, exercises: [...day.exercises, ...added] } : day), [day, added])
   const views = useMemo(
     // In dieser Woche ausgelassene Übungen (eigenes Wochenziel) erscheinen nicht im Training
-    () => (fullDay ? plannedDay(fullDay, plan, historyUpTo(sessions, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), todayStr(), bodyweights).filter((v) => !v.skipped) : []),
-    [fullDay, plan, sessions, program, curWeek, lookup, settings, overrides, bodyweights],
+    () => (fullDay ? plannedDay(fullDay, plan, historyUpTo(history, program?.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), asOf, bodyweights).filter((v) => !v.skipped) : []),
+    [fullDay, plan, history, program, curWeek, lookup, settings, overrides, bodyweights, asOf],
   )
   /** Supersatz-Mitglieder, die diese Woche trainiert werden (ausgelassene zählen nicht) */
   const trainedMembers = (id: string) => {
@@ -444,7 +444,7 @@ export default function Logger() {
     if (views.some((v) => v.pe.exerciseId === ex.id)) { selectExercise(ex.id); return }
     const range = ex.metric === 'time' ? TIME_RANGE : ex.compound ? { min: 6, max: 10 } : { min: 10, max: 15 }
     const pe: PlannedExercise = { exerciseId: ex.id, sets: ex.cardio ? 1 : 3, repMin: range.min, repMax: range.max, rir: 2 }
-    const [view] = plannedDay({ ...day, exercises: [pe] }, plan, historyUpTo(sessions, program.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), todayStr(), bodyweights)
+    const [view] = plannedDay({ ...day, exercises: [pe] }, plan, historyUpTo(history, program.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), asOf, bodyweights)
     if (!view) return
     setPad(null)
     setActive((a) => (a ? { ...a, added: [...(a.added ?? []), pe], rows: { ...a.rows, [ex.id]: buildRows(view, wl, splitsSides(ex, overrides[ex.id]?.sides), settings.prefillMode) }, current: ex.id } : a))
@@ -517,6 +517,7 @@ export default function Logger() {
     else void saveProgramNote(program.id, id, text)
   }
 
+  const exitTo = backfill ? '/history' : '/workouts'
   const close = async () => { setClosed(true); await clearActiveWorkout() }
   const finish = async (mode: 'completed' | 'all') => {
     if (saving.current) return
@@ -525,35 +526,25 @@ export default function Logger() {
     const exercises: LoggedExercise[] = []
     for (const v of views) {
       const take = (r: Row) => (mode === 'completed' ? r.done : v.ex.cardio ? num(r.minutes) > 0 : num(r.reps) > 0)
-      const sets: LoggedSet[] = (active.rows[v.pe.exerciseId] ?? []).filter(take).map((r) => v.ex.cardio
-        ? { reps: 0, weight: 0, minutes: num(r.minutes), km: displayToKm(num(r.km), settings.distanceUnit) }
-        : r.type === 'warmup'
-          ? { weight: displayToKg(num(r.weight), wl), reps: num(r.reps), warmup: true }
-          : r.type === 'work' && r.right
-            ? mergeSides(sideSet(r, wl), sideSet(r.right, wl), r.failure ? { failure: true } : {}, v.ex.metric === 'time', v.bodyLoad)
-            : {
-            weight: displayToKg(num(r.weight), wl), reps: num(r.reps),
-            rir: isSegment(r) || r.rir === '' ? undefined : Number(r.rir),
-            ...(r.type === 'work' && r.failure ? { failure: true } : {}),
-            ...(r.type === 'drop' || r.type === 'myo' ? { segment: r.type } : {}),
-            ...(num(r.partial ?? '') > 0 ? { partial: num(r.partial ?? '') } : {}),
-          })
+      const sets: LoggedSet[] = (active.rows[v.pe.exerciseId] ?? []).filter(take).map((r) => rowToSet(r, v.ex, v.bodyLoad, { weight: wl, distance: settings.distanceUnit }))
       if (sets.length) exercises.push({ exerciseId: v.pe.exerciseId, sets })
     }
     setClosed(true)
     try {
       const now = Date.now()
-      const date = fmt(new Date(active.clock.startedAt))
+      // Nachgetragen: Datum aus der Wahl, Uhrzeit mittags, Dauer unbekannt (im Verlauf änderbar)
+      const date = backfill?.date ?? fmt(new Date(active.clock.startedAt))
+      const noon = backfill ? parse(backfill.date).getTime() + 12 * 3600_000 : null
       const notes = Object.fromEntries(Object.entries(active.notes ?? {}).filter(([id, t]) => t && exercises.some((e) => e.exerciseId === id)))
       // Einheit, Wochenstand und Löschen des laufenden Workouts atomar: schlägt etwas fehl, bleibt das Training erhalten.
       await db.transaction('rw', db.sessions, db.kv, db.programs, async () => {
         if (exercises.length) {
           await db.sessions.add({
-            programId: program.id ?? null, dayIndex: dayIdx, date, finishedAt: now, week: curWeek, exercises,
-            startedAt: active.clock.startedAt, durationSec: Math.floor(elapsedMs(active.clock, now) / 1000),
+            programId: program.id ?? null, dayIndex: dayIdx, date, finishedAt: noon ?? now, week: curWeek, exercises,
+            ...(noon === null ? { startedAt: active.clock.startedAt, durationSec: Math.floor(elapsedMs(active.clock, now) / 1000) } : { startedAt: noon }),
             ...(Object.keys(notes).length ? { notes } : {}),
           })
-          if (slotIdx !== null && !foreign) await saveWeekState(markSlot(week, slotIdx, date))
+          if (slotIdx !== null && !foreign && !backfill) await saveWeekState(markSlot(week, slotIdx, date))
           // Im Workout hinzugefügte (und trainierte) Übungen dauerhaft in den Trainingstag übernehmen
           const keep = (active.added ?? []).filter((pe) => exercises.some((e) => e.exerciseId === pe.exerciseId))
           if (keep.length && program.id != null) {
@@ -574,9 +565,9 @@ export default function Logger() {
       setSaveError(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : 'unbekannter Fehler'}. Das Training bleibt erhalten.`)
       return
     }
-    nav('/workouts', { replace: true })
+    nav(exitTo, { replace: true })
   }
-  const discard = async () => { await close(); nav('/workouts', { replace: true }) }
+  const discard = async () => { await close(); nav(exitTo, { replace: true }) }
 
   // Abschluss-Sheet: trainierte Muskeln, Dauer, Sätze, Volumen
   const trained = views.filter((v) => !v.ex.cardio && (active.rows[v.pe.exerciseId] ?? []).some((r) => r.done && r.type === 'work'))
@@ -596,7 +587,7 @@ export default function Logger() {
     <div className="max-w-2xl mx-auto px-4 pb-8" style={{ paddingBottom: pad ? '22rem' : undefined }}>
       {saveError && <div role="alert" className="mb-3 rounded-xl bg-danger/15 text-danger text-sm p-3">{saveError}</div>}
       <div ref={headerRef} className="sticky top-0 z-30 bg-bg -mx-4 px-4 pt-2 pb-2 safe-top border-b border-line">
-        <WorkoutHeader clock={active.clock} onBack={() => nav('/workouts')} onMenu={() => setMenuOpen(true)}
+        <WorkoutHeader clock={active.clock} onBack={() => nav(exitTo)} onMenu={() => setMenuOpen(true)}
           timer={<RestChip rest={rest} onDone={endRest} onOpen={() => setRestOpen(true)} />} />
       </div>
 
@@ -609,6 +600,7 @@ export default function Logger() {
             <h1 className="text-lg font-bold">{current.ex.name}</h1>
             {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
           </div>
+          {backfill && <p className="text-xs text-accent mt-0.5">Nachgetragen für {formatDate(backfill.date, { day: '2-digit', month: 'long', year: 'numeric' })} · {weekLabel(program, backfill.week)}</p>}
           {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
           {settings.prefillMode === 'last' && !current.ex.cardio && current.previous.work.length > 0 && current.sug.weight != null && (
             <p className="text-xs text-muted mt-0.5">Vorschlag: {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString('de-DE')} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : ' Wdh.'}</p>
@@ -695,14 +687,14 @@ export default function Logger() {
         onAdjust={(d) => setRest((r) => (r ? { endsAt: r.endsAt + d * 1000, total: Math.max(15, r.total + d) } : r))} />
 
       <WorkoutMenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} paused={paused}
-        onPause={togglePause} onMinimize={() => nav('/workouts')} onFinish={() => setFinishOpen(true)} onDiscard={discard} />
+        onPause={togglePause} onMinimize={() => nav(exitTo)} onFinish={() => setFinishOpen(true)} onDiscard={discard} />
 
       <FinishChoiceSheet open={finishOpen} onClose={() => setFinishOpen(false)} doneCount={doneCount} openCount={openCount}
         onChoose={(m) => { setFinishOpen(false); void finish(m) }} />
 
       <CompleteSheet open={completeOpen} onClose={() => setCompleteOpen(false)} primary={primaryDone} secondary={secondaryDone}
         stats={[
-          { label: 'Dauer', value: `${durMin} min` }, { label: 'Sätze', value: String(workDone.length) },
+          { label: 'Dauer', value: backfill ? '–' : `${durMin} min` }, { label: 'Sätze', value: String(workDone.length) },
           { label: 'Volumen', value: `${Math.round(kgToDisplay(volumeKg, wl)).toLocaleString('de-DE')} ${wl}` },
         ]}
         onSave={() => { setCompleteOpen(false); void finish('completed') }} />

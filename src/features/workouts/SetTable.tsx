@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { PlannedView } from '../../engine/plannedDay'
-import type { LoggedSet, Settings } from '../../types'
+import type { Exercise, LoggedSet, PlannedExercise, Settings } from '../../types'
 import { LinkButton, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { rirColor } from '../../components/rir'
@@ -16,8 +16,17 @@ export type PadField = 'weight' | 'reps'
 /** Seite eines links/rechts getrennten Satzes (Felder der rechten Seite: `Row.right`) */
 export type Side = 'l' | 'r'
 
+/** Was die Tabelle von einer Übung braucht (der Logger gibt eine `PlannedView`, die Verlauf-Bearbeitung ein Minimum). */
+export interface SetTableView {
+  ex: Exercise
+  pe: Pick<PlannedExercise, 'exerciseId'>
+  previous: PlannedView['previous']
+}
+
 interface Props {
-  view: PlannedView
+  view: SetTableView
+  /** Bearbeiten einer geloggten Einheit: keine Haken (alle Sätze zählen) */
+  plain?: boolean
   rows: Row[]
   settings: Settings
   activePad: { rowId: string; field: PadField; side?: Side } | null
@@ -49,7 +58,7 @@ function Check({ state }: { state: boolean | 'mixed' }) {
 }
 
 /** Satztabelle: Satz | Zuletzt | kg | Wdh. (RIR unten rechts im Feld) | Haken */
-export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDone, onToggleAll, onAdd, onDelete, onType, onPad }: Props) {
+export function SetTable({ view, plain, rows, settings, activePad, onPatch, onToggleDone, onToggleAll, onAdd, onDelete, onType, onPad }: Props) {
   const cardio = !!view.ex.cardio
   const side = !cardio && isPerSide(view.ex)
   const doneN = rows.filter((r) => r.done).length
@@ -68,11 +77,11 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
         <span>{de.logger.set}</span><span>{de.logger.previous}</span>
         <span>{cardio ? 'min' : side ? de.logger.perSide(settings.weightUnit) : settings.weightUnit}</span>
         <span>{cardio ? settings.distanceUnit : side ? de.logger.repsPerSide : view.ex.metric === 'time' ? de.common.seconds : de.common.reps}</span>
-        <button onClick={onToggleAll} disabled={rows.length === 0} role="checkbox" aria-checked={allDone ? true : doneN > 0 ? 'mixed' : false}
+        {plain ? <span aria-hidden /> : <button onClick={onToggleAll} disabled={rows.length === 0} role="checkbox" aria-checked={allDone ? true : doneN > 0 ? 'mixed' : false}
           aria-label="Alle Sätze abhaken"
           className="h-8 flex items-center justify-center disabled:opacity-40">
           <Check state={allDone ? true : doneN > 0 ? 'mixed' : false} />
-        </button>
+        </button>}
       </div>
       {rows.map((r, i) => {
         const warm = r.type === 'warmup'
@@ -138,11 +147,13 @@ export function SetTable({ view, rows, settings, activePad, onPatch, onToggleDon
                   </button>
                 </>
               )}
-              <button role="checkbox" aria-checked={done} aria-label={sideLabel ? `Seite ${sideLabel} abhaken` : 'Satz abhaken'}
-                onClick={() => { if (warm && !r.done) setOpenFor(null); onToggleDone(r, side) }}
-                className="h-9 flex items-center justify-center active:opacity-70">
-                <Check state={done} />
-              </button>
+              {plain ? <span aria-hidden /> : (
+                <button role="checkbox" aria-checked={done} aria-label={sideLabel ? `Seite ${sideLabel} abhaken` : 'Satz abhaken'}
+                  onClick={() => { if (warm && !r.done) setOpenFor(null); onToggleDone(r, side) }}
+                  className="h-9 flex items-center justify-center active:opacity-70">
+                  <Check state={done} />
+                </button>
+              )}
             </div>
           )
         }
