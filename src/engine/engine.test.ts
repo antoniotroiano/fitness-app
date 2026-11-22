@@ -33,6 +33,7 @@ import { linksOf, nextInSuperset, normalizeSupersets, setSupersetLink, supersetM
 import { DROP_FACTOR, nextSegment } from './setTypes'
 import { applyBodyweight, bodyLoadOf, bodyweightAt, withBodyLoad } from './bodyweight'
 import { BODYWEIGHT_SHARE } from '../data/exercises'
+import { canFreeSlot, moveSessionToDate, sessionSummary, setSessionDuration, setSessionStartTime, weekStateAfterDelete, weekStateAfterMove } from './history'
 import { buildImportSessions, parseTrainingCsv, suggestMapping } from './trainingImport'
 import { IMPORT_ALIASES } from '../data/importAliases'
 import { bodySeries, lastEntries, ratioSeries, weightSeries } from './body'
@@ -1861,5 +1862,87 @@ describe('Scheibenrechner', () => {
     expect(platesFor(20, 20, DEFAULT_PLATES)).toEqual({ perSide: [], rest: 0 })
     expect(platesFor(15, 20, DEFAULT_PLATES)).toBeNull()
     expect(platesFor(63, 20, [20, 10, 5, 2.5])).toEqual({ perSide: [20], rest: 3 })
+  })
+})
+
+describe('Verlauf bearbeiten (B2)', () => {
+  const prog: Program = {
+    id: 1, name: 'P', icon: 'workouts', color: 'x', config: null, createdAt: 0, active: true,
+    days: [{ id: 'a', name: 'A', exercises: [] }, { id: 'b', name: 'B', exercises: [] }],
+    weekSlots: [0, 'rest', 1, 'rest', 'rest', 'rest', 'rest'],
+  }
+  const at = (date: string, h: number, extra: Partial<Session> = {}): Session => {
+    const t = new Date(`${date}T${String(h).padStart(2, '0')}:00:00`).getTime()
+    return { id: 1, programId: 1, dayIndex: 0, date, week: 2, startedAt: t, finishedAt: t + 3600_000, durationSec: 3600, exercises: [{ exerciseId: 'bb-bench', sets: [{ weight: 60, reps: 8 }] }], ...extra }
+  }
+  const state = (done: boolean[], dates: string[], week = 2) => ({ week, done, markedDates: dates })
+
+  it('Datum ändern verschiebt Start und Ende mit gleicher Uhrzeit und Dauer', () => {
+    const m = moveSessionToDate(at('2026-11-10', 18), '2026-11-08')
+    expect(m.date).toBe('2026-11-08')
+    expect(new Date(m.startedAt as number).getDate()).toBe(8)
+    expect(new Date(m.startedAt as number).getHours()).toBe(18)
+    expect(m.finishedAt - (m.startedAt as number)).toBe(3600_000)
+    expect(moveSessionToDate(at('2026-11-10', 18), '2026-11-10')).toEqual(at('2026-11-10', 18))
+  })
+  it('Dauer und Startzeit ändern', () => {
+    const d = setSessionDuration(at('2026-11-10', 18), 45 * 60)
+    expect(d.durationSec).toBe(2700)
+    expect(d.finishedAt - (d.startedAt as number)).toBe(2700_000)
+    const t = setSessionStartTime(d, 7, 30)
+    expect(new Date(t.startedAt as number).getHours()).toBe(7)
+    expect(t.finishedAt - (t.startedAt as number)).toBe(2700_000)
+    // Ohne Dauer (Import/älter): Dauer unbekannt, Ende = Start
+    const none = setSessionDuration(at('2026-11-10', 18), null)
+    expect(none.durationSec).toBeUndefined()
+    expect(none.finishedAt).toBe(none.startedAt)
+  })
+  it('Löschen: Slot wird frei, Datum aus der Woche entfernt', () => {
+    const s = at('2026-11-10', 18)
+    const st = state([true, true, false, false, false, false, false], ['2026-11-10'])
+    expect(canFreeSlot(st, prog, s)).toBe(true)
+    const next = weekStateAfterDelete(st, prog, s, [], true)
+    expect(next.done).toEqual([false, true, false, false, false, false, false])
+    expect(next.markedDates).toEqual([])
+  })
+  it('Löschen ohne Freigeben, andere Woche, fremdes oder inaktives Programm: Wochenstand bleibt', () => {
+    const s = at('2026-11-10', 18)
+    const st = state([true, true, false, false, false, false, false], ['2026-11-10'])
+    expect(weekStateAfterDelete(st, prog, s, [], false)).toBe(st)
+    expect(weekStateAfterDelete(st, prog, at('2026-11-03', 18, { week: 1 }), [], true)).toBe(st)
+    expect(canFreeSlot(st, { ...prog, active: false }, s)).toBe(false)
+    expect(canFreeSlot(st, prog, at('2026-11-10', 18, { programId: null, dayIndex: -1 }))).toBe(false)
+    // Slot nicht erledigt (z. B. nachgetragene Einheit): nichts zu öffnen
+    expect(canFreeSlot(state(Array(7).fill(false), []), prog, s)).toBe(false)
+  })
+  it('Löschen: Tag bleibt markiert, wenn eine andere Einheit am selben Tag liegt', () => {
+    const s = at('2026-11-10', 18)
+    const other = at('2026-11-10', 9, { id: 2, dayIndex: 1 })
+    const st = state([true, true, true, false, false, false, false], ['2026-11-10'])
+    expect(weekStateAfterDelete(st, prog, s, [other], true).markedDates).toEqual(['2026-11-10'])
+  })
+  it('Datum ändern: der markierte Tag wandert mit', () => {
+    const before = at('2026-11-10', 18)
+    const after = moveSessionToDate(before, '2026-11-09')
+    const st = state([true, true, false, false, false, false, false], ['2026-11-10'])
+    expect(weekStateAfterMove(st, prog, before, after, []).markedDates).toEqual(['2026-11-09'])
+    // andere Woche: unverändert
+    expect(weekStateAfterMove(st, prog, { ...before, week: 1 }, { ...after, week: 1 }, [])).toBe(st)
+  })
+  it('Zusammenfassung zählt Arbeitssätze ohne Aufwärmen/Segmente, Volumen ohne Aufwärmen', () => {
+    const s: Session = { ...at('2026-11-10', 18), exercises: [{ exerciseId: 'bb-bench', sets: [
+      { weight: 40, reps: 10, warmup: true }, { weight: 60, reps: 8 }, { weight: 50, reps: 5, segment: 'drop' }] }] }
+    const r = sessionSummary(s, (id) => exerciseById(id))
+    expect(r).toEqual({ exercises: 1, sets: 1, volumeKg: 60 * 8 + 50 * 5 })
+  })
+  it('Nach Löschen/Datumsänderung stützt sich der Vorschlag auf die verbleibende letzte Einheit', () => {
+    const older = at('2026-11-03', 18, { id: 1, exercises: [{ exerciseId: 'bb-bench', sets: [{ weight: 60, reps: 8 }] }] })
+    const newer = at('2026-11-10', 18, { id: 2, exercises: [{ exerciseId: 'bb-bench', sets: [{ weight: 100, reps: 8 }] }] })
+    expect(previousSets([older, newer], 'bb-bench').work[0].weight).toBe(100)
+    // Löschen
+    expect(previousSets([older], 'bb-bench').work[0].weight).toBe(60)
+    // Datum so ändern, dass die schwere Einheit vor der leichten liegt
+    const moved = moveSessionToDate(newer, '2026-11-01')
+    expect(previousSets([older, moved], 'bb-bench').work[0].weight).toBe(60)
   })
 })

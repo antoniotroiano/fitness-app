@@ -97,6 +97,7 @@ export default function More() {
 
       <Section title={de.more.features}>
         <Row icon="workouts" label="Workouts" desc="Pause, Aufwärmen, Progression" to="/more/workouts" />
+        <Row icon="calendar" label="Verlauf" desc="Einheiten ansehen, korrigieren, nachtragen" to="/history" />
         <Row icon="library" label="Übungen" desc="Übungsbibliothek durchsuchen" to="/more/library" />
       </Section>
 

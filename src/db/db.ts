@@ -8,6 +8,7 @@ import type {
 import { ALL_EXERCISES, exerciseById } from '../data/exercises'
 import { applyBodyweight } from '../engine/bodyweight'
 import { emptyWeek, jumpToWeek, maxReachedWeek } from '../engine/weekCycle'
+import { weekStateAfterDelete, weekStateAfterMove } from '../engine/history'
 import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
@@ -111,6 +112,10 @@ export function useWeekStateLoaded(): WeekState | undefined {
 }
 export function useSessions(): Session[] {
   return useLiveQuery(() => db.sessions.orderBy('date').toArray(), [], []) ?? []
+}
+/** Eine Einheit; `undefined` = lädt noch, `null` = gibt es nicht (mehr) */
+export function useSession(id: number): Session | null | undefined {
+  return useLiveQuery(() => db.sessions.get(id).then((s) => s ?? null), [id])
 }
 export function useWeights(): WeightEntry[] {
   return useLiveQuery(() => db.weights.orderBy('date').toArray(), [], []) ?? []
@@ -345,5 +350,33 @@ export async function deleteProgram(id: number) {
         await saveWeekState(jumpToWeek(next, sessions, maxReachedWeek(next, sessions, 0)))
       } else await saveWeekState(emptyWeek())
     }
+  })
+}
+
+/**
+ * Geänderte Einheit speichern (Sätze, Datum, Zeiten). Ändert sich das Datum, wandert der markierte Tag im Wochenstand
+ * der aktuellen Woche mit. Die Programmwoche der Einheit bleibt unverändert.
+ */
+export async function saveSessionEdit(next: Session) {
+  if (next.id === undefined) throw new Error('Einheit ohne ID')
+  await db.transaction('rw', db.sessions, db.programs, db.kv, async () => {
+    const before = await db.sessions.get(next.id as number)
+    await db.sessions.put(next)
+    if (!before || before.date === next.date || next.programId === null) return
+    const program = await db.programs.get(next.programId)
+    const others = (await db.sessions.toArray()).filter((s) => s.id !== next.id)
+    await saveWeekState(weekStateAfterMove(await getWeekState(), program, before, next, others))
+  })
+}
+
+/** Einheit löschen. `freeSlot`: der Tag im Wochenplan wird wieder offen (nur aktuelle Woche des aktiven Programms). */
+export async function deleteSession(id: number, freeSlot: boolean) {
+  await db.transaction('rw', db.sessions, db.programs, db.kv, async () => {
+    const removed = await db.sessions.get(id)
+    if (!removed) return
+    await db.sessions.delete(id)
+    if (removed.programId === null) return
+    const program = await db.programs.get(removed.programId)
+    await saveWeekState(weekStateAfterDelete(await getWeekState(), program, removed, await db.sessions.toArray(), freeSlot))
   })
 }

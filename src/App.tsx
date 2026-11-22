@@ -14,6 +14,8 @@ const Logger = lazy(() => import('./features/workouts/Logger'))
 const Wizard = lazy(() => import('./features/wizard/Wizard'))
 const ManualBuilder = lazy(() => import('./features/wizard/ManualBuilder'))
 const More = lazy(() => import('./features/more/More'))
+const HistoryPage = lazy(() => import('./features/history/HistoryPage'))
+const SessionEditorPage = lazy(() => import('./features/history/SessionEditor'))
 const named = <M extends Record<string, unknown>>(load: () => Promise<M>, key: keyof M) =>
   lazy(() => load().then((m) => ({ default: m[key] as ComponentType })))
 const loadMore = () => import('./features/more/More')
@@ -81,7 +83,7 @@ function Shell() {
     return () => cancelAnimationFrame(raf)
   }, [loc.pathname, navType])
   const go = (to: string) => { setSheet(false); nav(to) }
-  const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/workout-preview/') || loc.pathname.startsWith('/new')
+  const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/workout-preview/') || loc.pathname.startsWith('/new') || loc.pathname.startsWith('/history/')
 
   const items = [
     { icon: 'weight' as IconName, label: 'Gewicht eintragen', to: '/weight' },
@@ -99,6 +101,8 @@ function Shell() {
         <Route path="/workouts" element={<Workouts />} />
         <Route path="/workout/:slot" element={<Logger />} />
         <Route path="/workout-preview/:slot" element={<WorkoutPreview />} />
+        <Route path="/history" element={<HistoryPage />} />
+        <Route path="/history/:id" element={<SessionEditorPage />} />
         <Route path="/new" element={<Wizard />} />
         <Route path="/new/manual" element={<ManualBuilder />} />
         <Route path="/weight" element={<WeightPage />} />
