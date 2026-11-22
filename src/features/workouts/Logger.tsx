@@ -347,7 +347,7 @@ export default function Logger() {
       const nextRows = { ...a.rows, [id]: turningOn ? adaptFollowing(mine, row) : mine }
       let cur = a.current
       if (ss?.next) cur = ss.next
-      else if (completes) {
+      else if (completes && settings.autoAdvance) {
         // Immer zur ersten Übung der Reihenfolge, die noch offen ist (auch übersprungene)
         const open = views.find((v) => !isComplete(nextRows[v.pe.exerciseId] ?? []))
         if (open) cur = open.pe.exerciseId
@@ -377,7 +377,7 @@ export default function Logger() {
         ...r, done: !allDone, ...(r.right ? { leftDone: !allDone, right: { ...r.right, done: !allDone } } : {}),
       })) }
       let cur = a.current
-      if (!allDone) {
+      if (!allDone && settings.autoAdvance) {
         const open = views.find((v) => !isComplete(nextRows[v.pe.exerciseId] ?? []))
         if (open) cur = open.pe.exerciseId
       }

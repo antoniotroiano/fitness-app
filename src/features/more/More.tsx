@@ -247,6 +247,8 @@ export function WorkoutSettingsPage() {
         </div>
       </Section>
       <Section title={de.common.display}>
+        <SwitchRow icon="workouts" label="Automatisch zur nächsten Übung" desc="Nach dem letzten Satz einer Übung springt das Workout zur nächsten offenen. Supersätze wechseln immer."
+          checked={s.autoAdvance} onChange={(v) => update({ autoAdvance: v })} />
         <SwitchRow icon="phone" label={de.more.keepAlive} desc={de.more.keepAliveDesc} checked={s.keepAlive} onChange={(v) => update({ keepAlive: v })} />
         <SwitchRow icon="warmup" label="Erledigte Aufwärmsätze ausblenden" desc="Abgehakte Aufwärmsätze werden im Workout zu einer Zeile zusammengefasst, ein Tipp darauf zeigt sie wieder."
           checked={s.hideDoneWarmups} onChange={(v) => update({ hideDoneWarmups: v })} />
