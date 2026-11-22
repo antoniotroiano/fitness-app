@@ -2,7 +2,9 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { Exercise } from '../../types'
 import { Button, Card } from '../../components/ui'
 import { SlideOver } from '../../components/SlideOver'
-import { saveExerciseOverride, useExerciseOverrides, useSettings } from '../../db/db'
+import { deleteCustomExercise, saveExerciseOverride, useAllExercises, useExerciseOverrides, useSettings } from '../../db/db'
+import { draftOf, duplicateDraft, type ExerciseDraft } from '../../engine/customExercise'
+import { ExerciseFormSheet } from './ExerciseForm'
 import { REST_LABEL, formatRest, restCategory } from '../../engine/rest'
 import { ExerciseInfoSheet } from '../workouts/ExerciseInfoSheet'
 import { AutomationSheet, ListRow, NoteSheet, RestOverrideSheet, SchemeEditor, SchemeTable, WeightListSheet, WeightScaleSheet, automationLabel, scaleSummary, schemeSummary, usesWeightList } from '../workouts/sheets'
@@ -47,11 +49,16 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
   const [auto, setAuto] = useState(false)
   const [restEdit, setRestEdit] = useState(false)
   const [scaleEdit, setScaleEdit] = useState(false)
+  const all = useAllExercises()
+  const [form, setForm] = useState<{ draft: ExerciseDraft; editId?: string } | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [blocked, setBlocked] = useState('')
   // Beim Wechsel der Übung Unterseiten zurücksetzen
   const [last, setLast] = useState<Exercise | null>(ex)
   if (ex && ex !== last) setLast(ex)
-  const cur = ex ?? last
-  useEffect(() => { if (!ex) { setSub(false); setInfo(false); setNote(false); setEditScheme(false); setAuto(false); setRestEdit(false); setScaleEdit(false) } }, [ex])
+  const base = ex ?? last
+  const cur = (base && all.find((e) => e.id === base.id)) || base
+  useEffect(() => { if (!ex) { setSub(false); setInfo(false); setNote(false); setEditScheme(false); setAuto(false); setRestEdit(false); setScaleEdit(false); setFormOpen(false); setBlocked('') } }, [ex])
   if (!cur) return null
 
   const ov = overrides[cur.id]
@@ -60,6 +67,17 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
   const scheme = ov?.warmupScheme ?? defaultScheme
   const noWarm = !!cur.cardio
   const defaultRest = settings.restSeconds[cat]
+  const openForm = (draft: ExerciseDraft, editId?: string) => { setForm({ draft, editId }); setFormOpen(true) }
+  const remove = async () => {
+    if (!confirm(`„${cur.name}“ wirklich löschen?`)) return
+    const usage = await deleteCustomExercise(cur.id)
+    if (!usage) { onClose(); return }
+    const parts = [
+      usage.sessions ? `in ${usage.sessions} ${usage.sessions === 1 ? 'Einheit' : 'Einheiten'} geloggt` : '',
+      usage.programs.length ? `im Programm ${usage.programs.join(', ')}` : '',
+    ].filter(Boolean).join(' und ')
+    setBlocked(`Löschen nicht möglich: Die Übung ist ${parts}. Entferne sie dort zuerst (Verlauf, Tauschen im Workout).`)
+  }
 
   return (
     <SlideOver open={ex !== null} onClose={onClose} title={cur.name}>
@@ -70,6 +88,18 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
           <ListRow icon="note" label={de.exercise.note} value={ov?.note || 'Keine Notiz'} onClick={() => setNote(true)} />
         </Card>
       </section>
+
+      {(!cur.cardio || cur.custom) && (
+        <section className="space-y-2">
+          <h2 className="text-xs uppercase tracking-wide text-muted px-1">{cur.custom ? 'Eigene Übung' : 'Als Vorlage'}</h2>
+          <Card className="divide-y divide-line !py-1">
+            {cur.custom && <ListRow icon="note" label="Bearbeiten" value="Name, Muskeln, Gerät …" onClick={() => openForm(draftOf(cur), cur.id)} />}
+            <ListRow icon="blocks" label="Duplizieren" value="Als neue eigene Übung" onClick={() => openForm(duplicateDraft(cur, all))} />
+            {cur.custom && <ListRow icon="note" label="Löschen" value={blocked || 'Nur ohne Verlauf und Programm'} onClick={() => void remove()} />}
+          </Card>
+          {blocked && <p role="alert" className="text-xs text-danger px-1">{blocked}</p>}
+        </section>
+      )}
 
       {!noWarm && (
         <section className="space-y-2">
@@ -99,6 +129,8 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
         )}
       </SubPage>
 
+      <ExerciseFormSheet open={formOpen} onClose={() => setFormOpen(false)} initial={form?.draft ?? null} editId={form?.editId}
+        onSaved={() => { if (!form?.editId) onClose() }} />
       <ExerciseInfoSheet ex={cur} open={info} onClose={() => setInfo(false)} />
       <NoteSheet open={note} onClose={() => setNote(false)} ex={cur} scopes={['exercise']} initialScope="exercise"
         values={{ exercise: ov?.note }} onSave={(_, t) => void saveExerciseOverride(cur.id, { note: t || undefined })} />

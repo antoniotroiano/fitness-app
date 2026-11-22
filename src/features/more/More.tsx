@@ -10,6 +10,7 @@ import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { formatHeight } from '../../utils/units'
 import { ExerciseDetail } from './ExerciseDetail'
+import { ExerciseFormSheet } from './ExerciseForm'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
@@ -305,6 +306,7 @@ export function LibraryPage() {
   const [m, setM] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Partial<Record<LibraryGroup, boolean>>>({})
   const [info, setInfo] = useState<Exercise | null>(null)
+  const [creating, setCreating] = useState(false)
   const [barHidden, setBarHidden] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const fromMore = (loc.state as { fromMore?: boolean } | null)?.fromMore === true
@@ -329,7 +331,8 @@ export function LibraryPage() {
   const groups = groupExercises(filtered)
 
   return (
-    <Page title="Übungen" back={fromMore ? () => nav('/more') : undefined}>
+    <Page title="Übungen" back={fromMore ? () => nav('/more') : undefined}
+      right={<button onClick={() => setCreating(true)} aria-label="Eigene Übung anlegen" className="text-accent text-2xl leading-none px-1">+</button>}>
       <div ref={root} className="space-y-4">
         <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4" role="group" aria-label="Muskelgruppen filtern">
           {MUSCLES.map((x) => (
@@ -397,6 +400,7 @@ export function LibraryPage() {
         </div>
       </div>
       <ExerciseDetail ex={info} onClose={() => setInfo(null)} />
+      <ExerciseFormSheet open={creating} onClose={() => setCreating(false)} initial={null} />
     </Page>
   )
 }

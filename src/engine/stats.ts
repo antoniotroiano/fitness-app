@@ -3,6 +3,7 @@ import { SECONDARY_WEIGHT } from '../data/muscles'
 import { addDays, monthKey, todayStr, weekStart } from '../utils/dates'
 import { e1rm, FALLBACK_RIR, weightForReps } from './progression'
 import { bodyLoadOf, bodyweightAt } from './bodyweight'
+import { isRepless } from './metric'
 
 export type ExerciseMetric =
   | 'rm1' | 'rm3' | 'rm10' | 'heaviest' | 'totalVolume' | 'bestSetVolume' | 'totalReps'
@@ -36,8 +37,8 @@ export const volumeFactor = (ex?: Pick<Exercise, 'equipment' | 'load'>) => (isPe
 export const setVolume = (s: Pick<LoggedSet, 'weight' | 'reps' | 'sides'>, factor = 1) =>
   factor * (s.sides ? s.sides.l.weight * s.sides.l.reps + s.sides.r.weight * s.sides.r.reps : s.weight * s.reps)
 
-/** Übungen ohne 1RM-/Gewichts-/Volumenwerte: assistiert (Gewicht = Unterstützung) und Zeitübungen (Wdh. = Sekunden). */
-export const noLoadStats = (ex?: Pick<Exercise, 'assisted' | 'metric'>) => !!ex && (!!ex.assisted || ex.metric === 'time')
+/** Übungen ohne 1RM-/Gewichts-/Volumenwerte: assistiert (Gewicht = Unterstützung), Zeit- und Distanzübungen (Wdh. = Sekunden bzw. Meter). */
+export const noLoadStats = (ex?: Pick<Exercise, 'assisted' | 'metric'>) => !!ex && (!!ex.assisted || isRepless(ex.metric))
 
 /** Arbeitssätze inkl. Drop-/Myo-Segmenten: zählen für Wiederholungen (auch Körpergewichtssätze ohne Zusatzlast). */
 const work = (sets: LoggedSet[]) => sets.filter((s) => !s.warmup && s.reps > 0)

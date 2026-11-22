@@ -1,6 +1,7 @@
 import type { Equipment, LoggedSet, Session, Settings, WeightScale } from '../types'
 import { effectiveStep, floorToScale, minOfScale, snapToScale, stepDown, stepUp } from './weightScale'
 import { KG_PER_LB } from '../utils/units'
+import { isRepless, METRIC_STEP, type Metric } from './metric'
 
 /** Kleinste Gewichtssprünge pro Equipment (kg). Konfigurierbare Defaults. */
 export const INCREMENT: Record<Equipment, number> = {
@@ -137,8 +138,8 @@ export interface SuggestInput {
   stalled?: boolean
   /** Assistierte Übung: das Gewicht ist die Unterstützung, weniger Gewicht = schwerer */
   assisted?: boolean
-  /** Zeitübung: `reps` sind Sekunden, Progression +TIME_STEP s statt +1 Wdh. */
-  metric?: 'reps' | 'time'
+  /** Zeit-/Distanzübung: `reps` sind Sekunden bzw. Meter, Progression +5 s/+5 m statt +1 Wdh. */
+  metric?: Metric
   /** Anzeige-Einheit: bestimmt die Rundung der Vorschläge (Standard kg) */
   unit?: Settings['weightUnit']
   /** Verfügbare Gerätegewichte (Override): Vorschläge liegen immer auf dieser Skala */
@@ -212,7 +213,7 @@ export function explainSuggestion(input: SuggestInput, sug: Suggestion): Suggest
   const topSets = worked.filter((s) => s.weight === topWeight)
   const prev = { weight: topWeight, reps: Math.min(...topSets.map((s) => s.reps)) }
   const done = (reason: SuggestionReason, level: 'info' | 'check' = 'info'): Suggestion => ({ ...sug, reason, level, prev })
-  if (input.metric === 'time') return done('time')
+  if (isRepless(input.metric)) return done('time')
   const bodyOnly = input.assisted || topWeight <= 0
   if (bodyOnly) return done(!input.assisted && sug.weight > 0 ? 'bwLoad' : 'reps')
   if (input.stalled) return done('stall')
@@ -231,7 +232,7 @@ export function explainSuggestion(input: SuggestInput, sug: Suggestion): Suggest
 }
 
 export function suggestNext(input: SuggestInput): Suggestion {
-  const off = input.bodyLoad && input.bodyLoad > 0 && !input.assisted && input.metric !== 'time' ? input.bodyLoad : 0
+  const off = input.bodyLoad && input.bodyLoad > 0 && !input.assisted && !isRepless(input.metric) ? input.bodyLoad : 0
   if (off <= 0) return suggestTotal(input, 0, 0)
   const lastOff = input.lastBodyLoad && input.lastBodyLoad > 0 ? input.lastBodyLoad : off
   const last = input.last?.map((s) => (s.warmup || s.reps <= 0 ? s : { ...s, weight: s.weight + lastOff }))
@@ -248,11 +249,12 @@ function suggestTotal({ range, targetRir, equipment, last, stalled, assisted, me
   const worked = (last ?? []).filter((s) => !s.warmup && !s.segment && s.reps > 0)
   if (worked.length === 0) return { weight: null, reps: range.min }
 
-  // Zeitübungen (Halten/Tragen): +5 s je Einheit; an der Obergrenze Zusatzlast (falls schon mit Gewicht) bzw. Zeit halten
-  if (metric === 'time') {
+  // Zeit-/Distanzübungen (Halten/Tragen/Schieben): +5 s bzw. +5 m je Einheit; an der Obergrenze Zusatzlast (falls schon mit Gewicht) bzw. Zeit halten
+  if (isRepless(metric)) {
+    const step = METRIC_STEP[metric as Metric] ?? TIME_STEP
     const held = Math.min(...worked.map((s) => s.reps))
     const load = Math.max(...worked.map((s) => s.weight))
-    if (held < range.max) return { weight: load, reps: Math.min(range.max, Math.max(range.min, held + TIME_STEP)) }
+    if (held < range.max) return { weight: load, reps: Math.min(range.max, Math.max(range.min, held + step)) }
     return load > 0 ? { weight: up(load), reps: range.min } : { weight: 0, reps: range.max }
   }
 

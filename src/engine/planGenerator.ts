@@ -3,7 +3,8 @@ import type {
 } from '../types'
 import { SECONDARY_WEIGHT } from '../data/muscles'
 import { TIME_BASED } from '../data/exercises'
-import { baseRepRange, baseRir, PEAK_SETS_FACTOR, TIME_RANGE, type ExerciseRole } from './periodization'
+import { baseRepRange, baseRir, PEAK_SETS_FACTOR, type ExerciseRole } from './periodization'
+import { isRepless, METRIC_RANGE } from './metric'
 
 type DayType = 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full'
 
@@ -137,12 +138,12 @@ interface DayState {
 
 export function generate(config: ProgramConfig, exercises: Exercise[]): GenerateResult {
   const types = dayTypes(config.split, config.days)
-  // Zeitbasierte Übungen nur auf ausdrücklichen Wunsch, Band nur bei ausdrücklich gewähltem Band-Equipment
+  // Zeit-/Distanzübungen nur auf ausdrücklichen Wunsch, Band nur bei ausdrücklich gewähltem Band-Equipment
   const explicit = new Set(config.includeExercises ?? [])
   const bandChosen = !!config.equipment?.includes('band')
   const pool = exercises.filter(
     (e) => !e.cardio && (!config.equipment || config.equipment.includes(e.equipment))
-      && (e.equipment !== 'band' || bandChosen) && (!TIME_BASED.has(e.id) || explicit.has(e.id)),
+      && (e.equipment !== 'band' || bandChosen) && (!(TIME_BASED.has(e.id) || isRepless(e.metric)) || explicit.has(e.id)),
   )
   const byId = new Map(exercises.map((e) => [e.id, e]))
   const dayMuscles = (t: DayType): MuscleId[] => {
@@ -176,7 +177,7 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
     // Bis zu zwei Hauptübungen pro Tag; weitere Verbundübungen mittlere, Isolation hohe Wiederholungen
     const role: ExerciseRole = !ex.compound ? 'isolation' : d.mains < 2 ? 'main' : 'secondary'
     if (role === 'main') d.mains += 1
-    const range = ex.metric === 'time' ? TIME_RANGE : baseRepRange(config.goal, ex.compound, role)
+    const range = isRepless(ex.metric) ? METRIC_RANGE[ex.metric!]! : baseRepRange(config.goal, ex.compound, role)
     const pe: PlannedExercise = { exerciseId: ex.id, sets, repMin: range.min, repMax: range.max, rir: baseRir(config.experience) }
     d.planned.push(pe)
     d.sortKey.set(pe, ORDER.indexOf(m))

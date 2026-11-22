@@ -149,7 +149,7 @@ export function buildImportSessions(
         if (!minutes && !r.km) { skippedSets++; continue }
         set = { reps: 0, weight: 0, minutes, ...(r.km ? { km: r.km } : {}) }
       } else {
-        // Zeitübungen speichern Sekunden in `reps`
+        // Zeitübungen speichern Sekunden in `reps` (Distanzübungen Meter: Spalte Wdh. der CSV bleibt)
         const reps = ex.metric === 'time' ? Math.round(r.seconds ?? r.reps) : r.reps
         if (reps <= 0) { skippedSets++; continue }
         set = r.type === 'warmup'

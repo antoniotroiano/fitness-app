@@ -5,7 +5,7 @@ import { ExerciseThumb } from './ExerciseThumb'
 
 /** Übungsbild (Poster aus free-exercise-db-with-videos); ohne Bild oder bei Ladefehler das eigene Piktogramm. */
 export function ExercisePhoto({ ex, size = 56 }: { ex: Exercise; size?: number }) {
-  const url = posterUrl(ex.id)
+  const url = ex.image ?? posterUrl(ex.id)
   const [failed, setFailed] = useState(false)
   if (!url || failed) return <ExerciseThumb ex={ex} size={size} />
   return (
@@ -16,7 +16,7 @@ export function ExercisePhoto({ ex, size = 56 }: { ex: Exercise; size?: number }
 
 /** Großes Bild im Info-Sheet (Platz für ein späteres Video, siehe docs/IDEAS-VIDEOS.md). */
 export function ExerciseHero({ ex }: { ex: Exercise }) {
-  const url = posterUrl(ex.id)
+  const url = ex.image ?? posterUrl(ex.id)
   const [failed, setFailed] = useState(false)
   if (!url || failed) return null
   return (

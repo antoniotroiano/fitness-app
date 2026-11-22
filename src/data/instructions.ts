@@ -13,7 +13,8 @@ export const INSTRUCTIONS: Record<string, string[]> = { ...MEDIA_STEPS, ...PUSH,
 
 const FALLBACK: string[] = ['Für diese Übung liegt noch keine Anleitung vor.']
 
-export function instructionsFor(ex: Pick<Exercise, 'id' | 'cardio'>): string[] {
+export function instructionsFor(ex: Pick<Exercise, 'id' | 'cardio' | 'custom' | 'description'>): string[] {
+  if (ex.custom) return ex.description ? ex.description.split('\n').filter(Boolean) : ['Für diese Übung hast du noch keine Beschreibung eingetragen. Du kannst sie unter Bearbeiten ergänzen.']
   if (ex.cardio) return ['Wähle ein Tempo, das du über die gesamte Dauer halten kannst.', 'Trage Dauer und Distanz ein.']
   return INSTRUCTIONS[ex.id] ?? FALLBACK
 }

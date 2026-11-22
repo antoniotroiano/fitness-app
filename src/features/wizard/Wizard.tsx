@@ -1,3 +1,4 @@
+import { metricUnit } from '../../engine/metric'
 import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type {
@@ -356,7 +357,7 @@ function PreviewInner({ cfg, all, onSaved, overrides }: PreviewProps & { overrid
                           {w.skipped ? <div className="text-muted italic">ausgelassen</div> : (
                             <>
                               <div className="text-muted">{w.sets} Sätze</div>
-                              <div className="text-muted">{w.repMin}–{w.repMax} {ex.metric === 'time' ? 'Sek' : 'Wdh'}</div>
+                              <div className="text-muted">{w.repMin}–{w.repMax} {metricUnit(ex.metric)}</div>
                               <div className="text-muted">RIR {w.rir}{w.failure ? ` · ${hardFirst ? 'erster' : 'letzter'} bis Versagen` : ''}</div>
                             </>
                           )}
@@ -403,7 +404,7 @@ function PreviewInner({ cfg, all, onSaved, overrides }: PreviewProps & { overrid
           }))
         }} />
 
-      <WeekTargetSheet open={!!editWeek} onClose={() => setWeekEdit(null)} unit={editEx?.metric === 'time' ? 'Sek' : 'Wdh'}
+      <WeekTargetSheet open={!!editWeek} onClose={() => setWeekEdit(null)} unit={metricUnit(editEx?.metric)}
         title={editEx && editWeek ? `${editEx.name} · ${editWeek.isDeload ? de.wizard.deload : de.wizard.week(editWeek.week + 1 - (cfg.deload && cfg.deloadFirst ? 1 : 0))}` : ''}
         computed={editWeek && editPe ? weeklyOverview({ ...editPe, weeks: undefined }, cfg, editEx!, weekEdit!.i)[weekEdit!.week] : { sets: 0, repMin: 0, repMax: 0, rir: 0 }}
         scopes={weekEdit ? [{ key: `b${weekEdit.week}`, label: 'Jeden Block' }] : []}

@@ -1,3 +1,4 @@
+import { isRepless } from '../../engine/metric'
 import type { Exercise, LoggedSet, Settings } from '../../types'
 import { mergeSides } from '../../engine/sides'
 import { displayToKg, displayToKm, kgToDisplay, kmToDisplay } from '../../utils/units'
@@ -18,7 +19,7 @@ export function rowToSet(r: Row, ex: Pick<Exercise, 'cardio' | 'metric'>, bodyLo
   if (ex.cardio) return { reps: 0, weight: 0, minutes: num(r.minutes), km: displayToKm(num(r.km), u.distance) }
   if (r.type === 'warmup') return { weight: displayToKg(num(r.weight), u.weight), reps: num(r.reps), warmup: true }
   if (r.type === 'work' && r.right) {
-    return mergeSides(sideSet(r, u.weight), sideSet(r.right, u.weight), r.failure ? { failure: true } : {}, ex.metric === 'time', bodyLoad)
+    return mergeSides(sideSet(r, u.weight), sideSet(r.right, u.weight), r.failure ? { failure: true } : {}, isRepless(ex.metric), bodyLoad)
   }
   return {
     weight: displayToKg(num(r.weight), u.weight), reps: num(r.reps),

@@ -6,6 +6,7 @@ import { restCategory } from './rest'
 import type { ExerciseOverride, Settings, WeightEntry } from '../types'
 import { bodyLoadOf, bodyweightAt, withBodyLoad } from './bodyweight'
 import { daysBetween } from '../utils/dates'
+import { isRepless } from './metric'
 
 export interface PlannedView {
   pe: PlannedExercise
@@ -64,7 +65,7 @@ export function plannedDay(
     const loadOn = (date: string) => (bwToday ? bodyLoadOf(ex, bodyweightAt(bodyweights, date)) : 0)
     const bodyLoad = bodyLoadOf(ex, bwToday)
     const e1rms = history.map((s) => sessionPerformance(withBodyLoad(s.exercises.find((e) => e.exerciseId === pe.exerciseId)!.sets, loadOn(s.date))))
-    const time = ex.metric === 'time'
+    const time = isRepless(ex.metric)
     const { range, rir } = exerciseTargets(pe, plan, index, time, ex.compound)
     const lastDate = sessions.filter((s) => s.exercises.some((e) => e.exerciseId === pe.exerciseId)).reduce((d, s) => (s.date > d ? s.date : d), '')
     const daysSince = today && lastDate ? daysBetween(lastDate, today) : undefined

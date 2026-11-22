@@ -1,4 +1,5 @@
 import type { Exercise, LoggedSet, Session, WeightEntry } from '../types'
+import { isRepless } from './metric'
 
 /**
  * Körpergewichtsanteil: bei Übungen mit `Exercise.bodyweight` (Anteil 0–1) bewegt man einen Teil des eigenen
@@ -24,7 +25,7 @@ export function bodyweightAt(weights: Weigh[], date: string): number | undefined
 
 /** Übung, bei der der Körpergewichtsanteil in die Last eingeht. */
 export const usesBodyweight = (ex?: Pick<Exercise, 'bodyweight' | 'assisted' | 'metric'>): boolean =>
-  !!ex && (ex.bodyweight ?? 0) > 0 && !ex.assisted && ex.metric !== 'time'
+  !!ex && (ex.bodyweight ?? 0) > 0 && !ex.assisted && !isRepless(ex.metric)
 
 /** Körperlast in kg (Anteil × Körpergewicht), 0 ohne Anteil oder ohne bekanntes Körpergewicht. */
 export function bodyLoadOf(ex: Pick<Exercise, 'bodyweight' | 'assisted' | 'metric'> | undefined, bodyweight?: number): number {

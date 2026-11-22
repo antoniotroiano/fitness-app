@@ -1,3 +1,4 @@
+import { metricColumn } from '../../engine/metric'
 import { useState } from 'react'
 import type { PlannedView } from '../../engine/plannedDay'
 import type { Exercise, LoggedSet, PlannedExercise, Settings } from '../../types'
@@ -76,7 +77,7 @@ export function SetTable({ view, plain, rows, settings, activePad, onPatch, onTo
       <div className={cx('grid gap-1.5 px-1 pb-1.5 items-center text-2xs text-muted text-center border-b border-line', COLS)}>
         <span>{de.logger.set}</span><span>{de.logger.previous}</span>
         <span>{cardio ? 'min' : side ? de.logger.perSide(settings.weightUnit) : settings.weightUnit}</span>
-        <span>{cardio ? settings.distanceUnit : side ? de.logger.repsPerSide : view.ex.metric === 'time' ? de.common.seconds : de.common.reps}</span>
+        <span>{cardio ? settings.distanceUnit : side ? de.logger.repsPerSide : metricColumn(view.ex.metric)}</span>
         {plain ? <span aria-hidden /> : <button onClick={onToggleAll} disabled={rows.length === 0} role="checkbox" aria-checked={allDone ? true : doneN > 0 ? 'mixed' : false}
           aria-label="Alle Sätze abhaken"
           className="h-8 flex items-center justify-center disabled:opacity-40">
