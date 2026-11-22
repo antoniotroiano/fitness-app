@@ -1,5 +1,6 @@
 import type { MeasureEntry, MeasureSite, WeightEntry } from '../types'
 import type { Point } from './stats'
+import { daysBetween } from '../utils/dates'
 
 /** Schlüssel einer Körperkennzahl: Gewicht, Körperfett, eine Maßstelle oder ein Verhältnis. */
 export type RatioId = 'waistHip' | 'waistChest' | 'waistShoulders' | 'bicepsSym' | 'thighSym' | 'calfSym'
@@ -76,3 +77,37 @@ export function bodySeries(key: BodyKey, weights: WeightEntry[], measures: Measu
 
 /** Die letzten n Einträge (chronologisch aufsteigend). */
 export const lastEntries = (points: Point[], n = 7): Point[] => points.slice(Math.max(0, points.length - n))
+
+/** Zeitkonstante des Gewichts-Trends in Tagen: nach dieser Zeit hat ein neuer Wert rund 63 % des Abstands aufgeholt. */
+export const TREND_DAYS = 7
+
+/**
+ * Geglätteter Gewichts-Trend (exponentiell, lückentolerant): Der Trend startet beim ersten Wert; jeder weitere
+ * Eintrag zieht ihn um 1 − e^(−Tage/`TREND_DAYS`) in seine Richtung. Lange Lücken gewichten den neuen Wert also
+ * stärker, mehrere Einträge kurz hintereinander verschieben den Trend nur wenig. Tagesschwankungen (Wasser,
+ * Darminhalt) gleichen sich so aus. Ein Punkt je Eintrag, chronologisch.
+ */
+export function trendSeries(points: Point[], days = TREND_DAYS): Point[] {
+  const sorted = [...points].filter((p) => p.value > 0).sort((a, b) => a.date.localeCompare(b.date))
+  const out: Point[] = []
+  for (const p of sorted) {
+    const prev = out.at(-1)
+    if (!prev) { out.push({ date: p.date, value: p.value }); continue }
+    const dt = Math.max(1, daysBetween(prev.date, p.date))
+    const a = 1 - Math.exp(-dt / days)
+    out.push({ date: p.date, value: prev.value + a * (p.value - prev.value) })
+  }
+  return out
+}
+
+/**
+ * Gewichtseinträge mit dem Trend statt des Rohwerts (auf 0,1 kg gerundet), für `bodyweightAt`: Der
+ * Körpergewichtsanteil rechnet so mit einem stabilen Wert, ein einzelner Ausreißer ändert die Vorschläge kaum.
+ * Nur für Berechnungen, gespeichert wird immer der Rohwert.
+ */
+export function smoothWeights<T extends { date: string; kg: number }>(weights: T[]): T[] {
+  const trend = new Map(trendSeries(weights.map((w) => ({ date: w.date, value: w.kg }))).map((p) => [p.date, p.value]))
+  return weights
+    .filter((w) => trend.has(w.date))
+    .map((w) => ({ ...w, kg: Math.round(trend.get(w.date)! * 10) / 10 }))
+}

@@ -1,4 +1,6 @@
 import { isRepless, metricUnit } from '../../engine/metric'
+import { exerciseById } from '../../data/exercises'
+import type { PlannedExercise } from '../../types'
 import { useMemo, useState } from 'react'
 import { todayStr } from '../../utils/dates'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -8,9 +10,9 @@ import { Icon } from '../../components/icons'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { rirColor } from '../../components/rir'
 import { progressionNote } from './progressionNote'
-import { db, saveWeekState, useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useWeights } from '../../db/db'
+import { db, saveWeekState, useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useBodyweights } from '../../db/db'
 import { muscleLabel } from '../../data/muscles'
-import { exerciseTargets, neutralWeek, plannedSets, setWeekTarget, weekPlan } from '../../engine/periodization'
+import { exerciseTargets, neutralWeek, plannedSets, setWeekTarget, setWeekTargetForDay, weekPlan } from '../../engine/periodization'
 import { WeekTargetSheet } from './WeekTargetSheet'
 import { weekLabel } from '../../engine/weekCycle'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
@@ -27,7 +29,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
   const program = useProgramByParam(param)
   const week = useWeekState()
   const sessions = useSessions()
-  const bodyweights = useWeights()
+  const bodyweights = useBodyweights()
   const settings = useSettings()
   const all = useAllExercises()
   const running = useActiveWorkoutParam()
@@ -64,9 +66,10 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
   const targets = useMemo(() => targetMuscles(active.map((v) => ({ ex: v.ex, sets: v.sets }))), [active])
   const editPe = editIdx !== null ? day?.exercises[editIdx] : undefined
   const editView = editPe ? views.find((v) => v.pe === editPe) : undefined
-  const saveWeek = (key: string, t: Parameters<typeof setWeekTarget>[2]) => {
+  const saveWeek = (key: string, t: Parameters<typeof setWeekTarget>[2], wide?: { raw?: Parameters<typeof setWeekTarget>[2] }) => {
     if (!program?.id || editIdx === null) return
-    const days = program.days.map((d, di) => (di !== dayIdx ? d : { ...d, exercises: d.exercises.map((x, xi) => (xi === editIdx ? setWeekTarget(x, key, t) : x)) }))
+    const repsOk = (x: PlannedExercise) => !isRepless(exerciseById(x.exerciseId, all)?.metric)
+    const days = program.days.map((d, di) => (di !== dayIdx ? d : { ...d, exercises: setWeekTargetForDay(d.exercises, editIdx, key, t, wide, repsOk) }))
     void db.programs.update(program.id, { days })
   }
 
@@ -202,6 +205,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         })()}
         scopes={[{ key: `w${curWeek}`, label: 'Nur diese Woche' }, ...(program.config && plan.blockPos != null ? [{ key: `b${plan.blockPos}`, label: 'In jedem Block' }] : [])]}
         current={(key) => editPe?.weeks?.[key]}
+        dayWide={(day?.exercises.length ?? 0) > 1}
         onSave={saveWeek} />
 
     </>

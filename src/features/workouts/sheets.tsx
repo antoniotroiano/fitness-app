@@ -4,8 +4,8 @@ import { BottomSheet, Button, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { formatRest } from '../../engine/rest'
 import { incrementKg } from '../../engine/progression'
-import { isValidScale, normalizeWeights } from '../../engine/weightScale'
-import { displayToKg, kgToDisplay } from '../../utils/units'
+import { isValidSegment, normalizeWeights, scaleFromSegments } from '../../engine/weightScale'
+import { KG_PER_LB, displayToKg, kgToDisplay } from '../../utils/units'
 import { de } from '../../i18n/de'
 
 export const NOTE_MAX = 300
@@ -149,8 +149,9 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000
 /** Kurzfassung der Gerätegewichte für die Listenzeile */
 export function scaleSummary(s: WeightScale | undefined, unit: Settings['weightUnit']): string {
   if (!s) return de.common.default
-  const d = (kg: number) => kgToDisplay(kg, unit)
+  const d = (kg: number) => Math.round((unit === 'lb' ? kg / KG_PER_LB : kg) * 100) / 100
   if (s.kind === 'range') return `${d(s.min)}–${d(s.max)} ${unit} · ${d(s.step)} ${unit}`
+  if (s.segments?.length) return `${s.segments.length > 1 ? `${s.segments.length} Bereiche · ` : ''}${d(s.segments[0].from)}–${d(s.segments.at(-1)!.to)} ${unit}${s.micro ? ` · +${d(s.micro)}` : ''}`
   const l = normalizeWeights(s.weights).map(d)
   return l.length > 4 ? `${l.slice(0, 3).join(', ')} … ${l[l.length - 1]} ${unit}` : `${l.join(', ')} ${unit}`
 }
@@ -172,31 +173,65 @@ function NumField({ label, value, onChange, step, suffix }: { label: string; val
 
 const toNum = (v: string) => Number(v.replace(',', '.'))
 
-/** Gerätegewichte als Bereich (Kabel, Maschine, Smith, Langhantel): Anfang, Ende, Schrittweite. */
+type SegDraft = { from: string; to: string; step: string }
+
+/**
+ * Gerätegewichte als Stapel (Kabel, Maschine, Smith, Langhantel): ein oder mehrere Bereiche (von, bis, Schrittweite)
+ * und optional eine Mikro-Stufe (Zusatzscheibe/Pin). Ein einzelner Bereich ohne Mikro-Stufe wird als `range`
+ * gespeichert, sonst als Liste (`scaleFromSegments`, Quelle bleibt für die Bearbeitung erhalten).
+ */
 export function WeightScaleSheet({ open, onClose, scale, unit, onSave }: {
   open: boolean; onClose: () => void; scale: WeightScale | undefined; unit: Settings['weightUnit']
   onSave: (s: WeightScale | undefined) => void
 }) {
-  const init = (): [string, string, string] => {
-    if (scale?.kind === 'range') return [scale.min, scale.max, scale.step].map((v) => String(kgToDisplay(v, unit))) as [string, string, string]
-    return [0, 250, 5].map((v) => String(kgToDisplay(v, unit))) as [string, string, string]
-  }
-  const [min, setMin] = useState('0'); const [max, setMax] = useState('250'); const [step, setStep] = useState('5')
-  useEffect(() => { if (open) { const [a, b, c] = init(); setMin(a); setMax(b); setStep(c) } }, [open, scale, unit]) // eslint-disable-line react-hooks/exhaustive-deps
-  const draft: WeightScale = { kind: 'range', min: r3(displayToKg(toNum(min) || 0, unit)), max: r3(displayToKg(toNum(max) || 0, unit)), step: r3(displayToKg(toNum(step) || 0, unit)) }
-  const valid = isValidScale(draft)
+  const d = (kg: number) => String(Math.round((unit === 'lb' ? kg / KG_PER_LB : kg) * 100) / 100)
+  const [segs, setSegs] = useState<SegDraft[]>([])
+  const [micro, setMicro] = useState('')
+  useEffect(() => {
+    if (!open) return
+    if (scale?.kind === 'range') setSegs([{ from: d(scale.min), to: d(scale.max), step: d(scale.step) }])
+    else if (scale?.kind === 'list' && scale.segments?.length) setSegs(scale.segments.map((x) => ({ from: d(x.from), to: d(x.to), step: d(x.step) })))
+    else setSegs([{ from: d(5), to: d(250), step: d(5) }])
+    setMicro(scale?.kind === 'list' && scale.micro ? d(scale.micro) : '')
+  }, [open, scale, unit]) // eslint-disable-line react-hooks/exhaustive-deps
+  const kg = (v: string) => r3(displayToKg(toNum(v) || 0, unit))
+  const parsed = segs.map((x) => ({ from: kg(x.from), to: kg(x.to), step: kg(x.step) }))
+  const microKg = micro.trim() ? kg(micro) : 0
+  const valid = parsed.length > 0 && parsed.every(isValidSegment) && microKg >= 0
+  const built = valid ? (parsed.length === 1 && !microKg
+    ? { kind: 'range', min: parsed[0].from, max: parsed[0].to, step: parsed[0].step } as WeightScale
+    : scaleFromSegments(parsed, microKg)) : null
+  const count = built?.kind === 'list' ? built.weights.length : built ? Math.floor((parsed[0].to - parsed[0].from) / parsed[0].step + 1e-6) + 1 : 0
   const inc = unit === 'lb' ? 5 : 2.5
+  const set = (i: number, patch: Partial<SegDraft>) => setSegs((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   return (
-    <BottomSheet open={open} onClose={onClose} title={de.exercise.weightScale}>
+    <BottomSheet open={open} onClose={onClose} tall title={de.exercise.weightScale}>
       <p className="text-xs text-muted mb-4">{de.exercise.scaleRangeIntro}</p>
-      <div className="space-y-3 mb-3">
-        <NumField label={de.exercise.rangeStart} value={min} onChange={setMin} step={inc} suffix={unit} />
-        <NumField label={de.exercise.rangeEnd} value={max} onChange={setMax} step={inc} suffix={unit} />
-        <NumField label={de.exercise.rangeStep} value={step} onChange={setStep} step={unit === 'lb' ? 1.25 : 0.5} suffix={unit} />
+      <div className="space-y-4 mb-3">
+        {segs.map((x, i) => (
+          <div key={i} className="rounded-xl border border-line p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase tracking-wide text-muted">{de.exercise.rangeN(i + 1)}</span>
+              {segs.length > 1 && <button type="button" className="text-danger text-xs" onClick={() => setSegs((l) => l.filter((_, j) => j !== i))}>{de.exercise.removeRange}</button>}
+            </div>
+            <NumField label={de.exercise.rangeStart} value={x.from} onChange={(v) => set(i, { from: v })} step={inc} suffix={unit} />
+            <NumField label={de.exercise.rangeEnd} value={x.to} onChange={(v) => set(i, { to: v })} step={inc} suffix={unit} />
+            <NumField label={de.exercise.rangeStep} value={x.step} onChange={(v) => set(i, { step: v })} step={unit === 'lb' ? 1.25 : 0.5} suffix={unit} />
+          </div>
+        ))}
+        <Button variant="ghost" className="w-full" onClick={() => setSegs((l) => {
+          const last = parsed[l.length - 1]
+          return [...l, { from: last && last.to > 0 ? d(last.to) : d(5), to: last && last.to > 0 ? d(last.to * 2) : d(50), step: d(last?.step ?? 5) }]
+        })}>{de.exercise.addRange}</Button>
+        <div className="space-y-1">
+          <NumField label={de.exercise.microStep} value={micro} onChange={setMicro} step={unit === 'lb' ? 0.5 : 0.25} suffix={unit} />
+          <p className="text-xs text-muted">{de.exercise.microHint}</p>
+        </div>
       </div>
+      {valid && <p className="text-xs text-muted mb-3">{de.exercise.scaleCount(count)}</p>}
       {!valid && <p className="text-xs text-danger mb-3" role="alert">{de.exercise.scaleInvalid}</p>}
       <div className="space-y-2">
-        <Button className="w-full" disabled={!valid} onClick={() => { onSave(draft); onClose() }}>Speichern</Button>
+        <Button className="w-full" disabled={!built} onClick={() => { if (built) { onSave(built); onClose() } }}>Speichern</Button>
         {scale && <Button variant="ghost" className="w-full" onClick={() => { onSave(undefined); onClose() }}>{de.exercise.resetDefault}</Button>}
       </div>
     </BottomSheet>

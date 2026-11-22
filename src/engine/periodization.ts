@@ -164,6 +164,37 @@ export function setWeekTarget(pe: PlannedExercise, key: string, target: WeekTarg
   return out
 }
 
+/**
+ * Wochenziel für einen Trainingstag setzen, optional für alle Übungen des Tages (A9). `target` gilt für die
+ * Übung `index`; mit `dayWide` bekommen die übrigen Übungen die ausdrücklich eingetragenen Felder aus `dayWide.raw`
+ * (ungefiltert, auch wenn sie dem berechneten Wert der bearbeiteten Übung entsprechen), bestehende andere Felder
+ * bleiben. `skip` wird nur übertragen, wenn gesetzt. Ohne `raw` (Zurücksetzen) verlieren alle den Eintrag.
+ * `repsOk` sagt, ob eine Übung Wdh.-Bereiche annimmt (nicht bei Zeit-/Distanzübungen).
+ */
+export function setWeekTargetForDay(
+  exercises: PlannedExercise[], index: number, key: string, target: WeekTarget | undefined,
+  dayWide?: { raw?: WeekTarget }, repsOk: (pe: PlannedExercise) => boolean = () => true,
+): PlannedExercise[] {
+  return exercises.map((pe, i) => {
+    if (i === index) return setWeekTarget(pe, key, target)
+    if (!dayWide) return pe
+    const raw = dayWide.raw
+    if (!raw) return setWeekTarget(pe, key, undefined)
+    const patch: WeekTarget = {}
+    if (raw.sets != null) patch.sets = raw.sets
+    if (raw.rir != null) patch.rir = raw.rir
+    if (repsOk(pe)) {
+      if (raw.repMin != null) patch.repMin = raw.repMin
+      if (raw.repMax != null) patch.repMax = raw.repMax
+    }
+    if (raw.skip) patch.skip = true
+    if (!Object.keys(patch).length) return pe
+    const merged = { ...pe.weeks?.[key], ...patch }
+    if (merged.repMin != null && merged.repMax != null && merged.repMax < merged.repMin) merged.repMax = merged.repMin
+    return setWeekTarget(pe, key, merged)
+  })
+}
+
 function computedTargets(
   pe: Pick<PlannedExercise, 'repMin' | 'repMax' | 'rir'>, plan: WeekPlan, index: number, time: boolean, compound: boolean,
 ): { range: RepRange; rir: number } {

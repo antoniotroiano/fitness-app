@@ -10,10 +10,11 @@ import { Icon, type IconName } from '../../components/icons'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
 import { de } from '../../i18n/de'
-import { BLOCK_WEEK_OPTIONS, blockWeeksOf, recommendedRepScheme, setWeekTarget, weeklyOverview } from '../../engine/periodization'
+import { BLOCK_WEEK_OPTIONS, blockWeeksOf, recommendedRepScheme, setWeekTargetForDay, weeklyOverview } from '../../engine/periodization'
 import { WeekTargetSheet } from '../workouts/WeekTargetSheet'
 import { LevelIcon, SplitPicto, TimeIcon } from './pictos'
 import { MUSCLES } from '../../data/muscles'
+import { isRepless } from '../../engine/metric'
 import { EQUIPMENT_LABEL, exerciseById } from '../../data/exercises'
 import { generate } from '../../engine/planGenerator'
 import { alternatives, recommendable, swapPlanned } from '../../engine/swap'
@@ -409,8 +410,9 @@ function PreviewInner({ cfg, all, onSaved, overrides }: PreviewProps & { overrid
         computed={editWeek && editPe ? weeklyOverview({ ...editPe, weeks: undefined }, cfg, editEx!, weekEdit!.i)[weekEdit!.week] : { sets: 0, repMin: 0, repMax: 0, rir: 0 }}
         scopes={weekEdit ? [{ key: `b${weekEdit.week}`, label: 'Jeden Block' }] : []}
         current={(key) => editPe?.weeks?.[key]}
-        onSave={(key, t) => weekEdit && setDays((ds) => ds.map((d, di) => di !== weekEdit.d ? d : {
-          ...d, exercises: d.exercises.map((x, xi) => (xi === weekEdit.i ? setWeekTarget(x, key, t) : x)),
+        dayWide={weekEdit ? (days[weekEdit.d]?.exercises.length ?? 0) > 1 : false}
+        onSave={(key, t, wide) => weekEdit && setDays((ds) => ds.map((d, di) => di !== weekEdit.d ? d : {
+          ...d, exercises: setWeekTargetForDay(d.exercises, weekEdit.i, key, t, wide, (x) => !isRepless(exerciseById(x.exerciseId, all)?.metric)),
         }))} />
 
       <BottomBar><Button className="w-full" onClick={save}>Plan speichern</Button></BottomBar>

@@ -271,7 +271,11 @@ export interface ExerciseOverride {
 /** Verfügbare Gewichte: gleichmäßiges Raster oder Einzelwerte (alles in kg). */
 export type WeightScale =
   | { kind: 'range'; min: number; max: number; step: number }
-  | { kind: 'list'; weights: number[] }
+  /** `segments`/`micro`: Quelle der Liste im Editor (mehrere Bereiche + Mikro-Stufe), die Engine nutzt nur `weights`. */
+  | { kind: 'list'; weights: number[]; segments?: ScaleSegment[]; micro?: number }
+
+/** Ein Bereich eines Gewichtsstapels: von … bis in `step`-Schritten (kg). */
+export interface ScaleSegment { from: number; to: number; step: number }
 
 export interface WeekState {
   /** Programmwoche (0-basiert) */
