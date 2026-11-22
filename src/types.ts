@@ -230,6 +230,8 @@ export interface Settings {
   hardSetFirst: boolean
   /** Logger: abgehakte Aufwärmsätze zu einer Sammelzeile einklappen */
   hideDoneWarmups: boolean
+  /** Logger: nach dem letzten Satz einer Übung zur nächsten offenen Übung wechseln (Supersätze wechseln immer) */
+  autoAdvance: boolean
   /** Pause zwischen linker und rechter Seite eines Satzes, Sekunden (0 = kein Timer) */
   sideRest: number
   /** Logger-Vorbelegung der Arbeitssätze: Progressionsvorschlag oder Werte der letzten Einheit */
