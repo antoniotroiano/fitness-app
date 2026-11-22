@@ -33,6 +33,8 @@ export interface Exercise {
   load?: 'single' | 'perSide'
   /** Messgröße: Wiederholungen (Default), Zeit in Sekunden (Halten/Tragen) oder Distanz in Metern (Tragen/Schieben). Zeit/Distanz: Wert in `reps`, Progression +5 s/+5 m, kein 1RM/Volumen (engine/metric.ts). */
   metric?: 'reps' | 'time' | 'distance'
+  /** Einheit der Strecke bei `metric: 'distance'`: Meter (fehlt) oder Yards; der Wert wird in dieser Einheit gespeichert, nie umgerechnet. */
+  distanceUnit?: 'm' | 'yd'
   /**
    * Körpergewichtsanteil (0–1): Anteil des Körpergewichts, der bewegt wird (Klimmzug ≈ 0,95, Liegestütz ≈ 0,64).
    * Last für 1RM/Volumen/Progression = Anteil × Körpergewicht + Zusatzgewicht (engine/bodyweight.ts).

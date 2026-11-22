@@ -20,9 +20,13 @@ export const METRIC_RANGE: Partial<Record<Metric, MetricRange>> = {
 /** Schritt je Einheit, wenn die Obergrenze noch nicht erreicht ist: +5 s bzw. +5 m. */
 export const METRIC_STEP: Partial<Record<Metric, number>> = { time: 5, distance: 5 }
 
-/** Kurzes Einheitenkürzel für Bereiche und Ziele („Wdh“, „Sek“, „m“). */
-export const metricUnit = (metric?: Metric | string): string => (metric === 'time' ? 'Sek' : metric === 'distance' ? 'm' : 'Wdh')
+/** Einheit der Strecke einer Übung (Meter, wenn nicht anders gewählt). Der Wert in `reps` steht in dieser Einheit, es wird nie umgerechnet. */
+export type DistanceUnit = NonNullable<Exercise['distanceUnit']>
+export const distanceUnitOf = (ex?: Pick<Exercise, 'distanceUnit'>): DistanceUnit => (ex?.distanceUnit === 'yd' ? 'yd' : 'm')
+
+/** Kurzes Einheitenkürzel für Bereiche und Ziele („Wdh“, „Sek“, „m“, „yd“). `dist`: Strecken-Einheit der Übung. */
+export const metricUnit = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? 'Sek' : metric === 'distance' ? (dist === 'yd' ? 'yd' : 'm') : 'Wdh')
 /** Spaltenkopf der Satztabelle. */
-export const metricColumn = (metric?: Metric | string): string => (metric === 'time' ? 'Sek.' : metric === 'distance' ? 'm' : 'Wdh.')
+export const metricColumn = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? 'Sek.' : metric === 'distance' ? (dist === 'yd' ? 'yd' : 'm') : 'Wdh.')
 /** Langer Name für das Zahlenfeld („Wiederholungen“, „Sekunden“, „Meter“). */
-export const metricLabel = (metric?: Metric | string): string => (metric === 'time' ? 'Sekunden' : metric === 'distance' ? 'Meter' : 'Wiederholungen')
+export const metricLabel = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? 'Sekunden' : metric === 'distance' ? (dist === 'yd' ? 'Yards' : 'Meter') : 'Wiederholungen')

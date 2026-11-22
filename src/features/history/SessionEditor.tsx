@@ -1,4 +1,4 @@
-import { metricLabel } from '../../engine/metric'
+import { distanceUnitOf, metricLabel } from '../../engine/metric'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Exercise, LoggedExercise, Session } from '../../types'
@@ -274,7 +274,7 @@ function SessionEditor({ session }: { session: Session }) {
         const ex = lookup(pad.exId)
         return (
           <NumpadSheet key={`${pad.rowId}-${pad.side ?? ''}-${pad.field}`} field={pad.field}
-            label={`${pad.field === 'weight' ? `Gewicht (${wl})` : metricLabel(ex?.metric)}${sideLabel}`}
+            label={`${pad.field === 'weight' ? `Gewicht (${wl})` : metricLabel(ex?.metric, distanceUnitOf(ex))}${sideLabel}`}
             value={pad.field === 'weight' ? vals.weight : vals.reps} rir={vals.rir} showRir={!isSegment(padRow) && padRow.type !== 'warmup'}
             partial={vals.partial ?? ''} onPartial={(v) => set({ partial: v })}
             onValue={(v) => set(pad.field === 'weight' ? { weight: v } : { reps: v })}

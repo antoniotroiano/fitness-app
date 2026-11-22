@@ -28,6 +28,8 @@ export interface ExerciseDraft {
   secondary: MuscleId[]
   compound: boolean
   metric: Metric
+  /** Nur Distanz: Meter oder Yards */
+  distanceUnit: 'm' | 'yd'
   /** Nur Körpergewicht: Anteil 0–1 (leer/0 = kein Anteil) */
   bodyweight: number
   /** Nur Kurzhantel/Kettlebell */
@@ -42,7 +44,7 @@ export interface ExerciseDraft {
 
 export const EMPTY_DRAFT: ExerciseDraft = {
   name: '', equipment: 'machine', pattern: 'isolation', primary: [], secondary: [], compound: false,
-  metric: 'reps', bodyweight: 0, load: 'perSide', unilateral: false, assisted: false, description: '', image: '',
+  metric: 'reps', distanceUnit: 'm', bodyweight: 0, load: 'perSide', unilateral: false, assisted: false, description: '', image: '',
 }
 
 const norm = (s: string) => s.trim().replace(/\s+/g, ' ')
@@ -85,6 +87,7 @@ export function buildExercise(d: ExerciseDraft, id: string): Exercise {
   return {
     id, name: norm(d.name), primary, secondary, equipment: d.equipment, pattern: d.pattern, compound: d.compound, custom: true,
     ...(repless ? { metric: d.metric } : {}),
+    ...(d.metric === 'distance' && d.distanceUnit === 'yd' ? { distanceUnit: 'yd' as const } : {}),
     ...(bw && d.bodyweight > 0 ? { bodyweight: Math.round(d.bodyweight * 100) / 100 } : {}),
     ...(dbKb ? { load: d.load } : {}),
     ...(d.unilateral ? { unilateral: true } : {}),
@@ -97,7 +100,7 @@ export function buildExercise(d: ExerciseDraft, id: string): Exercise {
 export function draftOf(ex: Exercise): ExerciseDraft {
   return {
     name: ex.name, equipment: ex.equipment, pattern: ex.pattern, primary: [...ex.primary], secondary: [...ex.secondary], compound: ex.compound,
-    metric: ex.metric ?? 'reps', bodyweight: ex.bodyweight ?? 0, load: ex.load ?? 'perSide', unilateral: !!ex.unilateral, assisted: !!ex.assisted,
+    metric: ex.metric ?? 'reps', distanceUnit: ex.distanceUnit === 'yd' ? 'yd' : 'm', bodyweight: ex.bodyweight ?? 0, load: ex.load ?? 'perSide', unilateral: !!ex.unilateral, assisted: !!ex.assisted,
     description: ex.description ?? '', image: ex.image ?? '',
   }
 }
