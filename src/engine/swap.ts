@@ -1,5 +1,6 @@
 import type { Equipment, Exercise, ExerciseOverride, PlannedExercise, ProgramConfig } from '../types'
-import { baseRepRange, TIME_RANGE } from './periodization'
+import { baseRepRange } from './periodization'
+import { isRepless, METRIC_RANGE } from './metric'
 
 /** Alternativen für dieselbe Hauptmuskelgruppe, bevorzugt gleiches Bewegungsmuster. */
 export function alternatives(
@@ -28,11 +29,11 @@ export function swapPlanned(
   pe: PlannedExercise, from: Exercise | undefined, to: Exercise,
   config: Pick<ProgramConfig, 'goal'>, others: Exercise[],
 ): PlannedExercise {
-  const time = (e?: Exercise) => e?.metric === 'time'
-  const same = !!from && from.compound === to.compound && time(from) === time(to)
+  const time = (e?: Exercise) => isRepless(e?.metric)
+  const same = !!from && from.compound === to.compound && (from.metric ?? 'reps') === (to.metric ?? 'reps')
   if (same) return { ...pe, exerciseId: to.id }
   let range
-  if (time(to)) range = TIME_RANGE
+  if (time(to)) range = METRIC_RANGE[to.metric!]!
   else if (!to.compound) range = baseRepRange(config.goal, false, 'isolation')
   else {
     const mains = others.filter((e) => e.compound && !e.cardio && !time(e)).length

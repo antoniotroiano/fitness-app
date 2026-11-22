@@ -20,6 +20,11 @@ import { baseRepRange, effectiveSets, exerciseTargets, isSkipped, neutralWeek, p
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives, recommendable, swapPlanned } from './swap'
 import { removeFromDay, swapInDay } from './dayEdit'
+import { EMPTY_DRAFT, buildExercise, canDeleteExercise, draftOf, duplicateDraft, exerciseUsage, newCustomId, validateDraft } from './customExercise'
+import { isPerSide } from './stats'
+import { fitSize } from '../utils/image'
+import { isRepless, metricColumn, metricLabel, metricUnit } from './metric'
+import { instructionsFor } from '../data/instructions'
 import { targetMuscles } from './targetMuscles'
 import { weekProgress } from './weekProgress'
 import { deloadSessionOf, plannedDay } from './plannedDay'
@@ -582,7 +587,8 @@ describe('library', () => {
     expect(libraryGroup(exerciseById('pushup')!)).toBe('bodyweight')
     expect(libraryGroup(exerciseById('band-curl')!)).toBe('bodyweight')
     expect(libraryGroup(exerciseById('c-run')!)).toBe('cardio')
-    expect(libraryGroup({ ...exerciseById('bb-bench')!, custom: true })).toBe('bodyweight')
+    // Eigene Übungen sortieren sich nach ihrem Gerät ein
+    expect(libraryGroup({ ...exerciseById('bb-bench')!, custom: true })).toBe('free')
   })
   it('Gruppen in fester Reihenfolge, Cardio zuletzt, nichts geht verloren', () => {
     const g = groupExercises(ALL_EXERCISES)
@@ -2027,3 +2033,158 @@ describe('Begründung der Vorschläge (suggestExplained, PLAN-6 A1)', () => {
     expect(suggestExplained({ ...base, last: sets(100, 8) }).level).toBe('info')
   })
 })
+
+describe('Eigene Übungen (PLAN-6 B3)', () => {
+  const draft = { ...EMPTY_DRAFT, name: '  Kabel   Pullover ', primary: ['lats' as const], secondary: ['lats' as const, 'triceps' as const] }
+
+  it('validiert Name, Eindeutigkeit und Hauptmuskel', () => {
+    expect(validateDraft(draft, ALL_EXERCISES)).toBeNull()
+    expect(validateDraft({ ...draft, name: ' ' }, ALL_EXERCISES)).toMatch(/Name/)
+    expect(validateDraft({ ...draft, primary: [] }, ALL_EXERCISES)).toMatch(/Hauptmuskel/)
+    const dupe = ALL_EXERCISES[0]
+    expect(validateDraft({ ...draft, name: dupe.name.toUpperCase() }, ALL_EXERCISES)).toMatch(/schon/)
+    // Beim Bearbeiten der eigenen Übung ist der eigene Name erlaubt
+    expect(validateDraft({ ...draft, name: dupe.name }, ALL_EXERCISES, dupe.id)).toBeNull()
+    expect(validateDraft({ ...draft, equipment: 'bodyweight', bodyweight: 1.5 }, ALL_EXERCISES)).toMatch(/Körpergewichtsanteil/)
+  })
+
+  it('vergibt eindeutige IDs', () => {
+    expect(newCustomId('Kabel-Pullover ÄÖ', [])).toBe('custom-kabel-pullover-ao')
+    expect(newCustomId('Test', ['custom-test'])).toBe('custom-test-2')
+    expect(newCustomId('Test', ['custom-test', 'custom-test-2'])).toBe('custom-test-3')
+    expect(newCustomId('!!!', [])).toBe('custom-uebung')
+  })
+
+  it('baut die Übung: bereinigte Felder, nur passende Optionen', () => {
+    const ex = buildExercise(draft, 'custom-x')
+    expect(ex).toMatchObject({ id: 'custom-x', name: 'Kabel Pullover', custom: true, primary: ['lats'], secondary: ['triceps'], equipment: 'machine' })
+    expect(ex.load).toBeUndefined()
+    expect(ex.bodyweight).toBeUndefined()
+    expect(buildExercise({ ...draft, equipment: 'dumbbell', load: 'single' }, 'c').load).toBe('single')
+    expect(buildExercise({ ...draft, equipment: 'machine', bodyweight: 0.6 }, 'c').bodyweight).toBeUndefined()
+    expect(buildExercise({ ...draft, equipment: 'bodyweight', bodyweight: 0.64 }, 'c').bodyweight).toBe(0.64)
+    const timed = buildExercise({ ...draft, metric: 'time', assisted: true }, 'c')
+    expect(timed.metric).toBe('time')
+    expect(timed.assisted).toBeUndefined()
+  })
+
+  it('Kurzhantel-Übung ohne Auswahl gilt je Seite (Standard des Formulars) und wird in Stats berücksichtigt', () => {
+    const db = buildExercise({ ...draft, equipment: 'dumbbell', load: 'perSide' }, 'c')
+    const single = buildExercise({ ...draft, equipment: 'dumbbell', load: 'single' }, 'c')
+    expect(isPerSide(db)).toBe(true)
+    expect(isPerSide(single)).toBe(false)
+  })
+
+  it('Duplizieren: Name eindeutig, Rundlauf Entwurf ⇄ Übung', () => {
+    const src = ALL_EXERCISES[0]
+    const d1 = duplicateDraft(src, ALL_EXERCISES)
+    expect(d1.name).toBe(`${src.name} (Kopie)`)
+    const d2 = duplicateDraft(src, [...ALL_EXERCISES, { name: d1.name }])
+    expect(d2.name).toBe(`${src.name} (Kopie 2)`)
+    // Kopie einer Kopie hängt nichts an
+    expect(duplicateDraft({ ...src, name: d1.name }, [...ALL_EXERCISES, { name: d1.name }]).name).toBe(d2.name)
+    const back = buildExercise(draftOf(src), 'c')
+    expect(back).toMatchObject({ primary: src.primary, secondary: src.secondary, equipment: src.equipment, compound: src.compound })
+  })
+
+  it('Verwendung: Löschen nur ohne Einheit und Programm', () => {
+    const sessions = [{ exercises: [{ exerciseId: 'a', sets: [] }] }, { exercises: [{ exerciseId: 'b', sets: [] }] }]
+    const programs = [{ name: 'P1', days: [{ id: 'd', name: 'T', exercises: [{ exerciseId: 'c', sets: 3, repMin: 6, repMax: 10, rir: 2 }] }] }]
+    expect(exerciseUsage('a', sessions, programs)).toEqual({ sessions: 1, programs: [] })
+    expect(exerciseUsage('c', sessions, programs)).toEqual({ sessions: 0, programs: ['P1'] })
+    expect(canDeleteExercise(exerciseUsage('a', sessions, programs))).toBe(false)
+    expect(canDeleteExercise(exerciseUsage('c', sessions, programs))).toBe(false)
+    expect(canDeleteExercise(exerciseUsage('z', sessions, programs))).toBe(true)
+  })
+
+  it('Beschreibung und Bild: Zeilen bereinigt, Anleitung aus der Beschreibung', () => {
+    const ex = buildExercise({ ...draft, description: ' Schritt eins \n\n  Schritt zwei ', image: 'data:image/jpeg;base64,AAA' }, 'c')
+    expect(ex.description).toBe('Schritt eins\nSchritt zwei')
+    expect(ex.image).toBe('data:image/jpeg;base64,AAA')
+    expect(instructionsFor(ex)).toEqual(['Schritt eins', 'Schritt zwei'])
+    expect(instructionsFor(buildExercise(draft, 'c'))[0]).toMatch(/Beschreibung/)
+    expect(buildExercise(draft, 'c').image).toBeUndefined()
+    expect(validateDraft({ ...draft, description: 'x'.repeat(1001) }, ALL_EXERCISES)).toMatch(/Beschreibung/)
+    expect(draftOf(ex)).toMatchObject({ description: ex.description, image: ex.image })
+  })
+
+  it('Cardio: ohne Muskeln, Cardio-Felder, Gruppe Cardio', () => {
+    const c = buildExercise({ ...EMPTY_DRAFT, name: 'Seilspringen', equipment: 'cardio', primary: ['quads'], compound: true }, 'c')
+    expect(c).toMatchObject({ cardio: true, equipment: 'cardio', pattern: 'cardio', primary: [], secondary: [], compound: false, custom: true })
+    expect(validateDraft({ ...EMPTY_DRAFT, name: 'Seilspringen', equipment: 'cardio' }, ALL_EXERCISES)).toBeNull()
+    expect(libraryGroup(c)).toBe('cardio')
+  })
+
+  it('Gruppe richtet sich bei eigenen Übungen nach dem Gerät', () => {
+    const g = (equipment: typeof EMPTY_DRAFT.equipment) => libraryGroup(buildExercise({ ...draft, equipment }, 'c'))
+    expect(g('barbell')).toBe('free')
+    expect(g('dumbbell')).toBe('free')
+    expect(g('machine')).toBe('machines')
+    expect(g('cable')).toBe('machines')
+    expect(g('bodyweight')).toBe('bodyweight')
+  })
+
+  it('Bildgröße: verkleinert proportional, vergrößert nie', () => {
+    expect(fitSize(4000, 2000)).toEqual({ w: 480, h: 240 })
+    expect(fitSize(1000, 3000)).toEqual({ w: 160, h: 480 })
+    expect(fitSize(300, 200)).toEqual({ w: 300, h: 200 })
+  })
+})
+
+describe('Distanz als Messgröße (PLAN-6 B3)', () => {
+  const d = { min: 20, max: 40 }
+  const carry = (m: number[], weight = 0) => m.map((reps) => ({ weight, reps, rir: 2 }))
+  const ex = (id: string) => exerciseById(id)!
+  const dist = buildExercise({ ...EMPTY_DRAFT, name: 'Schlitten', equipment: 'machine', primary: ['quads'], metric: 'distance', assisted: true }, 'custom-schlitten')
+
+  it('Hilfsfunktionen und Beschriftung', () => {
+    expect(isRepless('time')).toBe(true)
+    expect(isRepless('distance')).toBe(true)
+    expect(isRepless('reps')).toBe(false)
+    expect(isRepless(undefined)).toBe(false)
+    expect([metricUnit('distance'), metricColumn('distance'), metricLabel('distance')]).toEqual(['m', 'm', 'Meter'])
+    expect([metricUnit('time'), metricColumn('time'), metricLabel('time')]).toEqual(['Sek', 'Sek.', 'Sekunden'])
+    expect([metricUnit(), metricColumn(), metricLabel()]).toEqual(['Wdh', 'Wdh.', 'Wiederholungen'])
+  })
+
+  it('Übung: metric distance, nicht assistiert, ohne 1RM/Volumen', () => {
+    expect(dist.metric).toBe('distance')
+    expect(dist.assisted).toBeUndefined()
+    expect(noLoadStats(dist)).toBe(true)
+  })
+
+  it('+5 m je Einheit, gedeckelt an der Obergrenze', () => {
+    expect(suggestNext({ range: d, targetRir: 2, equipment: 'bodyweight', last: carry([20, 25]), metric: 'distance' })).toEqual({ weight: 0, reps: 25 })
+    expect(suggestNext({ range: d, targetRir: 2, equipment: 'bodyweight', last: carry([38, 40]), metric: 'distance' })).toEqual({ weight: 0, reps: 40 })
+    expect(suggestNext({ range: d, targetRir: 2, equipment: 'bodyweight', last: [], metric: 'distance' })).toEqual({ weight: null, reps: 20 })
+  })
+
+  it('an der Obergrenze mit Zusatzlast: mehr Gewicht, Strecke zurück an die Untergrenze', () => {
+    expect(suggestNext({ range: d, targetRir: 2, equipment: 'kettlebell', last: carry([40, 40], 16), metric: 'distance' })).toEqual({ weight: 20, reps: 20 })
+  })
+
+  it('Begründung: Distanz wie Zeit, kein Plateau, keine Körperlast', () => {
+    const s = suggestExplained({ range: d, targetRir: 2, equipment: 'bodyweight', last: carry([20, 25]), metric: 'distance', stalled: true, bodyLoad: 80 })
+    expect(s.reason).toBe('time')
+    expect(s.reps).toBe(25)
+  })
+
+  it('Generator nimmt Distanzübungen nur auf ausdrücklichen Wunsch, dann mit Meter-Bereich', () => {
+    const carryEx: typeof dist = { ...dist, id: 'custom-carry', name: 'Tragen', equipment: 'bodyweight', pattern: 'core', primary: ['adductors'], secondary: [] }
+    const pool = [...ALL_EXERCISES, carryEx]
+    const plain = generate(cfg({ equipment: ['bodyweight'], time: 'o120' }), pool).program.days.flatMap((x) => x.exercises)
+    expect(plain.some((e) => e.exerciseId === 'custom-carry')).toBe(false)
+    const withIt = generate(cfg({ equipment: ['bodyweight'], includeExercises: ['custom-carry'], time: 'o120' }), pool).program.days.flatMap((x) => x.exercises)
+    const pe = withIt.find((e) => e.exerciseId === 'custom-carry')!
+    expect(pe).toBeDefined()
+    expect([pe.repMin, pe.repMax]).toEqual([20, 40])
+  })
+
+  it('Tausch: Meter-Bereich, Wechsel zwischen Zeit und Distanz setzt den Bereich neu', () => {
+    const iso = { exerciseId: 'db-lateral', sets: 3, repMin: 10, repMax: 15, rir: 2 }
+    expect(swapPlanned(iso, ex('db-lateral'), dist, { goal: 'hypertrophy' }, [])).toMatchObject({ exerciseId: 'custom-schlitten', repMin: 20, repMax: 40 })
+    const timed = { exerciseId: 'plank', sets: 3, repMin: 30, repMax: 60, rir: 2 }
+    expect(swapPlanned(timed, ex('plank'), dist, { goal: 'hypertrophy' }, [])).toMatchObject({ repMin: 20, repMax: 40 })
+  })
+})
+

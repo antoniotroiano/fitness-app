@@ -1,6 +1,7 @@
 import type { Settings } from '../../types'
 import type { RepRange, Suggestion, SuggestionReason } from '../../engine/progression'
 import { formatWeight } from '../../utils/units'
+import type { Metric } from '../../engine/metric'
 
 /** Hinweis zu Equipment-Grenzen (`Suggestion.note`, siehe EXTEND_REPS in engine/progression.ts), sonst null. */
 export function progressionNote(sug: Suggestion, range: RepRange, unit: Settings['weightUnit'], bodyLoad = 0): string | null {
@@ -19,16 +20,16 @@ const REASON_TITLE: Record<SuggestionReason, string> = {
 }
 
 /** Titel und Text zur Begründung eines Vorschlags (`Suggestion.reason`), null ohne Begründung oder ohne Historie. */
-export function reasonText(sug: Suggestion, range: RepRange, unit: Settings['weightUnit'], metric: 'reps' | 'time' = 'reps', bodyLoad = 0): { title: string; text: string } | null {
+export function reasonText(sug: Suggestion, range: RepRange, unit: Settings['weightUnit'], metric: Metric = 'reps', bodyLoad = 0): { title: string; text: string } | null {
   if (!sug.reason || sug.reason === 'start' || sug.weight == null) return null
   const sign = bodyLoad > 0 ? '+' : ''
   const w = (kg: number) => `${sign}${formatWeight(kg, unit)}`
-  const u = metric === 'time' ? 's' : 'Wdh.'
+  const u = metric === 'time' ? 's' : metric === 'distance' ? 'm' : 'Wdh.'
   const prev = sug.prev ? `Letzte Einheit: ${w(sug.prev.weight)} × ${sug.prev.reps} ${u} (schwächster Satz am schwersten Gewicht). ` : ''
   const now = `Vorschlag: ${w(sug.weight)} × ${sug.reps} ${u}. `
   const body: Record<SuggestionReason, string> = {
     start: '',
-    time: 'Die Zeit steigt je Einheit um 5 s, bis die Obergrenze erreicht ist.',
+    time: metric === 'distance' ? 'Die Strecke steigt je Einheit um 5 m, bis die Obergrenze erreicht ist.' : 'Die Zeit steigt je Einheit um 5 s, bis die Obergrenze erreicht ist.',
     reps: 'Das Gewicht bleibt, bis alle Sätze die Obergrenze erreichen; bis dahin kommt eine Wiederholung dazu.',
     bwLoad: 'Mit Körpergewicht ist die Obergrenze erreicht: das erste Zusatzgewicht ist die kleinste Stufe, die Wdh. kommen aus dem geschätzten 1RM.',
     top: `Alle Sätze liegen an der Obergrenze (${range.max}). Das Gewicht steigt, die Wdh. gehen zurück.`,

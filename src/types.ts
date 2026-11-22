@@ -31,8 +31,8 @@ export interface Exercise {
   assisted?: boolean
   /** Kurzhantel/Kettlebell: je Seite (zwei Geräte bzw. beide Seiten, Volumen ×2) oder ein einzelnes Gerät. Fehlt bei anderem Equipment. */
   load?: 'single' | 'perSide'
-  /** Messgröße: Wiederholungen (Default) oder Zeit in Sekunden (Halten/Tragen). Zeitübungen: Progression +5 s, kein 1RM/Volumen. */
-  metric?: 'reps' | 'time'
+  /** Messgröße: Wiederholungen (Default), Zeit in Sekunden (Halten/Tragen) oder Distanz in Metern (Tragen/Schieben). Zeit/Distanz: Wert in `reps`, Progression +5 s/+5 m, kein 1RM/Volumen (engine/metric.ts). */
+  metric?: 'reps' | 'time' | 'distance'
   /**
    * Körpergewichtsanteil (0–1): Anteil des Körpergewichts, der bewegt wird (Klimmzug ≈ 0,95, Liegestütz ≈ 0,64).
    * Last für 1RM/Volumen/Progression = Anteil × Körpergewicht + Zusatzgewicht (engine/bodyweight.ts).
@@ -40,6 +40,10 @@ export interface Exercise {
   bodyweight?: number
   /** Einseitige Übung (eine Seite nach der anderen): Sätze werden standardmäßig links/rechts getrennt erfasst */
   unilateral?: boolean
+  /** Eigene Übungen: Beschreibung (eine Zeile = ein Schritt) */
+  description?: string
+  /** Eigene Übungen: verkleinertes Bild als Data-URL (JPEG, siehe utils/image.ts) */
+  image?: string
 }
 
 export type Goal = 'hypertrophy' | 'strength' | 'both'

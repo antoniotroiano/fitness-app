@@ -1,3 +1,4 @@
+import { metricLabel } from '../../engine/metric'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Exercise, LoggedExercise, Session } from '../../types'
@@ -257,10 +258,9 @@ function SessionEditor({ session }: { session: Session }) {
         const set = (p: Partial<SideRow>) => (r ? patchRight(pad.exId, padRow.id, p) : patch(pad.exId, padRow.id, p))
         const sideLabel = !padRow.right ? '' : r ? ' · rechts' : ' · links'
         const ex = lookup(pad.exId)
-        const time = ex?.metric === 'time'
         return (
           <NumpadSheet key={`${pad.rowId}-${pad.side ?? ''}-${pad.field}`} field={pad.field}
-            label={`${pad.field === 'weight' ? `Gewicht (${wl})` : time ? 'Sekunden' : 'Wiederholungen'}${sideLabel}`}
+            label={`${pad.field === 'weight' ? `Gewicht (${wl})` : metricLabel(ex?.metric)}${sideLabel}`}
             value={pad.field === 'weight' ? vals.weight : vals.reps} rir={vals.rir} showRir={!isSegment(padRow) && padRow.type !== 'warmup'}
             partial={vals.partial ?? ''} onPartial={(v) => set({ partial: v })}
             onValue={(v) => set(pad.field === 'weight' ? { weight: v } : { reps: v })}

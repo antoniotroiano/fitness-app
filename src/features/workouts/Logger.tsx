@@ -24,7 +24,8 @@ import { MYO_REST_SEC, nextSegment } from '../../engine/setTypes'
 import { removeFromDay, replaceInDay, swapEntry } from '../../engine/dayEdit'
 import { alternatives, recommendable } from '../../engine/swap'
 import { linksOf, nextInSuperset, setSupersetLink, supersetMembers, withLinks } from '../../engine/superset'
-import { neutralWeek, TIME_RANGE, weekPlan } from '../../engine/periodization'
+import { neutralWeek, weekPlan } from '../../engine/periodization'
+import { isRepless, METRIC_RANGE } from '../../engine/metric'
 import { restSecondsFor } from '../../engine/rest'
 import { historyUpTo, markSlot, maxReachedWeek, weekLabel } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
@@ -281,7 +282,7 @@ export default function Logger() {
    * Ohne Verlauf (kein Planungsgewicht) kalibriert der erste Satz. Assistierte, Zeit- und Cardioübungen nicht.
    */
   const adaptFollowing = (rs: Row[], doneRow: Row): Row[] => {
-    if (doneRow.type !== 'work' || current.ex.cardio || current.ex.assisted || current.ex.metric === 'time' || doneRow.rir === '' || doneRow.planReps === undefined) return rs
+    if (doneRow.type !== 'work' || current.ex.cardio || current.ex.assisted || isRepless(current.ex.metric) || doneRow.rir === '' || doneRow.planReps === undefined) return rs
     const idx = rs.findIndex((r) => r.id === doneRow.id)
     // Links/rechts getrennt: die schwächere Seite bestimmt die Folgesätze
     const src = doneRow.right && doneRow.right.rir !== ''
@@ -454,7 +455,7 @@ export default function Logger() {
   const selectExercise = (id: string) => { setPad(null); setActive((a) => (a ? { ...a, current: id } : a)) }
   const addExercise = (ex: Exercise) => {
     if (views.some((v) => v.pe.exerciseId === ex.id)) { selectExercise(ex.id); return }
-    const range = ex.metric === 'time' ? TIME_RANGE : ex.compound ? { min: 6, max: 10 } : { min: 10, max: 15 }
+    const range = isRepless(ex.metric) ? METRIC_RANGE[ex.metric!]! : ex.compound ? { min: 6, max: 10 } : { min: 10, max: 15 }
     const pe: PlannedExercise = { exerciseId: ex.id, sets: ex.cardio ? 1 : 3, repMin: range.min, repMax: range.max, rir: 2 }
     const [view] = plannedDay({ ...day, exercises: [pe] }, plan, historyUpTo(history, program.id, curWeek), lookup, settings, overrides, deloadSessionOf(program), asOf, bodyweights)
     if (!view) return
@@ -666,9 +667,9 @@ export default function Logger() {
             {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
           </div>
           {backfill && <p className="text-xs text-accent mt-0.5">Nachgetragen für {formatDate(backfill.date, { day: '2-digit', month: 'long', year: 'numeric' })} · {weekLabel(program, backfill.week)}</p>}
-          {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
+          {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : current.ex.metric === 'distance' ? de.logger.targetMeters : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
           {(() => {
-            const why = current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric === 'time' ? 'time' : 'reps', current.bodyLoad)
+            const why = current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad)
             if (!why) return null
             const check = current.sug.level === 'check'
             return (
@@ -678,7 +679,7 @@ export default function Logger() {
             )
           })()}
           {settings.prefillMode === 'last' && !current.ex.cardio && current.previous.work.length > 0 && current.sug.weight != null && (
-            <p className="text-xs text-muted mt-0.5">Vorschlag: {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString('de-DE')} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : ' Wdh.'}</p>
+            <p className="text-xs text-muted mt-0.5">Vorschlag: {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString('de-DE')} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : current.ex.metric === 'distance' ? ' m' : ' Wdh.'}</p>
           )}
           {progressionNote(current.sug, current.range, wl, current.bodyLoad) && (
             <p className="text-xs text-warn mt-1">{progressionNote(current.sug, current.range, wl, current.bodyLoad)}</p>
@@ -742,7 +743,7 @@ export default function Logger() {
       <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title="Übung hinzufügen" />
 
       <SuggestionSheet open={whyOpen} onClose={() => setWhyOpen(false)} warn={current.sug.level === 'check'}
-        info={current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric === 'time' ? 'time' : 'reps', current.bodyLoad)} />
+        info={current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad)} />
       <ExerciseActionsSheet open={actionsOpen} onClose={() => setActionsOpen(false)} name={current.ex.name}
         persist={persist} onPersist={setPersist} canRemove={views.length > 1}
         hasDone={rows.some((r) => r.done)} onSwap={() => setSwapOpen(true)} onRemove={removeExercise} />

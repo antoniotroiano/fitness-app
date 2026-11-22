@@ -1,3 +1,4 @@
+import { canDeleteExercise, exerciseUsage, type ExerciseUsage } from '../engine/customExercise'
 import Dexie, { type EntityTable } from 'dexie'
 import { DEFAULT_BAR, DEFAULT_PLATES } from '../engine/plates'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -140,6 +141,23 @@ export function useMeasures(): MeasureEntry[] {
 export function useAllExercises(): Exercise[] {
   const custom = useLiveQuery(() => db.customExercises.toArray(), [], []) ?? []
   return [...ALL_EXERCISES, ...custom]
+}
+
+/** Eigene Übung anlegen oder (gleiche ID) überschreiben. */
+export const saveCustomExercise = (ex: Exercise) => db.customExercises.put(ex)
+
+/**
+ * Eigene Übung löschen (samt Überschreibungen). Verweist noch eine Einheit oder ein Programm darauf, passiert nichts
+ * und die Verwendung wird zurückgegeben (sonst `null` = gelöscht).
+ */
+export async function deleteCustomExercise(id: string): Promise<ExerciseUsage | null> {
+  return db.transaction('rw', [db.customExercises, db.sessions, db.programs, db.kv], async () => {
+    const usage = exerciseUsage(id, await db.sessions.toArray(), await db.programs.toArray())
+    if (!canDeleteExercise(usage)) return usage
+    await db.customExercises.delete(id)
+    await saveExerciseOverrideTx(id, null)
+    return null
+  })
 }
 
 /** Neues Programm speichern und als aktiv markieren, Wochenzyklus zurücksetzen. */

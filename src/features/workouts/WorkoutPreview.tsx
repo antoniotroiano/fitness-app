@@ -1,3 +1,4 @@
+import { isRepless, metricUnit } from '../../engine/metric'
 import { useMemo, useState } from 'react'
 import { todayStr } from '../../utils/dates'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -112,7 +113,7 @@ export default function WorkoutPreview() {
               {Array.from({ length: lines }, (_, i) => (
                 <div key={i} className="contents">
                   <div className="text-sm text-muted">
-                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? `Satz ${i + 1} · ${v.range.min}+ Wdh, bis zum Versagen` : `Satz ${i + 1} · ${v.range.min}–${v.range.max} ${v.ex.metric === 'time' ? 'Sek' : 'Wdh'}`}
+                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? `Satz ${i + 1} · ${v.range.min}+ Wdh, bis zum Versagen` : `Satz ${i + 1} · ${v.range.min}–${v.range.max} ${metricUnit(v.ex.metric)}`}
                   </div>
                   <div className="text-sm font-bold text-right tabular-nums" style={v.ex.cardio ? undefined : { color: rirColor(v.setRirs[i]) }}>
                     {v.ex.cardio ? '' : v.setRirs[i]}
@@ -132,12 +133,12 @@ export default function WorkoutPreview() {
         )
       })}
 
-      <WeekTargetSheet open={!!editView} onClose={() => setEditIdx(null)} unit={editView?.ex.metric === 'time' ? 'Sek' : 'Wdh'}
+      <WeekTargetSheet open={!!editView} onClose={() => setEditIdx(null)} unit={metricUnit(editView?.ex.metric)}
         title={editView ? `${editView.ex.name} · ${weekLabel(program, curWeek)}` : ''}
         computed={(() => {
           if (!editView || editIdx === null) return { sets: 0, repMin: 0, repMax: 0, rir: 0 }
           const base = { ...editView.pe, weeks: undefined }
-          const t = exerciseTargets(base, plan, editIdx, editView.ex.metric === 'time', editView.ex.compound)
+          const t = exerciseTargets(base, plan, editIdx, isRepless(editView.ex.metric), editView.ex.compound)
           return { sets: plannedSets(base, plan), repMin: t.range.min, repMax: t.range.max, rir: t.rir }
         })()}
         scopes={[{ key: `w${curWeek}`, label: 'Nur diese Woche' }, ...(program.config && plan.blockPos != null ? [{ key: `b${plan.blockPos}`, label: 'In jedem Block' }] : [])]}

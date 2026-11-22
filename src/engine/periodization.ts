@@ -1,5 +1,6 @@
 import type { Experience, Goal, PlannedExercise, ProgramConfig, RepScheme, WeekTarget } from '../types'
 import type { RepRange } from './progression'
+import { isRepless, METRIC_RANGE } from './metric'
 
 /** Arbeitswochen pro Block (Standard), danach (optional) eine Deload-Woche */
 export const BLOCK_WORKING_WEEKS = 4
@@ -192,7 +193,9 @@ export function baseRepRange(goal: Goal, compound: boolean, role?: ExerciseRole)
 }
 
 /** Zeitübungen (Halten/Tragen): Haltezeit in Sekunden statt Wiederholungen */
-export const TIME_RANGE: RepRange = { min: 30, max: 60 }
+export const TIME_RANGE: RepRange = METRIC_RANGE.time!
+/** Distanzübungen (Tragen/Schieben): Strecke in Metern */
+export const DISTANCE_RANGE: RepRange = METRIC_RANGE.distance!
 
 export function baseRir(exp: Experience): number {
   return { none: 3, beginner: 3, intermediate: 2, advanced: 1 }[exp]
@@ -254,10 +257,10 @@ export function weeklyOverview(
 ): WeekOverview[] {
   return Array.from({ length: blockLength(config) }, (_, week) => {
     const plan = weekPlan(config, week)
-    const { range, rir } = exerciseTargets(pe, plan, index, ex.metric === 'time', !!ex.compound)
+    const { range, rir } = exerciseTargets(pe, plan, index, isRepless(ex.metric), !!ex.compound)
     return {
       week, isDeload: plan.isDeload, sets: ex.cardio ? 1 : plannedSets(pe, plan),
-      repMin: range.min, repMax: range.max, rir, failure: !!plan.failureLastSet && !ex.cardio && ex.metric !== 'time',
+      repMin: range.min, repMax: range.max, rir, failure: !!plan.failureLastSet && !ex.cardio && !isRepless(ex.metric),
       skipped: isSkipped(pe, plan), edited: !!pe.weeks?.[`b${week}`],
     }
   })

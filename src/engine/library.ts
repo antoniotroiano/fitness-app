@@ -6,14 +6,13 @@ export type LibraryGroup = 'free' | 'machines' | 'bodyweight' | 'cardio'
 export const LIBRARY_GROUPS: { id: LibraryGroup; label: string }[] = [
   { id: 'free', label: 'Free Weights' },
   { id: 'machines', label: 'Machines' },
-  { id: 'bodyweight', label: 'Bodyweight & Personal' },
+  { id: 'bodyweight', label: 'Bodyweight' },
   { id: 'cardio', label: 'Cardio' },
 ]
 
-/** Free Weights: Langhantel, Kurzhantel, Kettlebell. Machines: Maschine, Kabel, Smith. Rest: Körpergewicht, Band, eigene Übungen. */
+/** Free Weights: Langhantel, Kurzhantel, Kettlebell. Machines: Maschine, Kabel, Smith. Rest: Körpergewicht, Band. Eigene Übungen sortieren sich nach ihrem Gerät ein. */
 export function libraryGroup(ex: Exercise): LibraryGroup {
   if (ex.cardio) return 'cardio'
-  if (ex.custom) return 'bodyweight'
   if (ex.equipment === 'barbell' || ex.equipment === 'dumbbell' || ex.equipment === 'kettlebell') return 'free'
   if (ex.equipment === 'machine' || ex.equipment === 'cable' || ex.equipment === 'smith') return 'machines'
   return 'bodyweight'
