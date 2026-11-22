@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Equipment, Exercise, MuscleId, Settings } from '../../types'
-import { BottomSheet, Button, Card, Chip, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
+import { BottomSheet, Button, Card, Chip, HelpButton, LinkButton, Page, Segmented, cx, inputCls } from '../../components/ui'
 import { PLATE_OPTIONS } from '../../engine/plates'
 import { kgToDisplay } from '../../utils/units'
 import { downloadText } from '../../utils/download'
@@ -38,10 +38,12 @@ function Row({ label, desc, to, icon }: { label: string; desc?: string; to: stri
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, help }: { title: string; children: React.ReactNode; help?: string }) {
   return (
     <section className="space-y-2">
-      <h2 className="text-xs uppercase tracking-wide text-muted px-1">{title}</h2>
+      {help
+        ? <div className="flex items-center justify-between"><h2 className="text-xs uppercase tracking-wide text-muted px-1">{title}</h2><HelpButton article={help} /></div>
+        : <h2 className="text-xs uppercase tracking-wide text-muted px-1">{title}</h2>}
       <Card className="divide-y divide-line !py-1">{children}</Card>
     </section>
   )
@@ -152,8 +154,11 @@ export default function More() {
         <Row icon="data" label={t('Daten')} desc={t('Backup, Import, Zurücksetzen')} to="/more/data" />
       </Section>
 
+      <Section title={t('Support')}>
+        <Row icon="guide" label={t('Wissensdatenbank')} desc={t('Anleitungen und häufige Fragen')} to="/more/help" />
+      </Section>
+
       <Section title={de.more.other}>
-        <Row icon="help" label={t('Hilfe')} to="/more/help" />
         <Row icon="about" label={de.more.about} to="/more/about" />
       </Section>
     </Page>
@@ -270,7 +275,7 @@ export function WorkoutSettingsPage() {
         <Row icon="timer" label={t('Pause')} desc={t('Rest-Timer je Übungstyp')} to="/more/workouts/rest" />
         <Row icon="warmup" label={t('Aufwärmen')} desc={t('Smart-Aufwärmen und Schemata')} to="/more/workouts/warmup" />
       </Section>
-      <Section title="Progression">
+      <Section title="Progression" help="einstellungen-progression">
         <ChoiceRow icon="flag" label={t('Zielwert nach einer Steigerung')} value={s.progressionTarget} onChange={(v) => update({ progressionTarget: v })}
           options={[
             { value: 'mid', label: t('Mitte des Bereichs'), desc: t('Gewicht und Wdh. werden so gewählt, dass du nach einer Steigerung um die Mitte des Bereichs landest (bei 6–10 um 8). Kleinere Sprünge.') },
@@ -643,23 +648,6 @@ export function AboutPage() {
           <Button variant="ghost" className="w-full" onClick={() => setConfirmReset(false)}>{t('Abbrechen')}</Button>
         </div>
       </BottomSheet>
-    </Page>
-  )
-}
-
-export function HelpPage() {
-  const nav = useNavigate()
-  const items: [string, string][] = [
-    [t('Was ist RIR?'), t('Reps in Reserve: Wie viele Wiederholungen du am Satzende noch geschafft hättest. RIR 2 heißt: noch zwei saubere Wiederholungen möglich.')],
-    [t('Wie berechnet die App den nächsten Vorschlag?'), t('Double Progression: Erreichst du in allen Sätzen das obere Ende des Wiederholungsbereichs, steigt das Gewicht und die Wiederholungen starten wieder unten. Sonst wird eine Wiederholung mehr vorgeschlagen. Trägst du etwas anderes ein, wird aus deinem geschätzten 1RM (Epley) neu gerechnet.')],
-    [t('Was ist ein Deload?'), t('Eine Entlastungswoche mit etwa halbem Satzvolumen und mehr Reserve, damit sich der Körper erholt. Kommt nach jeweils 4–6 Trainingswochen (im Wizard wählbar). Der Deload ist optional (im Programm abschaltbar): die Studienlage dafür ist schwach, eine Woche Pause brachte in einer Studie (Coleman et al. 2024) keinen Vorteil bei der Muskelgröße.')],
-    [t('Rep-Range-Verlauf'), t('Static: gleich. Linear: Wiederholungen sinken, Gewichte steigen. Reverse Linear: umgekehrt. Undulating: wöchentlicher Wechsel zwischen schwer und leicht. Wechselnde Bereiche: enge Bereiche (3 Wdh.), die jede Übung wöchentlich wechselt; in der letzten Blockwoche geht der letzte Satz bis zum Versagen.')],
-    [t('Wochenzyklus'), t('Hake Workouts durch Beenden und Ruhetage selbst ab. Sind alle 7 Tage erledigt, startet eine neue Woche bei Workout A mit neu berechneten Zielen.')],
-    ['Apple Health / Health Connect', t('Direkter Zugriff ist in einer Web-App technisch nicht möglich. Importiere stattdessen den Health-Export (export.xml) oder eine CSV-Datei.')],
-  ]
-  return (
-    <Page title={t('Hilfe')} back={() => nav('/more')}>
-      {items.map(([q, a]) => <Card key={q}><div className="font-semibold text-sm mb-1">{q}</div><p className="text-sm text-muted">{a}</p></Card>)}
     </Page>
   )
 }

@@ -144,6 +144,8 @@ export const EN: Record<string, string> = {
   'Name, Geburtstag, Geschlecht, Größe': 'Name, birthday, sex, height', 'in / ft': 'in / ft', 'English ist noch nicht verfügbar, die App bleibt vorerst auf Deutsch.': 'Switching the language reloads the app.',
   'Bereiche und Plus-Menü anpassen': 'Customize sections and plus menu', 'Pause, Aufwärmen, Progression': 'Rest, warm-up, progression',
   'Einheiten ansehen, korrigieren, nachtragen': 'View, correct and add past workouts', 'Übungsbibliothek durchsuchen': 'Browse the exercise library',
+  'Mehr dazu in der Wissensdatenbank': 'More in the knowledge base', 'Support': 'Support', 'Wissensdatenbank': 'Knowledge base', 'Anleitungen und häufige Fragen': 'Guides and frequently asked questions', 'Artikel durchsuchen': 'Search articles',
+  'Keine Artikel gefunden.': 'No articles found.', '1 Artikel': '1 article', '{0} Artikel': '{0} articles', 'Kategorie nicht gefunden.': 'Category not found.', 'Artikel nicht gefunden.': 'Article not found.', 'Verwandte Artikel': 'Related articles',
   'Tage markieren, Zyklus': 'Mark days, cycle', 'Daten': 'Data', 'Backup, Import, Zurücksetzen': 'Backup, import, reset', 'Hilfe': 'Help', 'Länge': 'Length', 'Zeitformat': 'Time format',
   '{0} kürzer': '{0} shorter', '{0} länger': '{0} longer', 'Pause': 'Rest', 'Rest-Timer je Übungstyp': 'Rest timer per exercise type', 'Smart-Aufwärmen und Schemata': 'Smart warm-up and schemes',
   'Progression': 'Progression', 'Zielwert nach einer Steigerung': 'Target after an increase', 'Mitte des Bereichs': 'Middle of the range',

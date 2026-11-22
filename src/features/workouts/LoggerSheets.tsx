@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { MuscleId } from '../../types'
 import { BottomSheet, Button, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
@@ -153,9 +154,17 @@ export function ExerciseActionsSheet({ open, onClose, name, persist, onPersist, 
 export function SuggestionSheet({ open, onClose, info, warn }: {
   open: boolean; onClose: () => void; info: { title: string; text: string } | null; warn: boolean
 }) {
+  const nav = useNavigate()
+  const loc = useLocation()
   return (
     <BottomSheet open={open} onClose={onClose} title={info?.title ?? t('Vorschlag')}>
       <p className={cx('text-sm', warn && 'text-warn')}>{info?.text}</p>
+      <button onClick={() => { onClose(); nav('/more/help/a/verlauf-vorschlag', { state: { helpBack: loc.pathname } }) }}
+        className="mt-4 w-full flex items-center gap-3 rounded-xl bg-surface2 px-4 py-3 text-left active:opacity-70">
+        <Icon name="guide" size={20} />
+        <span className="flex-1 text-sm font-medium">{t('Mehr dazu in der Wissensdatenbank')}</span>
+        <span className="text-muted">›</span>
+      </button>
     </BottomSheet>
   )
 }

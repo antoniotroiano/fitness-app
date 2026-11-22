@@ -35,7 +35,10 @@ const WorkoutSettingsPage = named(loadMore, 'WorkoutSettingsPage')
 const ProfilePage = named(loadMore, 'ProfilePage')
 const LibraryPage = named(loadMore, 'LibraryPage')
 const AboutPage = named(loadMore, 'AboutPage')
-const HelpPage = named(loadMore, 'HelpPage')
+const loadKnowledge = () => import('./features/more/Knowledge')
+const KnowledgeBasePage = named(loadKnowledge, 'KnowledgeBasePage')
+const HelpCategoryPage = named(loadKnowledge, 'HelpCategoryPage')
+const HelpArticlePage = named(loadKnowledge, 'HelpArticlePage')
 const DataPage = named(loadMore, 'DataPage')
 
 function PageFallback() {
@@ -140,7 +143,9 @@ function Shell() {
         <Route path="/more/library" element={<LibraryPage />} />
         <Route path="/more/data" element={<DataPage />} />
         <Route path="/more/about" element={<AboutPage />} />
-        <Route path="/more/help" element={<HelpPage />} />
+        <Route path="/more/help" element={<KnowledgeBasePage />} />
+        <Route path="/more/help/c/:cat" element={<HelpCategoryPage />} />
+        <Route path="/more/help/a/:id" element={<HelpArticlePage />} />
       </Routes>
       </Suspense>
 
