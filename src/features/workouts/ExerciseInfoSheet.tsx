@@ -11,7 +11,7 @@ import { saveExerciseOverride, useExerciseOverrides, usePrograms, useSessions, u
 import { formatDate } from '../../utils/dates'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
 import { de } from '../../i18n/de'
-import { t, lc } from '../../i18n'
+import { t, lc, LANG } from '../../i18n'
 
 type Tab = 'instructions' | 'details' | 'history'
 const TABS: { id: Tab; label: string }[] = [
@@ -22,14 +22,20 @@ interface Guide { steps: string[]; tips?: MediaTips }
 
 /** Anleitung und Tipps liegen in großen Textdateien: erst beim Öffnen der Info nachladen (eigener Chunk). */
 function useGuide(ex: Exercise): Guide | null {
-  const [loaded, setLoaded] = useState<{ instructionsFor: (e: Exercise) => string[]; tipsFor: (id: string) => MediaTips | undefined } | null>(null)
+  const [loaded, setLoaded] = useState<{ instructionsFor: (e: Exercise, en?: Record<string, string[]>) => string[]; tipsFor: (id: string) => MediaTips | undefined; en?: { steps: Record<string, string[]>; tips: Record<string, MediaTips> } } | null>(null)
   useEffect(() => {
     let cancelled = false
-    void Promise.all([import('../../data/instructions'), import('../../data/media/tips')])
-      .then(([i, tp]) => { if (!cancelled) setLoaded({ instructionsFor: i.instructionsFor, tipsFor: tp.tipsFor }) })
+    // Bei Englisch zusätzlich die übersetzten Texte laden (eigener Chunk); fehlt ein Eintrag, gilt Deutsch.
+    const english = LANG === 'en' ? Promise.all([import('../../data/instructionsEn'), import('../../data/media-en/tips')]) : Promise.resolve(null)
+    void Promise.all([import('../../data/instructions'), import('../../data/media/tips'), english])
+      .then(([i, tp, en]) => { if (!cancelled) setLoaded({ instructionsFor: i.instructionsFor, tipsFor: tp.tipsFor, en: en ? { steps: en[0].INSTRUCTIONS_EN, tips: en[1].TIPS_EN } : undefined }) })
     return () => { cancelled = true }
   }, [])
-  return useMemo(() => (loaded ? { steps: loaded.instructionsFor(ex), tips: loaded.tipsFor(ex.id) } : null), [loaded, ex])
+  return useMemo(() => {
+    if (!loaded) return null
+    const tips = loaded.en?.tips[ex.id] ?? loaded.tipsFor(ex.id)
+    return { steps: loaded.instructionsFor(ex, loaded.en?.steps), tips }
+  }, [loaded, ex])
 }
 
 function Tips({ tips }: { tips?: MediaTips }) {

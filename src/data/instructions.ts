@@ -1,4 +1,5 @@
 import type { Exercise } from '../types'
+import { t } from '../i18n'
 import { PUSH } from './instr/push'
 import { PULL } from './instr/pull'
 import { LEGS } from './instr/legs'
@@ -11,10 +12,11 @@ const MEDIA_STEPS: Record<string, string[]> = Object.fromEntries(
 )
 export const INSTRUCTIONS: Record<string, string[]> = { ...MEDIA_STEPS, ...PUSH, ...PULL, ...LEGS, ...EXTRA }
 
-const FALLBACK: string[] = ['Für diese Übung liegt noch keine Anleitung vor.']
+const FALLBACK = (): string[] => [t('Für diese Übung liegt noch keine Anleitung vor.')]
 
-export function instructionsFor(ex: Pick<Exercise, 'id' | 'cardio' | 'custom' | 'description'>): string[] {
-  if (ex.custom) return ex.description ? ex.description.split('\n').filter(Boolean) : ['Für diese Übung hast du noch keine Beschreibung eingetragen. Du kannst sie unter Bearbeiten ergänzen.']
-  if (ex.cardio) return ['Wähle ein Tempo, das du über die gesamte Dauer halten kannst.', 'Trage Dauer und Distanz ein.']
-  return INSTRUCTIONS[ex.id] ?? FALLBACK
+/** `en`: englische Schritte (aus `instructionsEn.ts`, nur bei Sprache „en“ geladen); fehlt ein Eintrag, gilt Deutsch. */
+export function instructionsFor(ex: Pick<Exercise, 'id' | 'cardio' | 'custom' | 'description'>, en?: Record<string, string[]>): string[] {
+  if (ex.custom) return ex.description ? ex.description.split('\n').filter(Boolean) : [t('Für diese Übung hast du noch keine Beschreibung eingetragen. Du kannst sie unter Bearbeiten ergänzen.')]
+  if (ex.cardio) return [t('Wähle ein Tempo, das du über die gesamte Dauer halten kannst.'), t('Trage Dauer und Distanz ein.')]
+  return en?.[ex.id] ?? INSTRUCTIONS[ex.id] ?? FALLBACK()
 }

@@ -381,4 +381,6 @@ export const EN: Record<string, string> = {
   'Beincurl kniend (Maschine)': 'Kneeling Leg Curl (Machine)', 'Hüftstrecken stehend (Maschine)': 'Standing Hip Extension (Machine)', 'Pull-Through (Band)': 'Pull-Through (Band)', 'Adduktion (Band)': 'Adduction (Band)',
   'Wadenheben sitzend (Kurzhantel)': 'Seated Calf Raise (Dumbbell)', 'Einbeiniges Wadenheben (Kurzhantel)': 'Single-Leg Calf Raise (Dumbbell)', 'Beinheben liegend': 'Lying Leg Raise', 'Beinheben am Barren': 'Leg Raise (Parallel Bars)',
   'Hängendes Beinheben mit Hüftbeuge': 'Hanging Leg Raise with Hip Flexion', 'Crunch mit Drehung': 'Twisting Crunch', 'Bankcrunch': 'Bench Crunch', 'Sit-ups auf dem Gymnastikball': 'Sit-ups (Stability Ball)', 'Cable Crunch stehend': 'Standing Cable Crunch',
+  'Für diese Übung liegt noch keine Anleitung vor.': 'There are no instructions for this exercise yet.', 'Für diese Übung hast du noch keine Beschreibung eingetragen. Du kannst sie unter Bearbeiten ergänzen.': 'You have not entered a description for this exercise yet. You can add one under Edit.',
+  'Wähle ein Tempo, das du über die gesamte Dauer halten kannst.': 'Choose a pace you can hold for the whole duration.', 'Trage Dauer und Distanz ein.': 'Enter the duration and distance.',
 }
