@@ -14,7 +14,7 @@ import { dailySeries, dailyValues, sessionDates, streakDays, streakWeeks, weekCo
 import { weekProgress } from '../../engine/weekProgress'
 import { recentRecords, type RecordMetric } from '../../engine/records'
 import { displayToKg, kgToDisplay } from '../../utils/units'
-import { todayStr } from '../../utils/dates'
+import { addDays, todayStr, weekStart } from '../../utils/dates'
 import { CalendarLegend, HabitBox, MetricBox, MonthCalendar, RingStat, SectionHeader, StatBox } from './widgets'
 import { de } from '../../i18n/de'
 import { BodyMap, VolumeTile } from './BodyMap'
@@ -71,7 +71,21 @@ export default function Dashboard() {
   const recMax = Math.max(1, ...records.map((r) => r.value))
   const recFmt = (v: number) => (recMetric === 'reps' ? `${v}` : `${Math.round(kgToDisplay(v, u))}`)
 
-  const progress = useMemo(() => (program ? weekProgress(program, week, sessions, lookup) : null), [program, week, sessions, lookup])
+  // Ringe: Programm (nur dessen Einheiten der Programmwoche) oder Alle (jede Einheit der Kalenderwoche)
+  const [ringScope, setRingScope] = useState<'program' | 'all'>(() => {
+    try { return localStorage.getItem('ringScope') === 'all' ? 'all' : 'program' } catch { return 'program' }
+  })
+  const pickScope = (s: 'program' | 'all') => {
+    setRingScope(s)
+    try { localStorage.setItem('ringScope', s) } catch { /* ohne Speicher weiter */ }
+  }
+  const progress = useMemo(() => {
+    if (!program) return null
+    const from = weekStart(today)
+    return weekProgress(program, week, sessions, lookup, {
+      scope: ringScope, week: week.week, from, to: addDays(from, 6),
+    })
+  }, [program, week, sessions, lookup, ringScope, today])
 
   const weightDates = useMemo(() => new Set(weights.map((w) => w.date)), [weights])
   const workoutDates = useMemo(() => sessionDates(sessions), [sessions])
@@ -145,6 +159,14 @@ export default function Dashboard() {
                   <RingStat label="Muskeln" done={progress.muscles.done} shown={progress.muscles.full} total={progress.muscles.total} color="var(--ring-muscles)" />
                   <RingStat big label={de.common.sets} done={progress.sets.done} total={progress.sets.total} color="var(--ring-sets)" />
                   <RingStat label="Übungen" done={progress.exercises.done} total={progress.exercises.total} color="var(--ring-ex)" />
+                </div>
+                <div className="flex justify-center">
+                  <div className="inline-flex rounded-xl bg-surface2 p-1" role="group" aria-label="Ringe zählen">
+                    {([['program', 'Programm'], ['all', 'Alle Workouts']] as const).map(([k, l]) => (
+                      <button key={k} type="button" aria-pressed={ringScope === k} onClick={() => pickScope(k)}
+                        className={`rounded-lg px-3 py-1 text-2xs font-semibold transition-colors ${ringScope === k ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{l}</button>
+                    ))}
+                  </div>
                 </div>
               </>
             )}

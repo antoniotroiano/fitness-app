@@ -26,7 +26,7 @@ Legende: `[ ]` offen · `[~]` in Arbeit · `[x]` erledigt · `[-]` bewusst nicht
 - [x] **B5** Auto-Weiter zur nächsten Übung (`Settings.autoAdvance`). Notiz: erledigt 2026-11-22. Der Logger sprang schon immer zur nächsten offenen Übung; neu ist nur der Schalter `autoAdvance` (Standard an, Einstellungen › Workouts › Anzeige). Aus = bei Abschluss bleibt die Übung stehen (auch bei „alle abhaken“). Supersatz-Wechsel (`nextInSuperset`) bleibt immer aktiv. Änderungen: `types.ts`, `db.ts` (Default), `Logger.tsx` (`toggleWhole`, `toggleAll`), `More.tsx`. Kein Engine-Test (reine UI-Logik); „alle abhaken“ im Browser mit Schalter an/aus geprüft (Rest siehe „Offene Reste“).
 
 **Mittel**
-- [ ] **B7** Dashboard-Ringe: Umschalter „Aktives Programm / Alle“ und Vorwoche. Notiz: –
+- [x] **B7** Dashboard-Ringe: Umschalter „Aktives Programm / Alle“ (Vorwoche entfällt). Notiz: erledigt 2026-11-22. `weekProgress(..., opts)` mit `scope: 'program' | 'all'`, `week`, `from`/`to` (`WeekProgressOptions`), Test in `engine.test.ts`. Dashboard: Umschalter „Programm / Alle Workouts“ (merkt sich die Wahl in localStorage `ringScope`) und Knopf „Vorwoche" (Programm: Woche−1, bei Woche 1 gesperrt; Alle: vorherige Kalenderwoche Mo–So). „Alle“ = Ziele aus dem aktiven Plan, gezählt werden Sätze der geplanten Übungen aus jeder Einheit der Kalenderwoche (andere Programme, Importe, Nachträge), unabhängig vom Tag. Nicht umgesetzt: eigene Ziele ohne Programm. Im Browser nur geladen (leere DB), Ablauf siehe Testanleitung.
 - [ ] **A5** Gerätestufen: mehrere Bereiche und Mikro-Stufen im Editor (Liste wird erzeugt). Notiz: –
 - [ ] **B12** Pausentimer-Ton (schaltbar). Notiz: –
 - [ ] **B8** Gewichts-Trend (geglättet), Körpergewichtsanteil nutzt Trend. Notiz: –
@@ -62,6 +62,7 @@ Eine Zeile pro Rest, nach Aufgabe sortiert. Status: `[ ]` offen · `[~]` in Arbe
 | [ ] | B4 | Einzelne **Workouts** umbenennen, duplizieren, archivieren | fehlt | 2026-11-22 |
 | [ ] | B4 | Programm-Ende: „Abschließen“ der Karte nicht einzeln im Browser durchgespielt (Archivieren selbst getestet) | Test | 2026-11-22 |
 | [ ] | B4 | Zurück aus dem Verlauf über **Mehr** nicht im Browser nachgeklickt (über Workouts getestet) | Test | 2026-11-22 |
+| [ ] | B7 | Ringe im Browser mit echten Daten nicht durchgeklickt | Test | 2026-11-22 |
 | [ ] | B5 | Einzelne Sätze der letzten Übung abhaken und Supersatz-Wechsel bei Schalter aus nicht im Browser getestet (nur „alle abhaken“) | Test | 2026-11-22 |
 
 ## 0. Vorgehen und Grenzen
