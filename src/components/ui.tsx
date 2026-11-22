@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { t } from '../i18n'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
@@ -99,11 +100,27 @@ export function BottomBar({ children, className }: { children: ReactNode; classN
   )
 }
 
+/** Kleines ⓘ: öffnet einen Artikel der Wissensdatenbank, Zurück führt wieder hierher. */
+export function HelpButton({ article, onBefore }: { article: string; onBefore?: () => void }) {
+  const nav = useNavigate()
+  const loc = useLocation()
+  return (
+    <button type="button" aria-label={t('Hilfe zu diesem Thema')} onClick={() => { onBefore?.(); nav(`/more/help/a/${article}`, { state: { helpBack: loc.pathname } }) }}
+      className="w-8 h-8 shrink-0 rounded-full text-muted flex items-center justify-center active:opacity-60">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5h.01" />
+      </svg>
+    </button>
+  )
+}
+
 const CLOSE_DRAG = 100
 
 /** Bottom-Sheet: schließt per Wischen nach unten (Griff/Titelzeile), ✕ oder Tipp auf den Hintergrund. */
-export function BottomSheet({ open, onClose, children, title, tall, height, header }: {
+export function BottomSheet({ open, onClose, children, title, tall, height, header, help }: {
   open: boolean; onClose: () => void; children: ReactNode; title?: string; tall?: boolean
+  /** Artikel-ID der Wissensdatenbank: zeigt ein ⓘ neben dem Schließen-Knopf */
+  help?: string
   /** Feste Höhe, z. B. '75%' des Bildschirms */
   height?: string
   /** Eigene Kopfzeile statt Griff + Titel + ✕ (Griff bleibt als Wisch-Fläche) */
@@ -180,6 +197,7 @@ export function BottomSheet({ open, onClose, children, title, tall, height, head
             <div className="flex items-center gap-3 min-h-8">
               {title && <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{title}</h2>}
               {!title && <span className="flex-1" />}
+              {help && <HelpButton article={help} onBefore={onClose} />}
               <button type="button" onClick={onClose} aria-label={t('Schließen')}
                 className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
             </div>

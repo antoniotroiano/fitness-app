@@ -33,7 +33,7 @@ export function SetTypeSheet({ open, row, onPick, onClose }: {
   const seg = row?.type === 'drop' || row?.type === 'myo'
   const cur = !row ? 'work' : row.type === 'warmup' ? 'warmup' : row.failure ? 'failure' : row.type
   return (
-    <BottomSheet open={open} onClose={onClose} title={seg ? (row?.type === 'drop' ? t('Drop-Satz') : t('Myo-Satz')) : t('Satztyp')}>
+    <BottomSheet open={open} onClose={onClose} help="logging-satztypen" title={seg ? (row?.type === 'drop' ? t('Drop-Satz') : t('Myo-Satz')) : t('Satztyp')}>
       <div className="space-y-2">
         {seg ? (
           <>

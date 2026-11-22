@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Equipment, Exercise, Settings, WarmupOverrideMode, WarmupStep, WeightScale } from '../../types'
-import { BottomSheet, Button, cx } from '../../components/ui'
+import { BottomSheet, Button, HelpButton, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { formatRest } from '../../engine/rest'
 import { incrementKg } from '../../engine/progression'
@@ -206,7 +206,7 @@ export function WeightScaleSheet({ open, onClose, scale, unit, onSave }: {
   const inc = unit === 'lb' ? 5 : 2.5
   const set = (i: number, patch: Partial<SegDraft>) => setSegs((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   return (
-    <BottomSheet open={open} onClose={onClose} tall title={de.exercise.weightScale}>
+    <BottomSheet open={open} onClose={onClose} tall help="uebungen-geraetestufen" title={de.exercise.weightScale}>
       <p className="text-xs text-muted mb-4">{de.exercise.scaleRangeIntro}</p>
       <div className="space-y-4 mb-3">
         {segs.map((x, i) => (
@@ -283,6 +283,7 @@ export function WeightListSheet({ open, onClose, equipment, scale, unit, onSave 
       <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{de.exercise.weightScale}</h2>
       <button type="button" onClick={() => setAdding(true)} aria-label={de.exercise.addWeight}
         className="w-8 h-8 shrink-0 rounded-full bg-surface2 flex items-center justify-center text-lg leading-none">+</button>
+      <HelpButton article="uebungen-geraetestufen" onBefore={onClose} />
       <button type="button" onClick={onClose} aria-label={t('Schließen')}
         className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
     </div>

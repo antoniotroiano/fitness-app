@@ -71,7 +71,7 @@ export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), compute
   )
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={title}>
+    <BottomSheet open={open} onClose={onClose} help="programm-wochenziele" title={title}>
       <div className="space-y-4">
         {scopes.length > 1 && (
           <div role="radiogroup" aria-label={t('Gilt für')} className="grid grid-cols-2 gap-1 rounded-xl bg-surface2 p-1">
