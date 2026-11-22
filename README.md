@@ -1,6 +1,6 @@
 # Lift Lab
 
-Trainings-App als PWA (Deutsch, nur lokal) mit regelbasierter Progression. Du bekommst einen Trainingsplan, loggst deine Sätze, und die App schlägt dir beim nächsten Mal Gewicht und Wiederholungen vor. Alle Daten bleiben auf deinem Gerät, es gibt kein Backend und keine Konten.
+Trainings-App als PWA (Deutsch und Englisch, nur lokal) mit regelbasierter Progression. Du bekommst einen Trainingsplan, loggst deine Sätze, und die App schlägt dir beim nächsten Mal Gewicht und Wiederholungen vor, mit Begründung. Alle Daten bleiben auf deinem Gerät, es gibt kein Backend und keine Konten.
 
 <p align="center"><img src="public/icon-512.png" alt="Lift Lab Icon" width="120"></p>
 
@@ -8,15 +8,15 @@ Trainings-App als PWA (Deutsch, nur lokal) mit regelbasierter Progression. Du be
 
 ## Funktionen
 
-- **Planerstellung:** Wizard (Ziel, Split, Tage, Erfahrung, Fokus-Muskeln, Deload) erzeugt ein Programm. Alternativ selbst bauen oder einzelne Workouts anlegen.
-- **Wochenplan:** Workouts und Ruhetage als Wochenzyklus. Sind alle Tage erledigt, startet eine neue Woche mit neu berechneten Zielen.
-- **Workout-Vorschau:** Übungen, Sätze, Rep-Bereiche und Ziel-RIR. Oben die Target Muscles mit Übungs- und Satzanzahl, ein Tipp auf einen Muskel hebt die passenden Übungen hervor.
-- **Logger:** Timer mit Pause, Satztabelle mit Numpad, Aufwärmsätze, Satztypen, Pausentimer, RIR pro Satz, Sätze per Swipe löschen, alle Sätze mit einer Checkbox abhaken. Das laufende Workout übersteht einen Reload.
-- **Progression:** Double Progression, geschätztes 1RM (Epley), Plateau-Erkennung, Deload alle 4 Wochen, Rep-Schemata (static, linear, reverse linear, undulating).
-- **Übungsbibliothek:** rund 320 Übungen mit 22 Muskelgruppen, Anleitungen, Tipps, häufige Fehler und Atmung, für viele Übungen ein Übungsbild.
-- **Dashboard und Statistik:** Wochenringe (Muskeln, Sets, Übungen), Gewohnheiten, Muskelgruppen und Übungen mit Verlaufsdiagrammen.
-- **Körperdaten:** Gewicht und Maße, Import aus Apple Health (XML) oder CSV.
-- **Daten:** Backup als Datei exportieren und importieren, Einheiten (kg/lb, km/mi), Hell/Dunkel.
+- **Planerstellung:** Wizard (Ziel, Split, Tage, Erfahrung, Fokus-Muskeln, Blocklänge, Deload) erzeugt ein Programm. Alternativ selbst bauen, Workouts oder ganze Programme importieren und exportieren, mehrere Programme verwalten.
+- **Wochenplan:** Workouts und Ruhetage als Wochenzyklus, frei ordnen, Workouts überspringen. Sind alle Tage erledigt, startet eine neue Woche mit neu berechneten Zielen.
+- **Workout-Vorschau:** Übungen, Sätze, Rep-Bereiche und Ziel-RIR, Wochenziele, Übungen tauschen und verschieben, Supersätze.
+- **Logger:** Timer, Satztabelle mit Numpad, Aufwärmsätze, Satztypen (Versagen, Drop, Myo, Teilwiederholungen), Links/Rechts getrennt, Pausentimer mit Ton, Scheibenrechner. Das laufende Workout übersteht einen Reload, Einheiten lassen sich nachtragen und im Verlauf bearbeiten.
+- **Progression:** Double Progression mit Zielwert und Weight Match, geschätztes 1RM, Körpergewichtsanteil, Plateau-Erkennung, Deload, Rep-Schemata, Gerätestufen, Anpassung der Folgesätze, Trainingspause.
+- **Übungsbibliothek:** rund 300 Übungen mit 22 Muskelgruppen, Anleitungen und Tipps (DE/EN), Übungsbilder, eigene Übungen.
+- **Dashboard und Statistik:** Wochenringe, Gewohnheiten, Körperkarte mit Wochenvolumen, Rekorde, Verlaufsdiagramme. Dashboard und Plus-Menü lassen sich anpassen.
+- **Körperdaten:** Gewicht mit Trend, Maße mit Vergleich, optional Periode, Import aus Apple Health (XML) oder CSV.
+- **Daten und Hilfe:** Backup, Trainings-CSV-Import und -Export, Einheiten (kg/lb, km/mi), Hell/Dunkel, Wissensdatenbank in der App.
 
 ## Als App auf dem Handy nutzen
 
