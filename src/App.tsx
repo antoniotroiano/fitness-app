@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import { HashRouter, NavLink, Route, Routes, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
-import { useSettings } from './db/db'
+import { useLayoutPrefs, useSettings } from './db/db'
+import { visibleIds } from './engine/layout'
 import { BottomSheet, cx } from './components/ui'
 import { Icon, type IconName } from './components/icons'
 import Dashboard from './features/dashboard/Dashboard'
@@ -25,6 +26,7 @@ const ExerciseStatsPage = named(loadStats, 'ExerciseStatsPage')
 const MuscleStatsPage = named(loadStats, 'MuscleStatsPage')
 const BodyStatsPage = named(loadStats, 'BodyStatsPage')
 const UnitsPage = named(loadMore, 'UnitsPage')
+const DashboardSettingsPage = named(loadMore, 'DashboardSettingsPage')
 const RestSettingsPage = named(loadMore, 'RestSettingsPage')
 const WarmupSettingsPage = named(loadMore, 'WarmupSettingsPage')
 const WorkoutSettingsPage = named(loadMore, 'WorkoutSettingsPage')
@@ -86,12 +88,14 @@ function Shell() {
   const go = (to: string) => { setSheet(false); nav(to) }
   const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/workout-preview/') || loc.pathname.startsWith('/new') || loc.pathname.startsWith('/history/') || loc.pathname.startsWith('/program/')
 
-  const items = [
-    { icon: 'weight' as IconName, label: 'Gewicht eintragen', to: '/weight' },
-    { icon: 'measures' as IconName, label: 'Maße eintragen', to: '/measures' },
-    { icon: 'program' as IconName, label: 'Neues Programm', to: '/new' },
-    { icon: 'workouts' as IconName, label: 'Einzelnes Workout erstellen', to: '/new/manual?single=1' },
-  ]
+  const layout = useLayoutPrefs()
+  const shortcuts: Record<string, { icon: IconName; label: string; to: string }> = {
+    weight: { icon: 'weight', label: 'Gewicht eintragen', to: '/weight' },
+    measures: { icon: 'measures', label: 'Maße eintragen', to: '/measures' },
+    program: { icon: 'program', label: 'Neues Programm', to: '/new' },
+    workout: { icon: 'workouts', label: 'Einzelnes Workout erstellen', to: '/new/manual?single=1' },
+  }
+  const items = visibleIds(layout.shortcuts).map((id) => shortcuts[id]).filter(Boolean)
 
   return (
     <div ref={scroller} className="h-full overflow-y-auto"
@@ -117,6 +121,7 @@ function Shell() {
         <Route path="/more/workouts/rest" element={<RestSettingsPage />} />
         <Route path="/more/workouts/warmup" element={<WarmupSettingsPage />} />
         <Route path="/more/units" element={<UnitsPage />} />
+        <Route path="/more/dashboard" element={<DashboardSettingsPage />} />
         <Route path="/more/profile" element={<ProfilePage />} />
         <Route path="/more/library" element={<LibraryPage />} />
         <Route path="/more/data" element={<DataPage />} />

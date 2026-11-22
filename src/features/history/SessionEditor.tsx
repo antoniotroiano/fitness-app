@@ -55,7 +55,7 @@ function SessionEditor({ session }: { session: Session }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [session.id])
   const [draft, setDraft] = useState<Draft>(initial)
-  const [pad, setPad] = useState<{ exId: string; rowId: string; field: PadField; side?: Side } | null>(null)
+  const [pad, setPad] = useState<{ exId: string; rowId: string; field: PadField; side?: Side; partial?: boolean } | null>(null)
   const [typeRow, setTypeRow] = useState<{ exId: string; rowId: string } | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [delOpen, setDelOpen] = useState(false)
@@ -277,6 +277,7 @@ function SessionEditor({ session }: { session: Session }) {
             label={`${pad.field === 'weight' ? `Gewicht (${wl})` : metricLabel(ex?.metric, distanceUnitOf(ex))}${sideLabel}`}
             value={pad.field === 'weight' ? vals.weight : vals.reps} rir={vals.rir} showRir={!isSegment(padRow) && padRow.type !== 'warmup'}
             partial={vals.partial ?? ''} onPartial={(v) => set({ partial: v })}
+            onTarget={(partial) => setPad((p) => (p ? { ...p, partial } : p))}
             onValue={(v) => set(pad.field === 'weight' ? { weight: v } : { reps: v })}
             onRir={(v) => set({ rir: v })}
             onConfirm={() => (pad.field === 'weight' ? setPad({ ...pad, field: 'reps' }) : setPad(null))} onClose={() => setPad(null)} />

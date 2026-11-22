@@ -1,5 +1,5 @@
 import type { Exercise, LoggedSet, SideSet } from '../types'
-import { e1rm, FALLBACK_RIR } from './progression'
+import { e1rm, rirOf } from './progression'
 
 /**
  * Links/rechts getrennt erfassen: Standard aus `Exercise.unilateral` (einseitige Übungen), pro Übung überschreibbar
@@ -12,7 +12,7 @@ export function splitsSides(ex: Pick<Exercise, 'unilateral' | 'cardio'> | undefi
 
 /** Leistung einer Seite: e1RM mit Körperlast, bei Zeitübungen die Sekunden. */
 const strength = (s: SideSet, time: boolean, bodyLoad: number) =>
-  time ? s.reps : e1rm(s.weight + bodyLoad, s.reps, s.rir ?? FALLBACK_RIR)
+  time ? s.reps : e1rm(s.weight + bodyLoad, s.reps, rirOf(s))
 
 /** Schwächere Seite (gleich stark: weniger Wdh., dann links). Sie steht für den Satz in Progression und 1RM. */
 export function weakerSide(l: SideSet, r: SideSet, time = false, bodyLoad = 0): 'l' | 'r' {

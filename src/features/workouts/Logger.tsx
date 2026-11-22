@@ -120,7 +120,7 @@ export default function Logger() {
   const [rest, setRest] = useState<RestState | null>(null)
   const [restOpen, setRestOpen] = useState(false)
   const endRest = useCallback(() => setRest(null), [])
-  const [pad, setPad] = useState<{ rowId: string; field: PadField; side?: Side } | null>(null)
+  const [pad, setPad] = useState<{ rowId: string; field: PadField; side?: Side; partial?: boolean } | null>(null)
   const [typeRow, setTypeRow] = useState<string | null>(null)
   const [finishOpen, setFinishOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -734,6 +734,7 @@ export default function Logger() {
             label={`${pad.field === 'weight' ? `Gewicht (${wl})` : 'Wiederholungen'}${sideLabel}`}
             value={pad.field === 'weight' ? vals.weight : vals.reps} rir={vals.rir} showRir={!isSegment(padRow)}
             partial={vals.partial ?? ''} onPartial={(v) => set({ partial: v })}
+            onTarget={(partial) => setPad((p) => (p ? { ...p, partial } : p))}
             onValue={(v) => set(pad.field === 'weight' ? { weight: v } : { reps: v })}
             onRir={(v) => set({ rir: v })} onConfirm={onConfirmPad} onClose={() => setPad(null)}
             hint={current.ex.equipment === 'barbell' ? plateHint(displayToKg(num(vals.weight), wl), settings, wl) : undefined} />

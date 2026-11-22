@@ -1,4 +1,5 @@
 import { canDeleteByRemoving, canDeleteExercise, exerciseUsage, removeExerciseFromDays, type ExerciseUsage } from '../engine/customExercise'
+import { defaultPrefs, normalizePrefs, type LayoutPrefs } from '../engine/layout'
 import Dexie, { type EntityTable } from 'dexie'
 import { DEFAULT_BAR, DEFAULT_PLATES } from '../engine/plates'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -85,6 +86,12 @@ export function useActiveWorkoutParam(): string | null {
   return useLiveQuery(() => db.kv.get(ACTIVE_WORKOUT_KEY).then((r) => ((r?.value as { param?: string } | undefined)?.param ?? null)), [], null) ?? null
 }
 
+const LAYOUT_KEY = 'layoutPrefs'
+export const getLayoutPrefs = () => getKV<Partial<LayoutPrefs> | null>(LAYOUT_KEY, null).then(normalizePrefs)
+export const saveLayoutPrefs = (p: LayoutPrefs) => setKV(LAYOUT_KEY, p)
+export function useLayoutPrefs(): LayoutPrefs {
+  return useLiveQuery(getLayoutPrefs, [], defaultPrefs()) ?? defaultPrefs()
+}
 export function useSettings(): Settings {
   return useLiveQuery(getSettings, [], DEFAULT_SETTINGS) ?? DEFAULT_SETTINGS
 }

@@ -176,13 +176,13 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
                   </button>
                 )
               })()}
-              <div className="text-xs text-muted col-span-2 flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate">{v.skipped ? 'Diese Woche ausgelassen' : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? ` · ${v.warmups.length} Aufwärmsätze` : ''}</>}</span>
-                <span className="shrink-0 flex items-center gap-3">
-                  {idx >= 0 && <button className="text-accent pointer-events-auto" onClick={() => setActIdx(idx)}>Tauschen</button>}
-                  {program.days.length > 1 && day.exercises.length > 1 && idx >= 0 && <button className="text-accent pointer-events-auto" onClick={() => setMoveIdx(idx)}>Verschieben</button>}
-                  {!v.ex.cardio && idx >= 0 && <button className="text-accent pointer-events-auto" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? 'Ziele · eigen' : 'Ziele'}</button>}
-                </span>
+              <div className="text-xs text-muted col-span-2 space-y-1.5">
+                <div>{v.skipped ? 'Diese Woche ausgelassen' : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? ` · ${v.warmups.length} Aufwärmsätze` : ''}</>}</div>
+                <div className="flex items-center justify-end gap-4">
+                  {idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setActIdx(idx)}>Tauschen</button>}
+                  {program.days.length > 1 && day.exercises.length > 1 && idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setMoveIdx(idx)}>Verschieben</button>}
+                  {!v.ex.cardio && idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? 'Ziele · eigen' : 'Ziele'}</button>}
+                </div>
               </div>
             </div>
           </Card>

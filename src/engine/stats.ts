@@ -1,7 +1,7 @@
 import type { Exercise, LoggedSet, MuscleId, Session, WeightEntry } from '../types'
 import { SECONDARY_WEIGHT } from '../data/muscles'
 import { addDays, monthKey, todayStr, weekStart } from '../utils/dates'
-import { e1rm, FALLBACK_RIR, weightForReps } from './progression'
+import { e1rm, rirOf, weightForReps } from './progression'
 import { bodyLoadOf, bodyweightAt } from './bodyweight'
 import { isRepless } from './metric'
 
@@ -51,7 +51,7 @@ const loadedMain = (sets: LoggedSet[]) => loaded(sets).filter((s) => !s.segment)
 
 /** Höchstes Gewicht, das nach Schätzung für n Wiederholungen reicht (bester Satz). */
 export function rmN(sets: LoggedSet[], n: number): number {
-  return Math.max(0, ...loadedMain(sets).map((s) => weightForReps(e1rm(s.weight, s.reps, s.rir ?? FALLBACK_RIR), n)))
+  return Math.max(0, ...loadedMain(sets).map((s) => weightForReps(e1rm(s.weight, s.reps, rirOf(s)), n)))
 }
 
 /**
@@ -66,7 +66,7 @@ export function exerciseValue(sets: LoggedSet[], metric: ExerciseMetric, factor 
   if (!w.length) return 0
   const top = (xs: number[]) => (xs.length ? Math.max(...xs) : 0)
   switch (metric) {
-    case 'rm1': return top(lm.map((s) => e1rm(s.weight, s.reps, s.rir ?? FALLBACK_RIR)))
+    case 'rm1': return top(lm.map((s) => e1rm(s.weight, s.reps, rirOf(s))))
     case 'rm3': return rmN(lm, 3)
     case 'rm10': return rmN(lm, 10)
     case 'heaviest': return top(lm.map((s) => s.weight))

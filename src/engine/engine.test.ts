@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { mergeSides, splitsSides, weakerSide } from './sides'
 import { prefillSets } from './prefill'
 import { DEFAULT_PLATES, platesFor } from './plates'
-import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, sessionE1rm, suggestExplained, suggestNext, weightForReps } from './progression'
+import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, rirOf, sessionE1rm, suggestExplained, suggestNext, weightForReps } from './progression'
+import { DASHBOARD_SECTIONS, SHORTCUTS, moveItem, normalizeLayout, normalizePrefs, toggleHidden, visibleIds, type ListLayout } from './layout'
 import {
   DEFAULT_WARMUP_SCHEMES, collapsedWarmups, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
   type WarmupContext,
@@ -2549,5 +2550,54 @@ describe('Programm verwalten (B4)', () => {
     expect(moveExercise(days, 0, 0, 'x', 1)[0].exercises.map((e) => e.exerciseId)).toEqual(['y', 'x', 'z'])
     expect(moveExercise(m, 1, 0, 'y')[0].exercises.map((e) => e.exerciseId)).toEqual(['x', 'z', 'y'])
     expect(moveExercise(days, 0, 1, 'nix')).toBe(days)
+  })
+})
+
+describe('Teilwiederholungen als RIR 0 (PLAN-6 A7)', () => {
+  it('rirOf: Teilwdh. gelten als RIR 0, sonst eingetragener Wert oder Fallback', () => {
+    expect(rirOf({ rir: 3, partial: 2 })).toBe(0)
+    expect(rirOf({ partial: 1 })).toBe(0)
+    expect(rirOf({ rir: 3 })).toBe(3)
+    expect(rirOf({ rir: 3, partial: 0 })).toBe(3)
+    expect(rirOf({})).toBe(2)
+    expect(rirOf({}, 1)).toBe(1)
+  })
+  it('sessionE1rm: Satz mit Teilwdh. rechnet mit RIR 0, der gespeicherte RIR bleibt unberührt', () => {
+    const plain = [{ weight: 100, reps: 8, rir: 2 }] as Parameters<typeof sessionE1rm>[0]
+    const part = [{ weight: 100, reps: 8, rir: 2, partial: 3 }] as Parameters<typeof sessionE1rm>[0]
+    expect(sessionE1rm(plain)).toBeCloseTo(e1rm(100, 8, 2))
+    expect(sessionE1rm(part)).toBeCloseTo(e1rm(100, 8, 0))
+    expect(sessionE1rm(part)).toBeLessThan(sessionE1rm(plain))
+    expect(part[0].rir).toBe(2)
+  })
+})
+
+describe('Anpassbare Listen (PLAN-6 B17)', () => {
+  const known = ['a', 'b', 'c', 'd']
+  it('normalizeLayout: Reihenfolge behalten, Unbekanntes entfernen, Neues hinten, keine Doppelten', () => {
+    expect(normalizeLayout(known, null)).toEqual({ order: ['a', 'b', 'c', 'd'], hidden: [] })
+    expect(normalizeLayout(known, { order: ['c', 'x', 'a', 'c'], hidden: ['x', 'a', 'a'] })).toEqual({ order: ['c', 'a', 'b', 'd'], hidden: ['a'] })
+  })
+  it('visibleIds, moveItem, toggleHidden', () => {
+    let l = normalizeLayout(known)
+    l = moveItem(l, 0, 2)
+    expect(l.order).toEqual(['b', 'c', 'a', 'd'])
+    expect(moveItem(l, 0, 9)).toBe(l)
+    l = toggleHidden(l, 'c')
+    expect(visibleIds(l)).toEqual(['b', 'a', 'd'])
+    expect(visibleIds(toggleHidden(l, 'c'))).toEqual(['b', 'c', 'a', 'd'])
+    expect(toggleHidden(l, 'nix')).toBe(l)
+  })
+  it('keepOne: letzter sichtbarer Eintrag bleibt', () => {
+    let l: ListLayout = { order: ['a', 'b'], hidden: ['a'] }
+    expect(toggleHidden(l, 'b', true)).toBe(l)
+    l = toggleHidden(l, 'a')
+    expect(visibleIds(toggleHidden(l, 'b', true))).toEqual(['a'])
+  })
+  it('normalizePrefs füllt beide Listen mit den bekannten IDs', () => {
+    const p = normalizePrefs({ sections: { order: ['exercises'], hidden: ['volume'] } })
+    expect(p.sections.order[0]).toBe('exercises')
+    expect(p.sections.order.length).toBe(DASHBOARD_SECTIONS.length)
+    expect(p.shortcuts.order).toEqual([...SHORTCUTS])
   })
 })
