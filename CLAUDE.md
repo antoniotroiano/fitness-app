@@ -1,6 +1,6 @@
 # Lift Lab
 
-Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. **Ausnahme (bewusste Entscheidung):** Übungsbilder und ausgewählte Texte aus `free-exercise-db-with-videos` (MIT), siehe `THIRD_PARTY.md`, `docs/PLAN-3.md`. Ausführliche Planung: `docs/PLAN-1.md` (Grundplan) und `docs/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard), `docs/PLAN-5.md` (geplant: Gerätegewichte, Wizard-Überarbeitung).
+Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. **Ausnahme (bewusste Entscheidung):** Übungsbilder und ausgewählte Texte aus `free-exercise-db-with-videos` (MIT), siehe `THIRD_PARTY.md`, `docs/PLAN-3.md`. Ausführliche Planung: `docs/PLAN-1.md` (Grundplan) und `docs/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard), `docs/PLAN-5.md` (geplant: Gerätegewichte, Wizard-Überarbeitung), `docs/PLAN-6.md` (Abgleich mit MacroFactor-Doku, **Checkliste mit Status: vor jeder Aufgabe lesen, Aufgabe abhaken**).
 
 ## Befehle
 ```bash
