@@ -20,6 +20,7 @@ import { baseRepRange, effectiveSets, exerciseTargets, isSkipped, neutralWeek, p
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives, recommendable, swapPlanned } from './swap'
 import { removeFromDay, swapInDay } from './dayEdit'
+import { applySettings, copyName, duplicateProgram, extendProgram, moveExercise, programEnded, settingsOf } from './programAdmin'
 import { EMPTY_DRAFT, buildExercise, canDeleteExercise, draftOf, duplicateDraft, exerciseUsage, newCustomId, validateDraft } from './customExercise'
 import { isPerSide } from './stats'
 import { fitSize } from '../utils/image'
@@ -2188,3 +2189,64 @@ describe('Distanz als Messgröße (PLAN-6 B3)', () => {
   })
 })
 
+
+describe('Programm verwalten (B4)', () => {
+  const pe = (id: string, superset?: string) => ({ exerciseId: id, sets: 3, repMin: 6, repMax: 10, rir: 2, ...(superset ? { superset } : {}) })
+  const cfg = { mode: 'auto', goal: 'both', days: 2, split: 'upperLower', time: 60, repScheme: 'fixed', focus: {}, deload: true, blockWeeks: 4, experience: 'intermediate', name: 'Alt', icon: 'dumbbell', color: '#fff' } as unknown as ProgramConfig
+  const prog = (over: Partial<Program> = {}): Program => ({
+    id: 1, name: 'Alt', icon: 'dumbbell', color: '#fff', config: { ...cfg }, createdAt: 1, active: true, weekSlots: [0, 'rest', 1],
+    days: [{ id: 'a', name: 'A', exercises: [pe('x', 'x'), pe('y', 'x'), pe('z')] }, { id: 'b', name: 'B', exercises: [pe('w')] }], ...over,
+  })
+
+  it('Einstellungen: Name, Blocklänge, Deload, Ende; ungültige Werte werden ignoriert', () => {
+    const p = applySettings(prog(), { ...settingsOf(prog()), name: '  Neu  ', blockWeeks: 6, deload: false, blocks: 3 })
+    expect(p.name).toBe('Neu')
+    expect(p.config).toMatchObject({ name: 'Neu', blockWeeks: 6, deload: false, blocks: 3 })
+    expect(applySettings(prog(), { ...settingsOf(prog()), name: '   ', blockWeeks: 99 }).config?.blockWeeks).toBe(4)
+    expect(applySettings(p, { ...settingsOf(p), blocks: undefined }).config?.blocks).toBeUndefined()
+    expect(applySettings(prog({ config: null }), { name: 'X', icon: 'i', color: 'c', blockWeeks: 5 }).config).toBeNull()
+  })
+
+  it('Duplizieren: eindeutiger Name, neue Tag-IDs, tiefe Kopie, inaktiv', () => {
+    expect(copyName('Alt', ['Alt'])).toBe('Alt (Kopie)')
+    expect(copyName('Alt (Kopie)', ['Alt', 'Alt (Kopie)'])).toBe('Alt (Kopie 2)')
+    let n = 0
+    const original = prog({ archived: true })
+    const c = duplicateProgram(original, ['Alt'], () => `n${++n}`)
+    expect(c.name).toBe('Alt (Kopie)')
+    expect(c.config?.name).toBe('Alt (Kopie)')
+    expect(c.days.map((d) => d.id)).toEqual(['n1', 'n2'])
+    expect('id' in c || 'active' in c || 'archived' in c).toBe(false)
+    c.days[0].exercises[0].sets = 9
+    expect(original.days[0].exercises[0].sets).toBe(3)
+  })
+
+  it('Programm-Ende: nur mit Blockanzahl, nach allen Blöcken; „Block wiederholen“ hängt einen an', () => {
+    const p = applySettings(prog(), { ...settingsOf(prog()), blocks: 2 }) // Block = 4 + Deload = 5 Wochen
+    expect(programEnded(prog(), 99)).toBe(false)
+    expect(programEnded(p, 9)).toBe(false)
+    expect(programEnded(p, 10)).toBe(true)
+    const more = extendProgram(p)
+    expect(more.config?.blocks).toBe(3)
+    expect(programEnded(more, 10)).toBe(false)
+    expect(extendProgram(prog())).toEqual(prog())
+  })
+
+  it('Übung verschieben: ans Ende des Zieltags, Supersätze neu, letzte Übung und Dubletten bleiben', () => {
+    const days = prog().days
+    const m = moveExercise(days, 0, 1, 'y')
+    expect(m[0].exercises.map((e) => e.exerciseId)).toEqual(['x', 'z'])
+    expect(m[0].exercises[0].superset).toBeUndefined() // Supersatz mit nur einem Mitglied fällt weg
+    expect(m[1].exercises.map((e) => e.exerciseId)).toEqual(['w', 'y'])
+    expect(moveExercise(days, 1, 0, 'w')).toBe(days) // letzte Übung des Tages
+    expect(moveExercise(days, 0, 0, 'x', 0)).toBe(days) // gleiche Position
+    const mid = moveExercise(days, 0, 1, 'z', 0)
+    expect(mid[1].exercises.map((e) => e.exerciseId)).toEqual(['z', 'w']) // Position im Zieltag
+    const re = moveExercise(days, 0, 0, 'z', 0) // Reihenfolge im selben Tag
+    expect(re[0].exercises.map((e) => e.exerciseId)).toEqual(['z', 'x', 'y'])
+    expect(re[0].exercises.find((e) => e.exerciseId === 'x')?.superset).toBe('x') // Supersatz der übrigen bleibt
+    expect(moveExercise(days, 0, 0, 'x', 1)[0].exercises.map((e) => e.exerciseId)).toEqual(['y', 'x', 'z'])
+    expect(moveExercise(m, 1, 0, 'y')[0].exercises.map((e) => e.exerciseId)).toEqual(['x', 'z', 'y'])
+    expect(moveExercise(days, 0, 1, 'nix')).toBe(days)
+  })
+})

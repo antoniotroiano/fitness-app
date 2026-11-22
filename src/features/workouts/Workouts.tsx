@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, LinkButton, Page, cx } from '../../components/ui'
-import { ProgramBadge } from '../../components/icons'
-import { activateProgram, deleteProgram, saveWeekState, useActiveProgram, useActiveWorkoutParam, usePrograms, useSessions, useSettings, useWeekState } from '../../db/db'
+import { BottomSheet, Button, Card, Page, cx } from '../../components/ui'
+import { Icon, ProgramBadge } from '../../components/icons'
+import { activateProgram, archiveProgram, copyProgram, saveWeekState, updateProgram, useActiveProgram, useActiveWorkoutParam, usePrograms, useSessions, useSettings, useWeekState } from '../../db/db'
 import { sessionDates } from '../../engine/habits'
 import { formatTime } from '../../utils/units'
 import { isSlotSkipped, jumpToWeek, markSlot, unmarkSlot, weekLabel, weekOptions } from '../../engine/weekCycle'
 import { WeekSheet } from './WeekSheet'
+import { ProgramSettingsSheet } from './ProgramSettingsSheet'
+import { MenuRow } from './ProgramPage'
+import { extendProgram, programEnded } from '../../engine/programAdmin'
+import type { Program } from '../../types'
 import { WEEKDAYS, addDays, fmt, todayStr, weekStart, weekdayIndex, formatDate } from '../../utils/dates'
 import { de } from '../../i18n/de'
 
@@ -47,7 +51,9 @@ export default function Workouts() {
   const [weekSheet, setWeekSheet] = useState(false)
   const programs = usePrograms()
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
-  const [confirmDel, setConfirmDel] = useState<number | null>(null)
+  const [editing, setEditing] = useState<Program | null>(null)
+  const [menu, setMenu] = useState<'main' | 'archive' | null>(null)
+  const [libOpen, setLibOpen] = useState(false)
   // Nur absolvierte Workouts füllen den Kalender (Ruhetage nicht)
   const workoutDays = useMemo(() => sessionDates(sessions), [sessions])
   const weekCounts = useMemo(() => {
@@ -56,21 +62,34 @@ export default function Workouts() {
     return c
   }, [sessions, program?.id])
 
+  const archived = programs.filter((p) => p.archived)
+  const menuButton = (
+    <button onClick={() => setMenu('main')} aria-label="Workouts-Menü" className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-fg active:opacity-70">
+      <Icon name="menu" />
+    </button>
+  )
   if (!program) {
     return (
-      <Page title="Workouts">
+      <Page title="Workouts" right={menuButton}>
         <Card className="text-center space-y-3 py-8">
           <div className="flex justify-center"><ProgramBadge size={56} /></div>
           <div className="font-semibold">Noch kein Programm</div>
           <p className="text-sm text-muted">Erstelle dein erstes Programm – automatisch oder selbst.</p>
           <Button onClick={() => nav('/new')}>Programm erstellen</Button>
         </Card>
+        {archived.map((p) => (
+          <Card key={p.id} className="flex items-center gap-3 !py-3">
+            <ProgramBadge icon={p.icon} color={p.color} size={32} />
+            <span className="min-w-0 flex-1 text-sm font-medium truncate">{p.name} <span className="text-muted">· Archiv</span></span>
+            <Button variant="ghost" onClick={() => void activateProgram(p.id as number)}>Aktivieren</Button>
+          </Card>
+        ))}
       </Page>
     )
   }
 
-  const others = programs.filter((p) => p.id !== program.id)
-  const allOpen = others.length > 0 && others.every((p) => expanded[p.id as number])
+  const others = programs.filter((p) => p.id !== program.id && !p.archived)
+  const ended = programEnded(program, week.week)
   const scheduled = new Set(program.weekSlots.filter((s): s is number => s !== 'rest'))
   const extra = program.days.map((d, i) => ({ d, i })).filter(({ i }) => !scheduled.has(i))
   const cycleSessions = sessions.filter((s) => s.programId === program.id && s.week === week.week)
@@ -79,13 +98,14 @@ export default function Workouts() {
     saveWeekState(week.done[slot] ? unmarkSlot(week, slot) : markSlot(week, slot, null))
 
   return (
-    <Page title="Workouts">
+    <Page title="Workouts" right={menuButton}>
       <Card className="!px-4 !py-3"><WeekStrip marked={workoutDays} /></Card>
 
       <div className="flex items-end justify-between">
         <div>
           <div className="text-xs uppercase tracking-wide text-muted">{de.workouts.activeProgram}</div>
-          <div className="font-semibold flex items-center gap-2"><ProgramBadge icon={program.icon} color={program.color} size={28} />{program.name}</div>
+          <div className="font-semibold flex items-center gap-2"><ProgramBadge icon={program.icon} color={program.color} size={28} />{program.name}
+          </div>
         </div>
         <button onClick={() => setWeekSheet(true)} aria-haspopup="dialog"
           className="rounded-xl bg-surface2 px-3 py-2 text-sm font-semibold active:opacity-70">
@@ -97,16 +117,26 @@ export default function Workouts() {
         options={weekOptions(program, sessions, week.week)} counts={weekCounts}
         onPick={async (w) => { await saveWeekState(jumpToWeek(program, sessions, w)); setWeekSheet(false) }} />
 
+      <ProgramSettingsSheet program={editing} onClose={() => setEditing(null)}
+        onSave={async (p) => { await updateProgram(p); setEditing(null) }} />
+
+      {ended && (
+        <Card className="space-y-3 border-accent">
+          <div className="font-semibold">Programm-Ende erreicht</div>
+          <p className="text-sm text-muted">Alle {program.config?.blocks} Blöcke von „{program.name}“ sind durchlaufen. Wie soll es weitergehen?</p>
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={() => void updateProgram(extendProgram(program))}>Block wiederholen</Button>
+            <Button variant="ghost" className="flex-1" onClick={() => void archiveProgram(program.id as number)}>Abschließen</Button>
+          </div>
+        </Card>
+      )}
+
       {running && (
         <Card className="flex items-center justify-between !py-3 border-accent">
           <div className="text-sm font-medium">Ein Workout läuft</div>
           <Button onClick={() => nav(`/workout/${running}`)}>Fortsetzen</Button>
         </Card>
       )}
-
-      <div className="flex justify-end">
-        <LinkButton onClick={() => nav('/history')}>Verlauf ansehen und bearbeiten</LinkButton>
-      </div>
 
       <div className="space-y-2">
         {program.weekSlots.map((slot, i) => {
@@ -160,61 +190,33 @@ export default function Workouts() {
       )}
       {others.length > 0 && (
         <section className="space-y-2 pt-2" aria-label={de.workouts.library}>
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">{de.workouts.library}</h2>
-            <LinkButton
-              onClick={() => setExpanded(allOpen ? {} : Object.fromEntries(others.map((p) => [p.id as number, true])))}>
-              {allOpen ? de.workouts.collapse : de.workouts.expand}
-            </LinkButton>
-          </div>
-          {others.map((p) => {
+          <button className="w-full flex items-center justify-between text-left" aria-expanded={libOpen} onClick={() => setLibOpen((o) => !o)}>
+            <h2 className="font-semibold">{de.workouts.library} <span className="text-muted font-normal">({others.length})</span></h2>
+            <span className={cx('text-muted transition-transform', libOpen && 'rotate-90')}>›</span>
+          </button>
+          {libOpen && others.map((p) => {
             const id = p.id as number
             const open = !!expanded[id]
             return (
               <Card key={id} className="!p-0 overflow-hidden">
                 <button className="w-full flex items-center gap-3 px-4 py-3 text-left" aria-expanded={open}
-                  onClick={() => setExpanded((x) => ({ ...x, [id]: !open }))}>
+                  onClick={() => (open ? nav(`/program/${id}`) : setExpanded((x) => ({ ...x, [id]: true })))}>
                   <ProgramBadge icon={p.icon} color={p.color} size={36} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate">{p.name}</span>
-                    <span className="block text-xs text-muted">{p.days.length} Workouts · {formatDate(fmt(new Date(p.createdAt)))}</span>
+                    <span className="block text-xs text-muted">{p.days.length} Workouts · {open ? 'Antippen zum Öffnen' : formatDate(fmt(new Date(p.createdAt)))}</span>
                   </span>
                   <span className={cx('text-muted transition-transform', open && 'rotate-90')}>›</span>
                 </button>
                 {open && (
-                  <div className="border-t border-line px-4 py-3 space-y-3">
-                    <div className="space-y-2">
-                      {p.weekSlots.map((slot, i) => {
-                        if (slot === 'rest') {
-                          return (
-                            <div key={i} className="rounded-xl bg-surface2/60 px-4 py-3">
-                              <div className="text-sm font-medium">{de.common.restDay}</div><div className="text-xs text-muted">Tag {i + 1}</div>
-                            </div>
-                          )
-                        }
-                        const d = p.days[slot]
-                        const go = () => nav(`/workout-preview/p${id}-s${i}`)
-                        return (
-                          <button key={i} onClick={go} className="w-full text-left rounded-xl bg-surface2/60 px-4 py-3 active:opacity-70">
-                            <div className="text-sm font-medium truncate">{d.name}</div>
-                            <div className="text-xs text-muted">{d.exercises.length} Übungen · Tag {i + 1}</div>
-                          </button>
-                        )
-                      })}
-                      {p.days.map((d, i) => ({ d, i })).filter(({ i }) => !p.weekSlots.includes(i)).map(({ d, i }) => (
-                        <button key={d.id} onClick={() => nav(`/workout-preview/p${id}-d${i}`)} className="w-full text-left rounded-xl bg-surface2/60 px-4 py-3 active:opacity-70">
-                          <div className="text-sm font-medium truncate">{d.name}</div>
-                          <div className="text-xs text-muted">{d.exercises.length} Übungen · Zusätzlich</div>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button className="flex-1" onClick={() => void activateProgram(id)}>Als aktiv setzen</Button>
-                      <Button variant="danger" className="flex-1"
-                        onClick={() => (confirmDel === id ? (setConfirmDel(null), void deleteProgram(id)) : setConfirmDel(id))}>
-                        {confirmDel === id ? 'Wirklich löschen?' : 'Löschen'}
-                      </Button>
-                    </div>
+                  <div className="border-t border-line px-4 py-3 space-y-2">
+                    {p.weekSlots.map((slot, i) => slot === 'rest' ? null : (
+                      <button key={i} onClick={() => nav(`/workout-preview/p${id}-s${i}`)} className="w-full text-left rounded-xl bg-surface2/60 px-4 py-3 active:opacity-70">
+                        <div className="text-sm font-medium truncate">{p.days[slot].name}</div>
+                        <div className="text-xs text-muted">{p.days[slot].exercises.length} Übungen · Tag {i + 1}</div>
+                      </button>
+                    ))}
+                    <button className="text-accent text-sm pt-1" onClick={() => setExpanded((x) => ({ ...x, [id]: false }))}>Zuklappen</button>
                   </div>
                 )}
               </Card>
@@ -222,6 +224,47 @@ export default function Workouts() {
           })}
         </section>
       )}
+
+      <BottomSheet open={menu !== null} onClose={() => setMenu(null)} title={menu === 'archive' ? 'Archiv' : 'Workouts'}>
+        {menu === 'archive' ? (
+          <div className="space-y-2">
+            <button className="text-accent text-sm" onClick={() => setMenu('main')}>‹ Zurück</button>
+            {archived.length === 0 && <p className="text-sm text-muted py-2">Kein archiviertes Programm. Archivierte Programme erscheinen hier.</p>}
+            {archived.map((p) => (
+              <button key={p.id} onClick={() => { setMenu(null); nav(`/program/${p.id}`) }} className="w-full flex items-center gap-3 rounded-xl bg-surface2 px-4 py-3 text-left active:opacity-70">
+                <ProgramBadge icon={p.icon} color={p.color} size={32} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium truncate">{p.name}</span>
+                  <span className="block text-xs text-muted">{p.days.length} Workouts</span>
+                </span>
+                <span className="text-muted">›</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <section>
+              <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">Trainingsverlauf</h3>
+              <MenuRow icon="history" label="Verlauf ansehen und bearbeiten" desc="Einheiten korrigieren, Workouts nachtragen"
+                onClick={() => { setMenu(null); nav('/history', { state: { from: '/workouts' } }) }} />
+            </section>
+            {program && (
+              <section>
+                <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">Programm anpassen</h3>
+                <div className="divide-y divide-line">
+                  <MenuRow icon="sliders" label="Programm bearbeiten" desc="Name, Blocklänge, Deload, Programm-Ende" onClick={() => { setMenu(null); setEditing(program) }} />
+                  <MenuRow icon="copy" label="Programm duplizieren" onClick={() => { setMenu(null); void copyProgram(program.id as number) }} />
+                  <MenuRow icon="archive" label="Programm archivieren" desc="Das neueste andere Programm wird aktiv" onClick={() => { setMenu(null); void archiveProgram(program.id as number) }} />
+                </div>
+              </section>
+            )}
+            <section>
+              <h3 className="text-xs uppercase tracking-wide text-muted px-1 mb-1">Archiv</h3>
+              <MenuRow icon="archive" label="Archivierte Programme" desc={archived.length ? `${archived.length} im Archiv` : 'Noch keine'} onClick={() => setMenu('archive')} />
+            </section>
+          </div>
+        )}
+      </BottomSheet>
     </Page>
   )
 }

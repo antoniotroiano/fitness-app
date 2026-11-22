@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card, Page } from '../../components/ui'
 import { ProgramBadge } from '../../components/icons'
 import { useAllExercises, usePrograms, useSessionsLoaded, useSettings } from '../../db/db'
@@ -9,9 +9,16 @@ import { formatDate, formatMonth, monthKey } from '../../utils/dates'
 import { BackfillSheet } from './BackfillSheet'
 import { sessionProgram, sessionTitle } from './format'
 
+/** Woher der Verlauf geöffnet wurde (Zurück-Ziel); bleibt beim Wechsel in die Bearbeitung und zurück erhalten. */
+let historyOrigin = '/more'
+
 /** Workout-Verlauf: alle Einheiten, neueste zuerst; Tippen öffnet die Bearbeitung. */
 export default function HistoryPage() {
   const nav = useNavigate()
+  const loc = useLocation()
+  const from = (loc.state as { from?: string; fromMore?: boolean } | null)
+  if (from?.from) historyOrigin = from.from
+  else if (from?.fromMore) historyOrigin = '/more'
   const sessions = useSessionsLoaded()
   const programs = usePrograms()
   const all = useAllExercises()
@@ -31,7 +38,7 @@ export default function HistoryPage() {
   const name = (id: string) => all.find((e) => e.id === id)?.name ?? id
 
   return (
-    <Page title="Verlauf" back={() => nav('/more')} right={<button onClick={() => setBackfill(true)} className="text-accent text-sm font-medium">Nachtragen</button>}>
+    <Page title="Verlauf" back={() => nav(historyOrigin)} right={<button onClick={() => setBackfill(true)} className="text-accent text-sm font-medium">Nachtragen</button>}>
       {sessions === undefined ? <div className="text-sm text-muted">Lädt …</div> : groups.length === 0 ? (
         <Card className="text-center space-y-3 py-8">
           <div className="font-semibold">Noch keine Einheit geloggt</div>

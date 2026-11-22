@@ -2,7 +2,7 @@ import { isRepless, metricUnit } from '../../engine/metric'
 import { useMemo, useState } from 'react'
 import { todayStr } from '../../utils/dates'
 import { useNavigate, useParams } from 'react-router-dom'
-import { BottomBar, Button, Card, Page, cx } from '../../components/ui'
+import { BottomBar, BottomSheet, Button, Card, Page, cx } from '../../components/ui'
 import { MuscleThumb } from '../../components/MuscleFigure'
 import { Icon } from '../../components/icons'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
@@ -16,11 +16,13 @@ import { weekLabel } from '../../engine/weekCycle'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
 import { historyUpTo, isSlotSkipped, maxReachedWeek, skipSlot, unmarkSlot } from '../../engine/weekCycle'
 import { targetMuscles } from '../../engine/targetMuscles'
+import { moveExercise } from '../../engine/programAdmin'
 import { de } from '../../i18n/de'
 
 /** Vorschau eines Workouts: Übungen, Sätze, Rep-Bereiche und Ziel-RIR. Start über den Button unten. */
-export default function WorkoutPreview() {
-  const { slot: param = 's0' } = useParams()
+export default function WorkoutPreview({ param: paramProp, embedded }: { param?: string; embedded?: boolean } = {}) {
+  const routeParam = useParams().slot
+  const param = paramProp ?? routeParam ?? 's0'
   const nav = useNavigate()
   const program = useProgramByParam(param)
   const week = useWeekState()
@@ -38,6 +40,10 @@ export default function WorkoutPreview() {
   const canSkip = ownSlot !== null && !week.done[ownSlot] && running !== param
   /** Index der Übung im Trainingstag, deren Wochenziele bearbeitet werden */
   const [editIdx, setEditIdx] = useState<number | null>(null)
+  /** Index der Übung, die auf einen anderen Tag verschoben wird */
+  const [moveIdx, setMoveIdx] = useState<number | null>(null)
+  /** Schritt 2 des Verschiebens: gewählter Zieltag, dann die Position darin */
+  const [moveDay, setMoveDay] = useState<number | null>(null)
 
   const local = param.replace(/^p\d+-/, '')
   const slotIdx = local.startsWith('s') ? Number(local.slice(1)) : null
@@ -64,13 +70,21 @@ export default function WorkoutPreview() {
     void db.programs.update(program.id, { days })
   }
 
+  const closeMove = () => { setMoveIdx(null); setMoveDay(null) }
+  const moveTo = (to: number, index: number) => {
+    const pe = moveIdx !== null ? day?.exercises[moveIdx] : undefined
+    closeMove()
+    if (!program?.id || !pe) return
+    void db.programs.update(program.id, { days: moveExercise(program.days, dayIdx, to, pe.exerciseId, index) })
+  }
+
   if (!program || !day) {
     return <Page title="Workout" back={() => nav('/workouts')}><Card>Workout nicht gefunden.</Card></Page>
   }
 
-  return (
-    <Page title={day.name} back={() => nav('/workouts')}
-      right={plan.isDeload ? <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span> : undefined}>
+  const body = (
+    <>
+      {embedded && plan.isDeload && <span className="self-start inline-block text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
       {targets.length > 0 && (
         <section className="space-y-2" aria-label={de.workouts.targetMuscles}>
           <h2 className="font-semibold">{de.workouts.targetMuscles}</h2>
@@ -125,13 +139,58 @@ export default function WorkoutPreview() {
               )}
               <div className="text-xs text-muted col-span-2 flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate">{v.skipped ? 'Diese Woche ausgelassen' : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? ` · ${v.warmups.length} Aufwärmsätze` : ''}</>}</span>
-                {!v.ex.cardio && idx >= 0 && <button className="text-accent shrink-0 pointer-events-auto" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? 'Ziele · eigen' : 'Ziele'}</button>}
+                <span className="shrink-0 flex items-center gap-3">
+                  {program.days.length > 1 && day.exercises.length > 1 && idx >= 0 && <button className="text-accent pointer-events-auto" onClick={() => setMoveIdx(idx)}>Verschieben</button>}
+                  {!v.ex.cardio && idx >= 0 && <button className="text-accent pointer-events-auto" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? 'Ziele · eigen' : 'Ziele'}</button>}
+                </span>
               </div>
             </div>
           </Card>
           </div>
         )
       })}
+
+      <BottomSheet open={moveIdx !== null} onClose={closeMove} title={moveDay === null ? 'Übung verschieben' : 'Position wählen'}>
+        {(() => {
+          const pe = moveIdx !== null ? day.exercises[moveIdx] : undefined
+          if (!pe) return null
+          const name = (id: string) => all.find((e) => e.id === id)?.name ?? id
+          if (moveDay === null) {
+            return (
+              <>
+                <p className="text-xs text-muted mb-3">Wähle das Workout, in dem die Übung stehen soll (auch dieses, um die Reihenfolge zu ändern). Ihre Historie bleibt erhalten, ein Supersatz wird gelöst.</p>
+                <div className="space-y-2">
+                  {program.days.map((d, i) => {
+                    const has = i !== dayIdx && d.exercises.some((e) => e.exerciseId === pe.exerciseId)
+                    return (
+                      <button key={d.id} disabled={has} onClick={() => setMoveDay(i)}
+                        className="w-full text-left rounded-xl bg-surface2 px-4 py-3 active:opacity-70 disabled:opacity-40">
+                        <div className="text-sm font-medium truncate">{d.name}{i === dayIdx ? ' (dieses)' : ''}</div>
+                        <div className="text-xs text-muted">{has ? 'Übung ist dort schon geplant' : `${d.exercises.length} Übungen`}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )
+          }
+          const target = program.days[moveDay]
+          const others = target.exercises.filter((e) => e.exerciseId !== pe.exerciseId)
+          const slotBtn = (at: number, label: string) => (
+            <button key={at} onClick={() => moveTo(moveDay, at)} className="w-full text-left rounded-xl bg-surface2 px-4 py-3 text-sm font-medium active:opacity-70">{label}</button>
+          )
+          return (
+            <>
+              <p className="text-xs text-muted mb-3">{target.name}: Wo soll „{name(pe.exerciseId)}“ stehen?</p>
+              <div className="space-y-2">
+                {slotBtn(0, others.length ? `Ganz oben, vor „${name(others[0].exerciseId)}“` : 'Als einzige Übung')}
+                {others.map((e, i) => slotBtn(i + 1, `Nach „${name(e.exerciseId)}“${i === others.length - 1 ? ' (ganz unten)' : ''}`))}
+              </div>
+              <button className="text-accent text-sm mt-3" onClick={() => setMoveDay(null)}>‹ Anderes Workout wählen</button>
+            </>
+          )
+        })()}
+      </BottomSheet>
 
       <WeekTargetSheet open={!!editView} onClose={() => setEditIdx(null)} unit={metricUnit(editView?.ex.metric)}
         title={editView ? `${editView.ex.name} · ${weekLabel(program, curWeek)}` : ''}
@@ -144,6 +203,16 @@ export default function WorkoutPreview() {
         scopes={[{ key: `w${curWeek}`, label: 'Nur diese Woche' }, ...(program.config && plan.blockPos != null ? [{ key: `b${plan.blockPos}`, label: 'In jedem Block' }] : [])]}
         current={(key) => editPe?.weeks?.[key]}
         onSave={saveWeek} />
+
+    </>
+  )
+
+  if (embedded) return <div className="space-y-4 flex flex-col">{body}</div>
+
+  return (
+    <Page title={day.name} back={() => nav('/workouts')}
+      right={plan.isDeload ? <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span> : undefined}>
+      {body}
 
       <BottomBar>
         <div className="flex gap-2">
