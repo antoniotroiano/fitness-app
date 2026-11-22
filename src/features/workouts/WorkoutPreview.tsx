@@ -1,4 +1,4 @@
-import { isRepless, metricUnit } from '../../engine/metric'
+import { distanceUnitOf, isRepless, metricUnit } from '../../engine/metric'
 import { exerciseById } from '../../data/exercises'
 import type { PlannedExercise } from '../../types'
 import { useMemo, useState } from 'react'
@@ -92,7 +92,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
     void db.programs.update(program.id, { days: moveExercise(program.days, dayIdx, to, pe.exerciseId, index) })
   }
 
-  const whyOf = (v: (typeof views)[number]) => (v.skipped || v.ex.cardio ? null : reasonText(v.sug, v.range, settings.weightUnit, v.ex.metric ?? 'reps', v.bodyLoad))
+  const whyOf = (v: (typeof views)[number]) => (v.skipped || v.ex.cardio ? null : reasonText(v.sug, v.range, settings.weightUnit, v.ex.metric ?? 'reps', v.bodyLoad, distanceUnitOf(v.ex)))
   const editDay = (f: (l: PlannedExercise[]) => PlannedExercise[]) => {
     if (!program?.id) return
     void db.programs.update(program.id, { days: program.days.map((d, i) => (i === dayIdx ? { ...d, exercises: f(d.exercises) } : d)) })
@@ -157,7 +157,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
               {Array.from({ length: lines }, (_, i) => (
                 <div key={i} className="contents">
                   <div className="text-sm text-muted">
-                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? `Satz ${i + 1} · ${v.range.min}+ Wdh, bis zum Versagen` : `Satz ${i + 1} · ${v.range.min}–${v.range.max} ${metricUnit(v.ex.metric)}`}
+                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? `Satz ${i + 1} · ${v.range.min}+ Wdh, bis zum Versagen` : `Satz ${i + 1} · ${v.range.min}–${v.range.max} ${metricUnit(v.ex.metric, distanceUnitOf(v.ex))}`}
                   </div>
                   <div className="text-sm font-bold text-right tabular-nums" style={v.ex.cardio ? undefined : { color: rirColor(v.setRirs[i]) }}>
                     {v.ex.cardio ? '' : v.setRirs[i]}
@@ -235,7 +235,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
       {(() => {
         const wv = whyId ? views.find((v) => v.pe.exerciseId === whyId) : undefined
         return <SuggestionSheet open={!!wv} onClose={() => setWhyId(null)} warn={wv?.sug.level === 'check'}
-          info={wv ? reasonText(wv.sug, wv.range, settings.weightUnit, wv.ex.metric ?? 'reps', wv.bodyLoad) : null} />
+          info={wv ? reasonText(wv.sug, wv.range, settings.weightUnit, wv.ex.metric ?? 'reps', wv.bodyLoad, distanceUnitOf(wv.ex)) : null} />
       })()}
       <ExerciseActionsSheet open={!!actPe} onClose={() => setActIdx(null)}
         name={actPe ? (exerciseById(actPe.exerciseId, all)?.name ?? '') : ''}
@@ -249,7 +249,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
           if (from) editDay((l) => swapInDay(l, from, to, (id) => exerciseById(id, all), program.config ?? undefined))
         }} />
 
-      <WeekTargetSheet open={!!editView} onClose={() => setEditIdx(null)} unit={metricUnit(editView?.ex.metric)}
+      <WeekTargetSheet open={!!editView} onClose={() => setEditIdx(null)} unit={metricUnit(editView?.ex.metric, distanceUnitOf(editView?.ex))}
         title={editView ? `${editView.ex.name} · ${weekLabel(program, curWeek)}` : ''}
         computed={(() => {
           if (!editView || editIdx === null) return { sets: 0, repMin: 0, repMax: 0, rir: 0 }

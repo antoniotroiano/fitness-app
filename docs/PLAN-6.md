@@ -51,22 +51,22 @@ Eine Zeile pro Rest, nach Aufgabe sortiert. Status: `[ ]` offen · `[~]` in Arbe
 | Status | Aus | Rest | Art | Stand |
 |---|---|---|---|---|
 | [x] | B1 | Tausch/Entfernen aus der **Programm-Vorschau** heraus (erledigt 2026-11-22 mit B11) | fehlt | 2026-11-22 |
-| [ ] | B1 | Tausch/Entfernen im Logger **nicht im Browser getestet** | Test | 2026-11-22 |
+| [x] | B1 | Tausch/Entfernen im Logger **nicht im Browser getestet** (im Browser geprüft 2026-11-22: Tausch mit Programm, „nur heute“, Entfernen mit Bestätigung, letzte Übung gesperrt) | Test | 2026-11-22 |
 | [x] | B2 | **Programmwoche** einer vorhandenen Einheit ändern (erledigt 2026-11-22: Auswahl im Editor, `weekStateAfterWeekChange` in `history.ts`, Test, im Browser geprüft) | fehlt | 2026-11-22 |
 | [x] | B2 | **Notizen** im Verlauf-Editor bearbeiten (erledigt 2026-11-22: Textfeld je Übung, leere Notizen entfallen, im Browser geprüft) | fehlt | 2026-11-22 |
 | [x] | A1 | Begründung der Vorschläge auch in der **Programm-Vorschau** (erledigt 2026-11-22) | fehlt | 2026-11-22 |
-| [ ] | B3 | **Meilen/Yards** für Distanzübungen (Meter werden nie umgerechnet) | fehlt | 2026-11-22 |
+| [x] | B3 | **Meilen/Yards** für Distanzübungen (erledigt 2026-11-22, abweichend vom Plan: keine Umrechnung, sondern Einheit je Übung `Exercise.distanceUnit` `'m'`/`'yd'`, Wert wird in dieser Einheit gespeichert; Formular „Einheit der Strecke“; Beschriftung in Logger, Vorschau, Wizard, Verlaufseditor; Meilen für kurze Strecken sind unüblich und entfallen; Test, im Browser geprüft). Nebenbei: Spaltenkopf bei Zeit-/Distanzübungen mit Kurzhantel zeigte „Wdh./Seite“, behoben | fehlt | 2026-11-22 |
 | [x] | B3 | **Löschen einer eigenen Übung mit Entfernen** aus Programmen (erledigt 2026-11-22: `removeExerciseFromDays`/`canDeleteByRemoving` in `customExercise.ts`, `db.ts` `deleteCustomExercise(id, true)`, Rückfrage in `ExerciseDetail`; bleibt gesperrt bei geloggten Einheiten und wenn ein Tag nur diese Übung hätte; Test, im Browser geprüft) | fehlt | 2026-11-22 |
-| [ ] | B3 | Blockiertext beim Löschen (geloggte Einheiten, Tag nur mit dieser Übung) im Browser nicht geprüft (nur Engine-Test) | Test | 2026-11-22 |
+| [x] | B3 | Blockiertext beim Löschen (geloggte Einheiten, Tag nur mit dieser Übung) im Browser nicht geprüft (nur Engine-Test) (im Browser geprüft 2026-11-22: beide Sperrtexte) | Test | 2026-11-22 |
 | [x] | B4 | **Tag-Reihenfolge** (Day Order) ändern (erledigt 2026-11-22: „Wochenplan ordnen“ (`WeekOrderSheet`) in Workouts ⋯ › Programm anpassen und im ⋯ der Programm-Seite, `moveSlot`/`moveWeekSlot` in `programAdmin.ts`, `db.ts` `reorderWeekSlot`; ordnet die Wochenslots inkl. Ruhetage, `days`/`dayIndex` der Einheiten bleiben; Haken wandert mit; Test in `engine.test.ts`, im Browser geprüft) | fehlt | 2026-11-22 |
 | [x] | B4 | Einzelne **Workouts** umbenennen, duplizieren, archivieren (erledigt 2026-11-22: „Workout verwalten“ (`DayManageSheet`) im ⋯ der Workout-Vorschau und auf der Programm-Seite; `renameDay`/`duplicateDay`/`unscheduleDay`/`scheduleDay` in `programAdmin.ts`, `db.ts` `saveProgramLayout`, Test, im Browser geprüft. Abweichung: „Archivieren“ = aus dem Wochenplan nehmen, das Workout bleibt als „nicht eingeplant“ erhalten und lässt sich wieder einplanen; echtes Löschen eines Workouts gibt es nicht) | fehlt | 2026-11-22 |
-| [ ] | B4 | Programm-Ende: „Abschließen“ der Karte nicht einzeln im Browser durchgespielt (Archivieren selbst getestet) | Test | 2026-11-22 |
-| [ ] | B4 | Zurück aus dem Verlauf über **Mehr** nicht im Browser nachgeklickt (über Workouts getestet) | Test | 2026-11-22 |
-| [ ] | B7 | Ringe im Browser mit echten Daten nicht durchgeklickt | Test | 2026-11-22 |
+| [x] | B4 | Programm-Ende: „Abschließen“ der Karte nicht einzeln im Browser durchgespielt (Archivieren selbst getestet) (im Browser geprüft 2026-11-22: Karte, „Block wiederholen“ und „Abschließen“ (Archiv)) | Test | 2026-11-22 |
+| [x] | B4 | Zurück aus dem Verlauf über **Mehr** nicht im Browser nachgeklickt (über Workouts getestet) (im Browser geprüft 2026-11-22: Mehr › Verlauf › Zurück) | Test | 2026-11-22 |
+| [x] | B7 | Ringe im Browser mit echten Daten nicht durchgeklickt (im Browser geprüft 2026-11-22: Umschalter Programm/Alle, Zahlen unterscheiden sich, Wahl bleibt nach Neuladen) | Test | 2026-11-22 |
 | [x] | B9 | **Einzelnes Workout (Tag)** exportieren/importieren, CSV mit Zeitraum-/Übungsfilter (erledigt 2026-11-22: `workoutToFile`/`parseWorkoutFile`/`filterSessions` in `exportData.ts`, `appendDay`, `db.ts` `exportWorkoutJson`/`importWorkoutJson`; Export im Workout-⋯ (`DayManageSheet`), Import `WorkoutImportRow` im ⋯ von Workouts/Programm-Seite, CSV-Filter in Mehr › Daten; Tests; Export, Import und Filter im Browser per Skript geprüft; Download-Dialog nicht von Hand) | fehlt | 2026-11-22 |
-| [ ] | B9 | Datei-Download/-Auswahl im Browser nicht von Hand geklickt | Test | 2026-11-22 |
+| [ ] | B9 | Datei-Download/-Auswahl im Browser nicht von Hand geklickt (Export, Import und Filter per Skript geprüft, der echte Speichern-/Öffnen-Dialog nicht) | Test | 2026-11-22 |
 | [ ] | B12 | Ton auf echtem Gerät (iOS-PWA, Stumm-Schalter, Sperrbildschirm) nicht gehört | Test | 2026-11-22 |
-| [ ] | B5 | Einzelne Sätze der letzten Übung abhaken und Supersatz-Wechsel bei Schalter aus nicht im Browser getestet (nur „alle abhaken“) | Test | 2026-11-22 |
+| [x] | B5 | Einzelne Sätze der letzten Übung abhaken und Supersatz-Wechsel bei Schalter aus nicht im Browser getestet (nur „alle abhaken“) (im Browser geprüft 2026-11-22: Sätze einzeln mit Auto-Weiter aus/an, Supersatz-Wechsel bei Schalter aus) | Test | 2026-11-22 |
 
 ## 0. Vorgehen und Grenzen
 

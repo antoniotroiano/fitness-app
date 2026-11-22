@@ -25,7 +25,7 @@ import { removeFromDay, replaceInDay, swapEntry } from '../../engine/dayEdit'
 import { alternatives, recommendable } from '../../engine/swap'
 import { linksOf, nextInSuperset, setSupersetLink, supersetMembers, withLinks } from '../../engine/superset'
 import { neutralWeek, weekPlan } from '../../engine/periodization'
-import { isRepless, METRIC_RANGE } from '../../engine/metric'
+import { distanceUnitOf, isRepless, METRIC_RANGE } from '../../engine/metric'
 import { restSecondsFor } from '../../engine/rest'
 import { historyUpTo, markSlot, maxReachedWeek, weekLabel } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
@@ -667,9 +667,9 @@ export default function Logger() {
             {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
           </div>
           {backfill && <p className="text-xs text-accent mt-0.5">Nachgetragen für {formatDate(backfill.date, { day: '2-digit', month: 'long', year: 'numeric' })} · {weekLabel(program, backfill.week)}</p>}
-          {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : current.ex.metric === 'distance' ? de.logger.targetMeters : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
+          {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : current.ex.metric === 'distance' ? de.logger.targetDistance(distanceUnitOf(current.ex)) : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
           {(() => {
-            const why = current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad)
+            const why = current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad, distanceUnitOf(current.ex))
             if (!why) return null
             const check = current.sug.level === 'check'
             return (
@@ -679,7 +679,7 @@ export default function Logger() {
             )
           })()}
           {settings.prefillMode === 'last' && !current.ex.cardio && current.previous.work.length > 0 && current.sug.weight != null && (
-            <p className="text-xs text-muted mt-0.5">Vorschlag: {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString('de-DE')} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : current.ex.metric === 'distance' ? ' m' : ' Wdh.'}</p>
+            <p className="text-xs text-muted mt-0.5">Vorschlag: {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString('de-DE')} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : current.ex.metric === 'distance' ? ` ${distanceUnitOf(current.ex)}` : ' Wdh.'}</p>
           )}
           {progressionNote(current.sug, current.range, wl, current.bodyLoad) && (
             <p className="text-xs text-warn mt-1">{progressionNote(current.sug, current.range, wl, current.bodyLoad)}</p>
@@ -743,7 +743,7 @@ export default function Logger() {
       <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title="Übung hinzufügen" />
 
       <SuggestionSheet open={whyOpen} onClose={() => setWhyOpen(false)} warn={current.sug.level === 'check'}
-        info={current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad)} />
+        info={current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad, distanceUnitOf(current.ex))} />
       <ExerciseActionsSheet open={actionsOpen} onClose={() => setActionsOpen(false)} name={current.ex.name}
         persist={persist} onPersist={setPersist} canRemove={views.length > 1}
         hasDone={rows.some((r) => r.done)} onSwap={() => setSwapOpen(true)} onRemove={removeExercise} />

@@ -115,11 +115,17 @@ export function ExerciseFormSheet({ open, onClose, initial, editId, onSaved }: {
           </div>
         </Field>
 
-        <Field label="Messgröße" hint={d.metric === 'distance' ? 'Strecke in Metern (z. B. Farmer\'s Walk, Schlitten): Ziel 20–40 m, +5 m je Einheit. Zusatzgewicht bleibt möglich, 1RM und Volumen gibt es nicht.'
+        <Field label="Messgröße" hint={d.metric === 'distance' ? `Strecke in ${d.distanceUnit === 'yd' ? 'Yards' : 'Metern'} (z. B. Farmer's Walk, Schlitten): Ziel 20–40 ${d.distanceUnit}, +5 ${d.distanceUnit} je Einheit. Zusatzgewicht bleibt möglich, 1RM und Volumen gibt es nicht. Die Strecke wird in dieser Einheit gespeichert, nicht umgerechnet.`
           : d.metric === 'time' ? 'Dauer in Sekunden (z. B. Plank): Ziel 30–60 s, +5 s je Einheit, kein 1RM und kein Volumen.' : undefined}>
           <Segmented value={d.metric} onChange={(v) => set({ metric: v })}
-            options={[{ value: 'reps', label: 'Wiederholungen' }, { value: 'time', label: 'Zeit (Sekunden)' }, { value: 'distance', label: 'Distanz (Meter)' }]} />
+            options={[{ value: 'reps', label: 'Wiederholungen' }, { value: 'time', label: 'Zeit (Sekunden)' }, { value: 'distance', label: 'Distanz' }]} />
         </Field>
+
+        {d.metric === 'distance' && (
+          <Field label="Einheit der Strecke">
+            <Segmented value={d.distanceUnit} onChange={(v) => set({ distanceUnit: v })} options={[{ value: 'm', label: 'Meter' }, { value: 'yd', label: 'Yards' }]} />
+          </Field>
+        )}
 
         {dbKb && (
           <Field label="Gewicht" hint="Je Seite: du hältst ein Gerät pro Hand, das Volumen zählt doppelt.">

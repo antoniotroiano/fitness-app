@@ -32,7 +32,7 @@ export const de = {
     set: 'Satz', addSet: 'Satz hinzufügen', previous: 'Zuletzt', perSide: (unit: string) => `${unit}/Seite`, repsPerSide: 'Wdh./Seite',
     warmup: 'Aufwärmen', calculator: 'Satzrechner', targetReps: (min: number, max: number) => `Ziel: ${min}–${max} Wdh.`,
     targetSeconds: (min: number, max: number) => `Ziel: ${min}–${max} Sek.`,
-    targetMeters: (min: number, max: number) => `Ziel: ${min}–${max} m`,
+    targetDistance: (unit: string) => (min: number, max: number) => `Ziel: ${min}–${max} ${unit}`,
     resume: 'Workout fortsetzen', pause: 'Workout pausieren', minimize: 'Workout minimieren', finish: 'Workout beenden',
     discard: 'Workout verwerfen', logCompleted: 'Nur abgehakte Sätze speichern', logAll: 'Alle Sätze speichern',
     logAllHint: '„Alle Sätze speichern“ übernimmt auch nicht abgehakte Sätze mit den eingetragenen Werten.',

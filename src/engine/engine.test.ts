@@ -24,7 +24,7 @@ import { appendDay, applySettings, copyName, duplicateProgram, extendProgram, du
 import { EMPTY_DRAFT, buildExercise, canDeleteByRemoving, canDeleteExercise, draftOf, duplicateDraft, exerciseUsage, newCustomId, removeExerciseFromDays, validateDraft } from './customExercise'
 import { isPerSide } from './stats'
 import { fitSize } from '../utils/image'
-import { isRepless, metricColumn, metricLabel, metricUnit } from './metric'
+import { distanceUnitOf, isRepless, metricColumn, metricLabel, metricUnit } from './metric'
 import { instructionsFor } from '../data/instructions'
 import { targetMuscles } from './targetMuscles'
 import { weekProgress } from './weekProgress'
@@ -2378,6 +2378,25 @@ describe('Distanz als Messgröße (PLAN-6 B3)', () => {
   const carry = (m: number[], weight = 0) => m.map((reps) => ({ weight, reps, rir: 2 }))
   const ex = (id: string) => exerciseById(id)!
   const dist = buildExercise({ ...EMPTY_DRAFT, name: 'Schlitten', equipment: 'machine', primary: ['quads'], metric: 'distance', assisted: true }, 'custom-schlitten')
+
+  it('Yards: Einheit je Übung, Beschriftung, Entwurf und Rundlauf; Meter bleibt Standard', () => {
+    const yd = buildExercise({ ...EMPTY_DRAFT, name: 'Farmer Yards', equipment: 'dumbbell', primary: ['forearms'], metric: 'distance', distanceUnit: 'yd' }, 'custom-yards')
+    expect(yd.distanceUnit).toBe('yd')
+    expect(distanceUnitOf(yd)).toBe('yd')
+    expect(distanceUnitOf(dist)).toBe('m')
+    expect(dist.distanceUnit).toBeUndefined() // Meter wird nicht gespeichert
+    expect(metricUnit('distance', 'yd')).toBe('yd')
+    expect(metricColumn('distance', 'yd')).toBe('yd')
+    expect(metricLabel('distance', 'yd')).toBe('Yards')
+    expect(metricUnit('distance')).toBe('m')
+    expect(metricUnit('time', 'yd')).toBe('Sek') // nur Distanz kennt Yards
+    expect(draftOf(yd).distanceUnit).toBe('yd')
+    expect(draftOf(dist).distanceUnit).toBe('m')
+    // bei anderer Messgröße keine Einheit
+    expect(buildExercise({ ...EMPTY_DRAFT, name: 'Plank', primary: ['abs'], metric: 'time', distanceUnit: 'yd' }, 'custom-plank').distanceUnit).toBeUndefined()
+    // Die Engine kennt keine Einheit: +5 je Einheit in Yards wie in Metern, keine Umrechnung
+    expect(suggestNext({ range: d, targetRir: 2, equipment: 'bodyweight', last: carry([20, 25]), metric: yd.metric })).toEqual({ weight: 0, reps: 25 })
+  })
 
   it('Hilfsfunktionen und Beschriftung', () => {
     expect(isRepless('time')).toBe(true)
