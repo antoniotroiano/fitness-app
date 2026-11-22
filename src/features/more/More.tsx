@@ -21,6 +21,7 @@ import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/l
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
 import { de } from '../../i18n/de'
 import { todayStr, daysBetween } from '../../utils/dates'
+import { t, LOCALE, setLanguage } from '../../i18n'
 
 export { WarmupSettingsPage } from './WarmupSettings'
 
@@ -88,7 +89,7 @@ function ThemePicker({ value, onChange }: { value: Settings['theme']; onChange: 
   )
 }
 
-const SEX_LABEL = { m: 'Männlich', f: 'Weiblich', x: 'Divers' } as const
+const SEX_LABEL = { m: t('Männlich'), f: t('Weiblich'), x: t('Divers') } as const
 
 /** Kopf der Mehr-Seite: Initialen-Kreis, Name und eine Zeile aus Geschlecht, Alter, Größe, Gewicht. */
 function ProfileHeader() {
@@ -99,7 +100,7 @@ function ProfileHeader() {
   const age = s.birthday ? Math.floor(daysBetween(s.birthday, todayStr()) / 365.25) : null
   const parts = [
     s.sex ? SEX_LABEL[s.sex] : null,
-    age !== null && age >= 0 && age < 130 ? `${age} J.` : null,
+    age !== null && age >= 0 && age < 130 ? t('{0} J.', age) : null,
     s.heightCm ? formatHeight(s.heightCm, s.lengthUnit) : null,
     last ? `${kgToDisplay(last.kg, s.weightUnit)} ${s.weightUnit}` : null,
   ].filter(Boolean)
@@ -112,8 +113,8 @@ function ProfileHeader() {
         {initials || <Icon name="profile" />}
       </span>
       <span className="flex-1 min-w-0">
-        <span className="block font-semibold truncate">{name || 'Profil ausfüllen'}</span>
-        <span className="block text-xs text-muted">{parts.length ? parts.join(' · ') : 'Name, Geburtstag, Größe …'}</span>
+        <span className="block font-semibold truncate">{name || t('Profil ausfüllen')}</span>
+        <span className="block text-xs text-muted">{parts.length ? parts.join(' · ') : t('Name, Geburtstag, Größe …')}</span>
       </span>
       <span className="text-muted">›</span>
     </button>
@@ -126,18 +127,17 @@ export default function More() {
     <Page title={de.more.title}>
       <ProfileHeader />
       <Section title={de.more.general}>
-        <Row icon="profile" label="Profil" desc="Name, Geburtstag, Geschlecht, Größe" to="/more/profile" />
+        <Row icon="profile" label={t('Profil')} desc={t('Name, Geburtstag, Geschlecht, Größe')} to="/more/profile" />
         <Row icon="units" label={de.more.units} desc={`${s.weightUnit}, ${s.lengthUnit === 'in' ? 'in / ft' : 'cm'}, ${s.distanceUnit}, ${s.clock === '12h' ? '12 h' : '24 h'}`} to="/more/units" />
-        <Option icon="language" label={de.more.language} value={s.language} onChange={(v) => update({ language: v })}
+        <Option icon="language" label={de.more.language} value={s.language} onChange={(v) => { void Promise.resolve(update({ language: v })).then(() => setLanguage(v)) }}
           options={[{ value: 'de', label: 'DE' }, { value: 'en', label: 'EN' }]} />
-        {s.language === 'en' && <p className="py-2 text-xs text-muted">English ist noch nicht verfügbar, die App bleibt vorerst auf Deutsch.</p>}
       </Section>
 
       <Section title={de.more.features}>
-        <Row icon="dashboard" label="Dashboard" desc="Bereiche und Plus-Menü anpassen" to="/more/dashboard" />
-        <Row icon="workouts" label="Workouts" desc="Pause, Aufwärmen, Progression" to="/more/workouts" />
-        <Row icon="calendar" label="Verlauf" desc="Einheiten ansehen, korrigieren, nachtragen" to="/history" />
-        <Row icon="library" label="Übungen" desc="Übungsbibliothek durchsuchen" to="/more/library" />
+        <Row icon="dashboard" label="Dashboard" desc={t('Bereiche und Plus-Menü anpassen')} to="/more/dashboard" />
+        <Row icon="workouts" label="Workouts" desc={t('Pause, Aufwärmen, Progression')} to="/more/workouts" />
+        <Row icon="calendar" label={t('Verlauf')} desc={t('Einheiten ansehen, korrigieren, nachtragen')} to="/history" />
+        <Row icon="library" label={t('Übungen')} desc={t('Übungsbibliothek durchsuchen')} to="/more/library" />
       </Section>
 
       <section className="space-y-2">
@@ -146,14 +146,14 @@ export default function More() {
       </section>
 
       <Section title={de.more.data}>
-        <Row icon="weight" label="Körpergewicht" to="/weight" />
-        <Row icon="measures" label="Körpermaße" to="/measures" />
-        {s.periodTracking && <Row icon="heart" label="Periode" desc="Tage markieren, Zyklus" to="/period" />}
-        <Row icon="data" label="Daten" desc="Backup, Import, Zurücksetzen" to="/more/data" />
+        <Row icon="weight" label={t('Körpergewicht')} to="/weight" />
+        <Row icon="measures" label={t('Körpermaße')} to="/measures" />
+        {s.periodTracking && <Row icon="heart" label={t('Periode')} desc={t('Tage markieren, Zyklus')} to="/period" />}
+        <Row icon="data" label={t('Daten')} desc={t('Backup, Import, Zurücksetzen')} to="/more/data" />
       </Section>
 
       <Section title={de.more.other}>
-        <Row icon="help" label="Hilfe" to="/more/help" />
+        <Row icon="help" label={t('Hilfe')} to="/more/help" />
         <Row icon="about" label={de.more.about} to="/more/about" />
       </Section>
     </Page>
@@ -178,13 +178,13 @@ export function UnitsPage() {
   return (
     <Page title={de.more.units} back={() => nav('/more')}>
       <Card className="divide-y divide-line !py-1">
-        <Option label="Gewicht" value={s.weightUnit} onChange={(v) => update({ weightUnit: v })}
+        <Option label={t('Gewicht')} value={s.weightUnit} onChange={(v) => update({ weightUnit: v })}
           options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]} />
-        <Option label="Länge" value={s.lengthUnit} onChange={(v) => update({ lengthUnit: v })}
+        <Option label={t('Länge')} value={s.lengthUnit} onChange={(v) => update({ lengthUnit: v })}
           options={[{ value: 'cm', label: 'cm' }, { value: 'in', label: 'in / ft' }]} />
-        <Option label="Distanz" value={s.distanceUnit} onChange={(v) => update({ distanceUnit: v })}
+        <Option label={t('Distanz')} value={s.distanceUnit} onChange={(v) => update({ distanceUnit: v })}
           options={[{ value: 'km', label: 'km' }, { value: 'mi', label: 'mi' }]} />
-        <Option label="Zeitformat" value={s.clock} onChange={(v) => update({ clock: v })}
+        <Option label={t('Zeitformat')} value={s.clock} onChange={(v) => update({ clock: v })}
           options={[{ value: '24h', label: '24 h' }, { value: '12h', label: '12 h' }]} />
       </Card>
     </Page>
@@ -203,9 +203,9 @@ function Stepper({ label, value, onChange, min = 15, step = 15 }: { label: strin
     <div className="flex items-center justify-between gap-2">
       <span className="text-sm">{label}</span>
       <div className="flex items-center gap-2">
-        <button className={btn} aria-label={`${label} kürzer`} onClick={() => onChange(Math.max(min, value - step))}>−</button>
+        <button className={btn} aria-label={t('{0} kürzer', label)} onClick={() => onChange(Math.max(min, value - step))}>−</button>
         <span className="w-16 text-center text-sm tabular-nums">{value === 0 ? 'aus' : formatRest(value)}</span>
-        <button className={btn} aria-label={`${label} länger`} onClick={() => onChange(Math.min(600, value + step))}>+</button>
+        <button className={btn} aria-label={t('{0} länger', label)} onClick={() => onChange(Math.min(600, value + step))}>+</button>
       </div>
     </div>
   )
@@ -259,7 +259,7 @@ function SwitchRow({ icon, label, desc, checked, onChange }: { icon: IconName; l
 
 /** Einstellungen › Workouts: General (Pause, Aufwärmen) und Display (Display aktiv halten). */
 /** Gewicht in der Anzeigeeinheit (Einstellungen speichern kg) */
-const fmtKgIn = (kg: number, unit: 'kg' | 'lb') => `${(unit === 'kg' ? kg : kgToDisplay(kg, unit)).toLocaleString('de-DE', { maximumFractionDigits: 2 })} ${unit}`
+const fmtKgIn = (kg: number, unit: 'kg' | 'lb') => `${(unit === 'kg' ? kg : kgToDisplay(kg, unit)).toLocaleString(LOCALE, { maximumFractionDigits: 2 })} ${unit}`
 
 export function WorkoutSettingsPage() {
   const nav = useNavigate()
@@ -267,54 +267,54 @@ export function WorkoutSettingsPage() {
   return (
     <Page title="Workouts" back={() => nav('/more')}>
       <Section title={de.more.general}>
-        <Row icon="timer" label="Pause" desc="Rest-Timer je Übungstyp" to="/more/workouts/rest" />
-        <Row icon="warmup" label="Aufwärmen" desc="Smart-Aufwärmen und Schemata" to="/more/workouts/warmup" />
+        <Row icon="timer" label={t('Pause')} desc={t('Rest-Timer je Übungstyp')} to="/more/workouts/rest" />
+        <Row icon="warmup" label={t('Aufwärmen')} desc={t('Smart-Aufwärmen und Schemata')} to="/more/workouts/warmup" />
       </Section>
       <Section title="Progression">
-        <ChoiceRow icon="flag" label="Zielwert nach einer Steigerung" value={s.progressionTarget} onChange={(v) => update({ progressionTarget: v })}
+        <ChoiceRow icon="flag" label={t('Zielwert nach einer Steigerung')} value={s.progressionTarget} onChange={(v) => update({ progressionTarget: v })}
           options={[
-            { value: 'mid', label: 'Mitte des Bereichs', desc: 'Gewicht und Wdh. werden so gewählt, dass du nach einer Steigerung um die Mitte des Bereichs landest (bei 6–10 um 8). Kleinere Sprünge.' },
-            { value: 'min', label: 'Untergrenze', desc: 'Klassische Double Progression: Wdh. bis zur Obergrenze, dann mehr Gewicht und zurück an die Untergrenze.' },
+            { value: 'mid', label: t('Mitte des Bereichs'), desc: t('Gewicht und Wdh. werden so gewählt, dass du nach einer Steigerung um die Mitte des Bereichs landest (bei 6–10 um 8). Kleinere Sprünge.') },
+            { value: 'min', label: t('Untergrenze'), desc: t('Klassische Double Progression: Wdh. bis zur Obergrenze, dann mehr Gewicht und zurück an die Untergrenze.') },
           ]} />
-        <ChoiceRow icon="history" label="Sätze im Workout vorbelegen" value={s.prefillMode} onChange={(v) => update({ prefillMode: v })}
+        <ChoiceRow icon="history" label={t('Sätze im Workout vorbelegen')} value={s.prefillMode} onChange={(v) => update({ prefillMode: v })}
           options={[
-            { value: 'suggestion', label: 'Vorschlag', desc: 'Gewicht und Wdh. aus der Progression: so steigerst du dich Schritt für Schritt.' },
-            { value: 'last', label: 'Letzte Werte', desc: 'Gewicht und Wdh. wie in der letzten Einheit, Satz für Satz. Der Progressionsvorschlag steht über der Tabelle.' },
+            { value: 'suggestion', label: t('Vorschlag'), desc: t('Gewicht und Wdh. aus der Progression: so steigerst du dich Schritt für Schritt.') },
+            { value: 'last', label: t('Letzte Werte'), desc: t('Gewicht und Wdh. wie in der letzten Einheit, Satz für Satz. Der Progressionsvorschlag steht über der Tabelle.') },
           ]} />
         {s.progressionTarget === 'mid' && (
-          <SwitchRow icon="dumbbell" label="Weight Match" desc="Gewicht halten, solange die Wdh. damit im Bereich bleiben. Aus: das Gewicht passt sich öfter an, die Wdh. bleiben nahe der Mitte."
+          <SwitchRow icon="dumbbell" label="Weight Match" desc={t('Gewicht halten, solange die Wdh. damit im Bereich bleiben. Aus: das Gewicht passt sich öfter an, die Wdh. bleiben nahe der Mitte.')}
             checked={s.weightMatch} onChange={(v) => update({ weightMatch: v })} />
         )}
-        <SwitchRow icon="target" label="Harter Satz zuerst" desc="Der erste Arbeitssatz geht 1 RIR näher ans Versagen und dient als Anker fürs RIR-Gefühl, die übrigen Sätze mit Ziel-RIR. In der letzten Blockwoche geht der erste Satz bis zum Versagen."
+        <SwitchRow icon="target" label={t('Harter Satz zuerst')} desc={t('Der erste Arbeitssatz geht 1 RIR näher ans Versagen und dient als Anker fürs RIR-Gefühl, die übrigen Sätze mit Ziel-RIR. In der letzten Blockwoche geht der erste Satz bis zum Versagen.')}
           checked={s.hardSetFirst} onChange={(v) => update({ hardSetFirst: v })} />
-        <SwitchRow icon="repLinear" label="Bereich erweitern" desc="Ist die nächste Gewichtsstufe zu groß, steigen erst die Wdh. über die Obergrenze, statt mit zu wenig Wdh. zu springen."
+        <SwitchRow icon="repLinear" label={t('Bereich erweitern')} desc={t('Ist die nächste Gewichtsstufe zu groß, steigen erst die Wdh. über die Obergrenze, statt mit zu wenig Wdh. zu springen.')}
           checked={s.expandRange} onChange={(v) => update({ expandRange: v })} />
       </Section>
-      <Section title="Langhantel">
+      <Section title={t('Langhantel')}>
         <div className="py-3.5 space-y-2">
-          <span className="block text-sm font-medium">Stange</span>
+          <span className="block text-sm font-medium">{t('Stange')}</span>
           <div className="flex gap-2 flex-wrap">
             {[10, 15, 20].map((b) => <Chip key={b} active={s.barWeight === b} onClick={() => update({ barWeight: b })}>{fmtKgIn(b, s.weightUnit)}</Chip>)}
           </div>
         </div>
         <div className="py-3.5 space-y-2">
-          <span className="block text-sm font-medium">Verfügbare Scheiben</span>
+          <span className="block text-sm font-medium">{t('Verfügbare Scheiben')}</span>
           <div className="flex gap-2 flex-wrap">
             {PLATE_OPTIONS.map((p) => {
               const on = s.plates.includes(p)
               return <Chip key={p} active={on} onClick={() => update({ plates: on ? s.plates.filter((x) => x !== p) : [...s.plates, p].sort((a, b) => b - a) })}>{fmtKgIn(p, s.weightUnit)}</Chip>
             })}
           </div>
-          <span className="block text-xs text-muted">Beim Eintragen des Gewichts einer Langhantelübung zeigt das Zahlenfeld, welche Scheiben pro Seite auf die Stange gehören.</span>
+          <span className="block text-xs text-muted">{t('Beim Eintragen des Gewichts einer Langhantelübung zeigt das Zahlenfeld, welche Scheiben pro Seite auf die Stange gehören.')}</span>
         </div>
       </Section>
       <Section title={de.common.display}>
-        <SwitchRow icon="workouts" label="Automatisch zur nächsten Übung" desc="Nach dem letzten Satz einer Übung springt das Workout zur nächsten offenen. Supersätze wechseln immer."
+        <SwitchRow icon="workouts" label={t('Automatisch zur nächsten Übung')} desc={t('Nach dem letzten Satz einer Übung springt das Workout zur nächsten offenen. Supersätze wechseln immer.')}
           checked={s.autoAdvance} onChange={(v) => update({ autoAdvance: v })} />
-        <SwitchRow icon="timer" label="Ton am Ende der Pause" desc="Zwei kurze Signaltöne, wenn der Pausen-Timer abläuft (zusätzlich zur Vibration, die iOS nicht unterstützt). Der Ton kommt nur bei geöffneter App und nicht im Stumm-Modus."
+        <SwitchRow icon="timer" label={t('Ton am Ende der Pause')} desc={t('Zwei kurze Signaltöne, wenn der Pausen-Timer abläuft (zusätzlich zur Vibration, die iOS nicht unterstützt). Der Ton kommt nur bei geöffneter App und nicht im Stumm-Modus.')}
           checked={s.restSound} onChange={(v) => update({ restSound: v })} />
         <SwitchRow icon="phone" label={de.more.keepAlive} desc={de.more.keepAliveDesc} checked={s.keepAlive} onChange={(v) => update({ keepAlive: v })} />
-        <SwitchRow icon="warmup" label="Erledigte Aufwärmsätze ausblenden" desc="Abgehakte Aufwärmsätze werden im Workout zu einer Zeile zusammengefasst, ein Tipp darauf zeigt sie wieder."
+        <SwitchRow icon="warmup" label={t('Erledigte Aufwärmsätze ausblenden')} desc={t('Abgehakte Aufwärmsätze werden im Workout zu einer Zeile zusammengefasst, ein Tipp darauf zeigt sie wieder.')}
           checked={s.hideDoneWarmups} onChange={(v) => update({ hideDoneWarmups: v })} />
       </Section>
     </Page>
@@ -325,23 +325,23 @@ export function RestSettingsPage() {
   const nav = useNavigate()
   const { s, update } = useSettingsForm()
   return (
-    <Page title="Pause" back={() => nav('/more/workouts')}>
+    <Page title={t('Pause')} back={() => nav('/more/workouts')}>
       <Card className="space-y-3">
         {REST_CATEGORIES.map((c) => (
           <Stepper key={c} label={REST_LABEL[c]} value={s.restSeconds[c]} onChange={(v) => update({ restSeconds: { ...s.restSeconds, [c]: v } })} />
         ))}
-        <Stepper label="Zwischen Aufwärmsätzen" value={s.warmupRestBetween} onChange={(v) => update({ warmupRestBetween: v })} />
-        <Stepper label="Nach letztem Aufwärmsatz" value={s.warmupRestLast} onChange={(v) => update({ warmupRestLast: v })} />
-        <Stepper label="Zwischen den Seiten" min={0} step={5} value={s.sideRest} onChange={(v) => update({ sideRest: v })} />
-        <p className="text-xs text-muted">Richtwerte aus der Studienlage: Verbundübungen 2-3 min, Isolation 1-2 min. Längere Pausen halten bei schweren Übungen Leistung und Volumen.</p>
-        <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST, sideRest: DEFAULT_SETTINGS.sideRest })}>Standard wiederherstellen</Button>
+        <Stepper label={t('Zwischen Aufwärmsätzen')} value={s.warmupRestBetween} onChange={(v) => update({ warmupRestBetween: v })} />
+        <Stepper label={t('Nach letztem Aufwärmsatz')} value={s.warmupRestLast} onChange={(v) => update({ warmupRestLast: v })} />
+        <Stepper label={t('Zwischen den Seiten')} min={0} step={5} value={s.sideRest} onChange={(v) => update({ sideRest: v })} />
+        <p className="text-xs text-muted">{t('Richtwerte aus der Studienlage: Verbundübungen 2-3 min, Isolation 1-2 min. Längere Pausen halten bei schweren Übungen Leistung und Volumen.')}</p>
+        <Button variant="ghost" onClick={() => update({ restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST, sideRest: DEFAULT_SETTINGS.sideRest })}>{t('Standard wiederherstellen')}</Button>
       </Card>
     </Page>
   )
 }
 
 /** Geburtstag über Tag/Monat/Jahr-Auswahl: das native Datumsfeld startet beim Jahr 1 und ist für ältere Jahrgänge kaum bedienbar. */
-const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+const MONTHS = [t('Januar'), t('Februar'), t('März'), 'April', t('Mai'), t('Juni'), t('Juli'), 'August', 'September', t('Oktober'), 'November', t('Dezember')]
 function BirthdayField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const split = (v: string) => { const [y = '', m = '', d = ''] = v.split('-'); return { y, m: m ? String(+m) : '', d: d ? String(+d) : '' } }
   const [part, setPart] = useState(() => split(value))
@@ -362,22 +362,22 @@ function BirthdayField({ value, onChange }: { value: string; onChange: (v: strin
   const sel = `${inputCls} mt-1`
   return (
     <div>
-      <div className="text-xs text-muted">Geburtstag</div>
+      <div className="text-xs text-muted">{t('Geburtstag')}</div>
       <div className="grid grid-cols-[1fr_1.6fr_1.2fr] gap-2">
-        <select aria-label="Tag" className={sel} value={part.d} onChange={(e) => set({ d: e.target.value })}>
-          <option value="">Tag</option>
+        <select aria-label={t('Tag')} className={sel} value={part.d} onChange={(e) => set({ d: e.target.value })}>
+          <option value="">{t('Tag')}</option>
           {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
         </select>
-        <select aria-label="Monat" className={sel} value={part.m} onChange={(e) => set({ m: e.target.value })}>
-          <option value="">Monat</option>
+        <select aria-label={t('Monat')} className={sel} value={part.m} onChange={(e) => set({ m: e.target.value })}>
+          <option value="">{t('Monat')}</option>
           {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
         </select>
-        <select aria-label="Jahr" className={sel} value={part.y} onChange={(e) => set({ y: e.target.value })}>
-          <option value="">Jahr</option>
+        <select aria-label={t('Jahr')} className={sel} value={part.y} onChange={(e) => set({ y: e.target.value })}>
+          <option value="">{t('Jahr')}</option>
           {years.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
-      {value && <button type="button" onClick={() => { setPart({ y: '', m: '', d: '' }); onChange('') }} className="mt-1.5 text-xs text-muted underline">Geburtstag löschen</button>}
+      {value && <button type="button" onClick={() => { setPart({ y: '', m: '', d: '' }); onChange('') }} className="mt-1.5 text-xs text-muted underline">{t('Geburtstag löschen')}</button>}
     </div>
   )
 }
@@ -387,22 +387,22 @@ export function ProfilePage() {
   const { s, update } = useSettingsForm()
   const [h, setH] = useState('')
   return (
-    <Page title="Profil" back={() => nav('/more')}>
+    <Page title={t('Profil')} back={() => nav('/more')}>
       <Card className="space-y-4">
         <label className="block text-xs text-muted">Name
           <input className={`${inputCls} mt-1`} value={s.name} onChange={(e) => update({ name: e.target.value })} /></label>
         <BirthdayField value={s.birthday} onChange={(v) => update({ birthday: v })} />
         <div>
-          <div className="text-xs text-muted mb-1">Geschlecht</div>
+          <div className="text-xs text-muted mb-1">{t('Geschlecht')}</div>
           <Segmented value={s.sex || 'x'} onChange={(v) => update({ sex: v })}
-            options={[{ value: 'm', label: 'Männlich' }, { value: 'f', label: 'Weiblich' }, { value: 'x', label: 'Divers / k. A.' }]} />
+            options={[{ value: 'm', label: t('Männlich') }, { value: 'f', label: t('Weiblich') }, { value: 'x', label: t('Divers / k. A.') }]} />
         </div>
         {s.sex !== 'm' && (
           <div className="divide-y divide-line -my-1">
-            <SwitchRow icon="heart" label="Periode tracken" desc="Optional: eigene Seite unter Mehr, nur auf dem Gerät" checked={s.periodTracking} onChange={(v) => update({ periodTracking: v })} />
+            <SwitchRow icon="heart" label={t('Periode tracken')} desc={t('Optional: eigene Seite unter Mehr, nur auf dem Gerät')} checked={s.periodTracking} onChange={(v) => update({ periodTracking: v })} />
           </div>
         )}
-        <label className="block text-xs text-muted">Größe in cm {s.heightCm ? `(${formatHeight(s.heightCm, s.lengthUnit)})` : ''}
+        <label className="block text-xs text-muted">{t('Größe in cm')} {s.heightCm ? `(${formatHeight(s.heightCm, s.lengthUnit)})` : ''}
           <input inputMode="decimal" className={`${inputCls} mt-1`} value={h || (s.heightCm ?? '')}
             onChange={(e) => { setH(e.target.value); const n = Number(e.target.value.replace(',', '.')); update({ heightCm: n > 0 ? n : null }) }} /></label>
       </Card>
@@ -443,10 +443,10 @@ export function LibraryPage() {
   const groups = groupExercises(filtered)
 
   return (
-    <Page title="Übungen" back={fromMore ? () => nav('/more') : undefined}
-      right={<button onClick={() => setCreating(true)} aria-label="Eigene Übung anlegen" className="text-accent text-2xl leading-none px-1">+</button>}>
+    <Page title={t('Übungen')} back={fromMore ? () => nav('/more') : undefined}
+      right={<button onClick={() => setCreating(true)} aria-label={t('Eigene Übung anlegen')} className="text-accent text-2xl leading-none px-1">+</button>}>
       <div ref={root} className="space-y-4">
-        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4" role="group" aria-label="Muskelgruppen filtern">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4" role="group" aria-label={t('Muskelgruppen filtern')}>
           {MUSCLES.map((x) => (
             <button key={x.id} onClick={() => setM(m === x.id ? null : x.id)} title={x.label} aria-label={x.label} aria-pressed={m === x.id}
               className="shrink-0 w-[60px] flex flex-col items-center gap-1">
@@ -500,14 +500,14 @@ export function LibraryPage() {
             </section>
           )
         })}
-        {groups.length === 0 && <p className="text-sm text-muted text-center py-8">Keine Übungen gefunden</p>}
+        {groups.length === 0 && <p className="text-sm text-muted text-center py-8">{t('Keine Übungen gefunden')}</p>}
         <div className="h-16" aria-hidden />
       </div>
 
       <div className="fixed inset-x-0 z-30 px-4 transition-all duration-200"
         style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom) * 0.45)', transform: barHidden ? 'translateY(160%)' : 'none', opacity: barHidden ? 0 : 1, pointerEvents: barHidden ? 'none' : 'auto' }}>
         <div className="max-w-2xl mx-auto">
-          <input className={`${inputCls} shadow-lg !rounded-full !px-4`} placeholder="Übung suchen…" value={q} aria-label="Übung suchen"
+          <input className={`${inputCls} shadow-lg !rounded-full !px-4`} placeholder={t('Übung suchen…')} value={q} aria-label={t('Übung suchen')}
             onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
@@ -527,7 +527,7 @@ export function DataPage() {
 
   const doExport = async () => {
     downloadText(`liftlab-backup-${new Date().toISOString().slice(0, 10)}.json`, await exportAll(), 'application/json')
-    setMsg('Backup exportiert')
+    setMsg(t('Backup exportiert'))
   }
   const [csvFrom, setCsvFrom] = useState('')
   const [csvTo, setCsvTo] = useState('')
@@ -535,84 +535,83 @@ export function DataPage() {
   const [csvPick, setCsvPick] = useState(false)
   const allEx = useAllExercises()
   const csvExport = async () => {
-    if (csvFrom && csvTo && csvFrom > csvTo) { setMsg('Fehler: „Von“ liegt nach „Bis“.'); return }
+    if (csvFrom && csvTo && csvFrom > csvTo) { setMsg(t('Fehler: „Von“ liegt nach „Bis“.')); return }
     const csv = await exportSessionsCsv({ from: csvFrom || undefined, to: csvTo || undefined, exerciseIds: csvEx ? [csvEx.id] : undefined })
-    if (csv.trim().split('\n').length < 2) { setMsg('Keine Einheiten im gewählten Zeitraum bzw. mit dieser Übung.'); return }
+    if (csv.trim().split('\n').length < 2) { setMsg(t('Keine Einheiten im gewählten Zeitraum bzw. mit dieser Übung.')); return }
     downloadText(`liftlab-einheiten-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv')
-    setMsg('Einheiten als CSV exportiert')
+    setMsg(t('Einheiten als CSV exportiert'))
   }
   const doProgramImport = async (f?: File) => {
     if (!f) return
     try {
       const r = await importProgramJson(await f.text())
-      setMsg(`Programm importiert (inaktiv)${r.added ? `, ${r.added} eigene Übung${r.added > 1 ? 'en' : ''} angelegt` : ''}`)
+      setMsg(t('Programm importiert (inaktiv){0}', r.added ? t(', {0} eigene Übung{1} angelegt', r.added, r.added > 1 ? 'en' : '') : ''))
       nav(`/program/${r.id}`)
-    } catch (e) { setMsg(`Fehler: ${(e as Error).message}`) }
+    } catch (e) { setMsg(t('Fehler: {0}', (e as Error).message)) }
   }
   const doImport = async (f?: File) => {
     if (!f) return
-    if (!confirm('Alle aktuellen Daten werden durch das Backup ersetzt. Fortfahren?')) return
-    try { await importAll(await f.text()); setMsg('Backup importiert') } catch (e) { setMsg(`Fehler: ${(e as Error).message}`) }
+    if (!confirm(t('Alle aktuellen Daten werden durch das Backup ersetzt. Fortfahren?'))) return
+    try { await importAll(await f.text()); setMsg(t('Backup importiert')) } catch (e) { setMsg(t('Fehler: {0}', (e as Error).message)) }
   }
   const doHealth = async (f?: File) => {
     if (!f) return
     const rows = await parseWeightFile(f)
     for (const r of rows) await setWeight(r.date, r.kg, 'import')
-    setMsg(`${rows.length} Gewichtswerte importiert`)
+    setMsg(t('{0} Gewichtswerte importiert', rows.length))
   }
   return (
-    <Page title="Daten" back={() => nav('/more')}>
+    <Page title={t('Daten')} back={() => nav('/more')}>
       <Card className="space-y-3">
-        <p className="text-sm text-muted">Alle Daten liegen nur lokal auf diesem Gerät. Erstelle regelmäßig ein Backup.</p>
-        <Button className="w-full" onClick={doExport}>Backup exportieren (JSON)</Button>
+        <p className="text-sm text-muted">{t('Alle Daten liegen nur lokal auf diesem Gerät. Erstelle regelmäßig ein Backup.')}</p>
+        <Button className="w-full" onClick={doExport}>{t('Backup exportieren (JSON)')}</Button>
         <input ref={file} type="file" accept=".json" className="hidden" onChange={(e) => doImport(e.target.files?.[0])} />
-        <Button variant="ghost" className="w-full" onClick={() => file.current?.click()}>Backup importieren</Button>
+        <Button variant="ghost" className="w-full" onClick={() => file.current?.click()}>{t('Backup importieren')}</Button>
       </Card>
       <Card className="space-y-3">
-        <p className="text-sm text-muted">Einheiten als CSV (eine Zeile pro Satz) exportieren, z. B. für Tabellen, wahlweise nur ein Zeitraum oder eine Übung. Das Format passt zum Trainingsimport unten.</p>
+        <p className="text-sm text-muted">{t('Einheiten als CSV (eine Zeile pro Satz) exportieren, z. B. für Tabellen, wahlweise nur ein Zeitraum oder eine Übung. Das Format passt zum Trainingsimport unten.')}</p>
         <div className="grid grid-cols-2 gap-3">
-          <label className="block text-xs text-muted">Von
+          <label className="block text-xs text-muted">{t('Von')}
             <input type="date" className={`${inputCls} mt-1`} value={csvFrom} onChange={(e) => setCsvFrom(e.target.value)} />
           </label>
-          <label className="block text-xs text-muted">Bis
+          <label className="block text-xs text-muted">{t('Bis')}
             <input type="date" className={`${inputCls} mt-1`} value={csvTo} onChange={(e) => setCsvTo(e.target.value)} />
           </label>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" className="flex-1" onClick={() => setCsvPick(true)}>{csvEx ? csvEx.name : 'Alle Übungen'}</Button>
-          {csvEx && <button onClick={() => setCsvEx(null)} aria-label="Übungsfilter entfernen" className="text-muted p-2">✕</button>}
+          <Button variant="ghost" className="flex-1" onClick={() => setCsvPick(true)}>{csvEx ? csvEx.name : t('Alle Übungen')}</Button>
+          {csvEx && <button onClick={() => setCsvEx(null)} aria-label={t('Übungsfilter entfernen')} className="text-muted p-2">✕</button>}
         </div>
-        <ExercisePicker open={csvPick} onClose={() => setCsvPick(false)} exercises={allEx} title="Nur eine Übung exportieren" onPick={(e) => { setCsvEx(e); setCsvPick(false) }} />
-        <Button variant="ghost" className="w-full" onClick={csvExport}>Einheiten exportieren (CSV)</Button>
+        <ExercisePicker open={csvPick} onClose={() => setCsvPick(false)} exercises={allEx} title={t('Nur eine Übung exportieren')} onPick={(e) => { setCsvEx(e); setCsvPick(false) }} />
+        <Button variant="ghost" className="w-full" onClick={csvExport}>{t('Einheiten exportieren (CSV)')}</Button>
       </Card>
       <Card className="space-y-3">
-        <p className="text-sm text-muted">Ein einzelnes Programm aus einer Datei importieren (Export über das Menü der Programm-Seite). Es wird als inaktives Programm angelegt.</p>
+        <p className="text-sm text-muted">{t('Ein einzelnes Programm aus einer Datei importieren (Export über das Menü der Programm-Seite). Es wird als inaktives Programm angelegt.')}</p>
         <input ref={pFile} type="file" accept=".json" className="hidden" onChange={(e) => { void doProgramImport(e.target.files?.[0]); e.target.value = '' }} />
-        <Button variant="ghost" className="w-full" onClick={() => pFile.current?.click()}>Programm importieren</Button>
+        <Button variant="ghost" className="w-full" onClick={() => pFile.current?.click()}>{t('Programm importieren')}</Button>
       </Card>
       <Card className="space-y-3">
         <TrainingImportCard onDone={setMsg} />
       </Card>
       <Card className="space-y-3">
-        <p className="text-sm text-muted">Gewicht aus Apple-Health-Export (export.xml) oder CSV importieren.</p>
+        <p className="text-sm text-muted">{t('Gewicht aus Apple-Health-Export (export.xml) oder CSV importieren.')}</p>
         <input ref={hFile} type="file" accept=".xml,.csv,.txt" className="hidden" onChange={(e) => doHealth(e.target.files?.[0])} />
-        <Button variant="ghost" className="w-full" onClick={() => hFile.current?.click()}>Gewichtsdaten importieren</Button>
+        <Button variant="ghost" className="w-full" onClick={() => hFile.current?.click()}>{t('Gewichtsdaten importieren')}</Button>
       </Card>
       {msg && <div className="text-sm text-accent">{msg}</div>}
       <Card className="space-y-3">
-        <p className="text-sm text-muted">Löscht alle Daten von diesem Gerät. Erstelle vorher ein Backup.</p>
-        <Button variant="danger" className="w-full" onClick={() => setResetOpen(true)}>Alle Daten zurücksetzen</Button>
+        <p className="text-sm text-muted">{t('Löscht alle Daten von diesem Gerät. Erstelle vorher ein Backup.')}</p>
+        <Button variant="danger" className="w-full" onClick={() => setResetOpen(true)}>{t('Alle Daten zurücksetzen')}</Button>
       </Card>
 
-      <BottomSheet open={resetOpen} onClose={() => setResetOpen(false)} title="Alle Daten zurücksetzen?">
+      <BottomSheet open={resetOpen} onClose={() => setResetOpen(false)} title={t('Alle Daten zurücksetzen?')}>
         <p className="text-sm text-muted mb-4">
-          Programme, Workouts, Körpergewicht, Maße, eigene Übungen und Einstellungen werden dauerhaft von diesem Gerät gelöscht.
-          Das lässt sich nicht rückgängig machen.
+          {t('Programme, Workouts, Körpergewicht, Maße, eigene Übungen und Einstellungen werden dauerhaft von diesem Gerät gelöscht. Das lässt sich nicht rückgängig machen.')}
         </p>
         <div className="space-y-2">
-          <Button variant="ghost" className="w-full" onClick={() => { setResetOpen(false); doExport() }}>Erst ein Backup erstellen</Button>
-          <Button variant="danger" className="w-full" onClick={async () => { await resetAllData(); setResetOpen(false); nav('/', { replace: true }) }}>Endgültig löschen</Button>
-          <Button variant="ghost" className="w-full" onClick={() => setResetOpen(false)}>Abbrechen</Button>
+          <Button variant="ghost" className="w-full" onClick={() => { setResetOpen(false); doExport() }}>{t('Erst ein Backup erstellen')}</Button>
+          <Button variant="danger" className="w-full" onClick={async () => { await resetAllData(); setResetOpen(false); nav('/', { replace: true }) }}>{t('Endgültig löschen')}</Button>
+          <Button variant="ghost" className="w-full" onClick={() => setResetOpen(false)}>{t('Abbrechen')}</Button>
         </div>
       </BottomSheet>
     </Page>
@@ -627,22 +626,21 @@ export function AboutPage() {
       <Card className="space-y-2 text-sm">
         <div className="text-lg font-bold">Lift Lab</div>
         <div className="text-muted">Version {APP_VERSION}</div>
-        <p>Eigenständige Trainings-App mit regelbasierter Progression (Double Progression, e1RM, RIR). Alle Daten bleiben auf deinem Gerät.</p>
-        <p className="text-muted text-xs">Die Vorschläge sind allgemeine Trainingsheuristiken und ersetzen keine individuelle Beratung durch Trainer:innen oder Ärzt:innen.</p>
+        <p>{t('Eigenständige Trainings-App mit regelbasierter Progression (Double Progression, e1RM, RIR). Alle Daten bleiben auf deinem Gerät.')}</p>
+        <p className="text-muted text-xs">{t('Die Vorschläge sind allgemeine Trainingsheuristiken und ersetzen keine individuelle Beratung durch Trainer:innen oder Ärzt:innen.')}</p>
       </Card>
       <Card className="space-y-2 text-sm">
-        <div className="font-semibold">Quellen</div>
-        <p className="text-muted text-xs">Übungsbilder (und ausgewählte Texte) stammen aus dem Projekt „free-exercise-db-with-videos“ (MIT-Lizenz, © 2026 Arham Wani). Muskelfiguren und Anleitungen sind eigene Arbeit.</p>
+        <div className="font-semibold">{t('Quellen')}</div>
+        <p className="text-muted text-xs">{t('Übungsbilder (und ausgewählte Texte) stammen aus dem Projekt „free-exercise-db-with-videos“ (MIT-Lizenz, © 2026 Arham Wani). Muskelfiguren und Anleitungen sind eigene Arbeit.')}</p>
       </Card>
-      <Button variant="danger" className="w-full" onClick={() => setConfirmReset(true)}>Einstellungen zurücksetzen</Button>
-      <BottomSheet open={confirmReset} onClose={() => setConfirmReset(false)} title="Einstellungen zurücksetzen?">
+      <Button variant="danger" className="w-full" onClick={() => setConfirmReset(true)}>{t('Einstellungen zurücksetzen')}</Button>
+      <BottomSheet open={confirmReset} onClose={() => setConfirmReset(false)} title={t('Einstellungen zurücksetzen?')}>
         <p className="text-sm text-muted mb-4">
-          Alle Einstellungen gehen auf den Standard zurück (Einheiten, Pausen, Aufwärmen, Progression, Theme …).
-          Profil, Programme, Workouts, Körpergewicht, Maße und eigene Übungen bleiben erhalten.
+          {t('Alle Einstellungen gehen auf den Standard zurück (Einheiten, Pausen, Aufwärmen, Progression, Theme …). Profil, Programme, Workouts, Körpergewicht, Maße und eigene Übungen bleiben erhalten.')}
         </p>
         <div className="space-y-2">
-          <Button variant="danger" className="w-full" onClick={async () => { await resetSettings(); setConfirmReset(false) }}>Zurücksetzen</Button>
-          <Button variant="ghost" className="w-full" onClick={() => setConfirmReset(false)}>Abbrechen</Button>
+          <Button variant="danger" className="w-full" onClick={async () => { await resetSettings(); setConfirmReset(false) }}>{t('Zurücksetzen')}</Button>
+          <Button variant="ghost" className="w-full" onClick={() => setConfirmReset(false)}>{t('Abbrechen')}</Button>
         </div>
       </BottomSheet>
     </Page>
@@ -652,15 +650,15 @@ export function AboutPage() {
 export function HelpPage() {
   const nav = useNavigate()
   const items: [string, string][] = [
-    ['Was ist RIR?', 'Reps in Reserve: Wie viele Wiederholungen du am Satzende noch geschafft hättest. RIR 2 heißt: noch zwei saubere Wiederholungen möglich.'],
-    ['Wie berechnet die App den nächsten Vorschlag?', 'Double Progression: Erreichst du in allen Sätzen das obere Ende des Wiederholungsbereichs, steigt das Gewicht und die Wiederholungen starten wieder unten. Sonst wird eine Wiederholung mehr vorgeschlagen. Trägst du etwas anderes ein, wird aus deinem geschätzten 1RM (Epley) neu gerechnet.'],
-    ['Was ist ein Deload?', 'Eine Entlastungswoche mit etwa halbem Satzvolumen und mehr Reserve, damit sich der Körper erholt. Kommt nach jeweils 4–6 Trainingswochen (im Wizard wählbar). Der Deload ist optional (im Programm abschaltbar): die Studienlage dafür ist schwach, eine Woche Pause brachte in einer Studie (Coleman et al. 2024) keinen Vorteil bei der Muskelgröße.'],
-    ['Rep-Range-Verlauf', 'Static: gleich. Linear: Wiederholungen sinken, Gewichte steigen. Reverse Linear: umgekehrt. Undulating: wöchentlicher Wechsel zwischen schwer und leicht. Wechselnde Bereiche: enge Bereiche (3 Wdh.), die jede Übung wöchentlich wechselt; in der letzten Blockwoche geht der letzte Satz bis zum Versagen.'],
-    ['Wochenzyklus', 'Hake Workouts durch Beenden und Ruhetage selbst ab. Sind alle 7 Tage erledigt, startet eine neue Woche bei Workout A mit neu berechneten Zielen.'],
-    ['Apple Health / Health Connect', 'Direkter Zugriff ist in einer Web-App technisch nicht möglich. Importiere stattdessen den Health-Export (export.xml) oder eine CSV-Datei.'],
+    [t('Was ist RIR?'), t('Reps in Reserve: Wie viele Wiederholungen du am Satzende noch geschafft hättest. RIR 2 heißt: noch zwei saubere Wiederholungen möglich.')],
+    [t('Wie berechnet die App den nächsten Vorschlag?'), t('Double Progression: Erreichst du in allen Sätzen das obere Ende des Wiederholungsbereichs, steigt das Gewicht und die Wiederholungen starten wieder unten. Sonst wird eine Wiederholung mehr vorgeschlagen. Trägst du etwas anderes ein, wird aus deinem geschätzten 1RM (Epley) neu gerechnet.')],
+    [t('Was ist ein Deload?'), t('Eine Entlastungswoche mit etwa halbem Satzvolumen und mehr Reserve, damit sich der Körper erholt. Kommt nach jeweils 4–6 Trainingswochen (im Wizard wählbar). Der Deload ist optional (im Programm abschaltbar): die Studienlage dafür ist schwach, eine Woche Pause brachte in einer Studie (Coleman et al. 2024) keinen Vorteil bei der Muskelgröße.')],
+    [t('Rep-Range-Verlauf'), t('Static: gleich. Linear: Wiederholungen sinken, Gewichte steigen. Reverse Linear: umgekehrt. Undulating: wöchentlicher Wechsel zwischen schwer und leicht. Wechselnde Bereiche: enge Bereiche (3 Wdh.), die jede Übung wöchentlich wechselt; in der letzten Blockwoche geht der letzte Satz bis zum Versagen.')],
+    [t('Wochenzyklus'), t('Hake Workouts durch Beenden und Ruhetage selbst ab. Sind alle 7 Tage erledigt, startet eine neue Woche bei Workout A mit neu berechneten Zielen.')],
+    ['Apple Health / Health Connect', t('Direkter Zugriff ist in einer Web-App technisch nicht möglich. Importiere stattdessen den Health-Export (export.xml) oder eine CSV-Datei.')],
   ]
   return (
-    <Page title="Hilfe" back={() => nav('/more')}>
+    <Page title={t('Hilfe')} back={() => nav('/more')}>
       {items.map(([q, a]) => <Card key={q}><div className="font-semibold text-sm mb-1">{q}</div><p className="text-sm text-muted">{a}</p></Card>)}
     </Page>
   )

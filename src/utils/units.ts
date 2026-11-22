@@ -1,4 +1,5 @@
 import type { Settings } from '../types'
+import { LOCALE } from '../i18n'
 
 export const KG_PER_LB = 0.45359237
 const round = (v: number, d = 1) => Math.round(v * 10 ** d) / 10 ** d
@@ -21,5 +22,5 @@ export function formatHeight(cm: number, unit: Settings['lengthUnit']) {
 }
 
 export function formatTime(date: Date, clock: Settings['clock']) {
-  return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: clock === '12h' })
+  return date.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: clock === '12h' })
 }

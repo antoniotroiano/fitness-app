@@ -5,6 +5,7 @@ import { BottomSheet, Chip, inputCls } from '../../components/ui'
 import { MUSCLES, muscleLabel } from '../../data/muscles'
 import { EQUIPMENT_LABEL, searchText } from '../../data/exercises'
 import { ExercisePhoto } from '../../components/ExerciseMedia'
+import { t } from '../../i18n'
 
 export const COLORS = ['#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf']
 
@@ -16,7 +17,7 @@ export function IdentityFields({
 }) {
   return (
     <div className="space-y-4">
-      <input className={inputCls} placeholder="Name des Programms" value={name} maxLength={40}
+      <input className={inputCls} placeholder={t('Name des Programms')} value={name} maxLength={40}
         onChange={(e) => onChange({ name: e.target.value })} />
       <div>
         <div className="text-xs text-muted mb-2">Icon</div>
@@ -29,7 +30,7 @@ export function IdentityFields({
         </div>
       </div>
       <div>
-        <div className="text-xs text-muted mb-2">Farbe</div>
+        <div className="text-xs text-muted mb-2">{t('Farbe')}</div>
         <div className="flex flex-wrap gap-3">
           {COLORS.map((c) => (
             <button key={c} type="button" aria-label={c} onClick={() => onChange({ color: c })}
@@ -43,7 +44,7 @@ export function IdentityFields({
 }
 
 export function ExercisePicker({
-  open, onClose, exercises, onPick, title = 'Übung wählen', allowCardio = true, defaultMuscle,
+  open, onClose, exercises, onPick, title = t('Übung wählen'), allowCardio = true, defaultMuscle,
 }: {
   open: boolean; onClose: () => void; exercises: Exercise[]; onPick: (e: Exercise) => void
   title?: string; allowCardio?: boolean; defaultMuscle?: MuscleId
@@ -64,14 +65,14 @@ export function ExercisePicker({
 
   return (
     <BottomSheet open={open} onClose={onClose} title={title} tall>
-      <input className={inputCls} placeholder="Suchen…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className={inputCls} placeholder={t('Suchen…')} value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="flex gap-2 overflow-x-auto no-scrollbar py-3">
-        <Chip active={muscle === 'all'} onClick={() => setMuscle('all')}>Alle</Chip>
+        <Chip active={muscle === 'all'} onClick={() => setMuscle('all')}>{t('Alle')}</Chip>
         {allowCardio && <Chip active={muscle === 'cardio'} onClick={() => setMuscle('cardio')}>Cardio</Chip>}
         {MUSCLES.map((m) => <Chip key={m.id} active={muscle === m.id} onClick={() => setMuscle(m.id)}>{m.label}</Chip>)}
       </div>
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">
-        <Chip active={eq === 'all'} onClick={() => setEq('all')}>Alle Geräte</Chip>
+        <Chip active={eq === 'all'} onClick={() => setEq('all')}>{t('Alle Geräte')}</Chip>
         {(Object.keys(EQUIPMENT_LABEL) as Equipment[]).filter((k) => k !== 'cardio').map((k) => (
           <Chip key={k} active={eq === k} onClick={() => setEq(k)}>{EQUIPMENT_LABEL[k]}</Chip>
         ))}
@@ -90,7 +91,7 @@ export function ExercisePicker({
             </button>
           </li>
         ))}
-        {!list.length && <li className="py-6 text-center text-sm text-muted">Keine Übung gefunden</li>}
+        {!list.length && <li className="py-6 text-center text-sm text-muted">{t('Keine Übung gefunden')}</li>}
       </ul>
     </BottomSheet>
   )
@@ -102,9 +103,9 @@ export function SupersetLinkRow({ linked, onToggle }: { linked: boolean; onToggl
     <li className="!border-0 -my-1 flex items-center gap-2 py-0.5" aria-hidden={false}>
       <span className={`flex-1 h-px ${linked ? 'bg-accent' : 'bg-line'}`} />
       <button type="button" onClick={onToggle} aria-pressed={linked}
-        aria-label={linked ? 'Supersatz lösen' : 'Mit der nächsten Übung als Supersatz verbinden'}
+        aria-label={linked ? t('Supersatz lösen') : t('Mit der nächsten Übung als Supersatz verbinden')}
         className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-2xs font-medium border ${linked ? 'border-accent text-accent bg-accent/10' : 'border-line text-muted'}`}>
-        <Icon name="link" size={12} />{linked ? 'Supersatz' : 'Verbinden'}
+        <Icon name="link" size={12} />{linked ? t('Supersatz') : t('Verbinden')}
       </button>
       <span className={`flex-1 h-px ${linked ? 'bg-accent' : 'bg-line'}`} />
     </li>

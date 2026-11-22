@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { t } from '../i18n'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -79,7 +80,7 @@ export function Page({ title, children, back, right }: { title: string; children
     <div className="min-h-full pb-28">
       <header className="safe-top sticky top-0 z-10 bg-bg border-b border-line">
         <div className="flex items-center gap-3 px-4 h-14">
-          {back && <button onClick={back} className="text-accent text-xl -ml-1" aria-label="Zurück">‹</button>}
+          {back && <button onClick={back} className="text-accent text-xl -ml-1" aria-label={t('Zurück')}>‹</button>}
           <h1 className="font-bold text-lg flex-1 truncate">{title}</h1>
           {right}
         </div>
@@ -179,7 +180,7 @@ export function BottomSheet({ open, onClose, children, title, tall, height, head
             <div className="flex items-center gap-3 min-h-8">
               {title && <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{title}</h2>}
               {!title && <span className="flex-1" />}
-              <button type="button" onClick={onClose} aria-label="Schließen"
+              <button type="button" onClick={onClose} aria-label={t('Schließen')}
                 className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
             </div>
           )}

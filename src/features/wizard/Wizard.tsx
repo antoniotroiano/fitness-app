@@ -23,6 +23,7 @@ import { saveProgram, useAllExercises, useExerciseOverridesLoaded, useSettings }
 import { ExercisePicker, IdentityFields, SupersetLinkRow } from './shared'
 import { BottomSheet } from '../../components/ui'
 import { muscleLabel } from '../../data/muscles'
+import { t, lc } from '../../i18n'
 
 const DEFAULT: ProgramConfig = {
   mode: 'auto', goal: 'hypertrophy', days: 4, split: 'none', time: '60-90', repScheme: 'static',
@@ -33,9 +34,9 @@ type StepId = 'mode' | 'goal' | 'days' | 'split' | 'time' | 'rep' | 'focus' | 'd
 const AUTO_STEPS: StepId[] = ['mode', 'goal', 'days', 'split', 'time', 'rep', 'focus', 'deload', 'exp', 'equipment', 'identity', 'preview']
 
 const TITLES: Record<StepId, string> = {
-  mode: 'Start', goal: 'Ziel', days: 'Trainingstage', split: 'Split', time: 'Zeit pro Session', rep: 'Rep-Ranges',
-  focus: 'Muskelfokus', deload: 'Blocklänge & Deload', exp: 'Erfahrung', equipment: 'Equipment',
-  identity: 'Name, Icon & Farbe', preview: 'Dein Plan',
+  mode: 'Start', goal: t('Ziel'), days: t('Trainingstage'), split: 'Split', time: t('Zeit pro Session'), rep: t('Rep-Ranges'),
+  focus: t('Muskelfokus'), deload: t('Blocklänge & Deload'), exp: t('Erfahrung'), equipment: 'Equipment',
+  identity: t('Name, Icon & Farbe'), preview: t('Dein Plan'),
 }
 
 function Badge({ children }: { children: ReactNode }) {
@@ -119,17 +120,17 @@ export default function Wizard() {
 
       {id === 'mode' && (
         <div className="space-y-3">
-          <Option active={cfg.mode === 'auto'} icon="sparkles" title="App erstellt einen Plan" desc="Du beantwortest ein paar Fragen, wir bauen das Programm." onClick={() => set({ mode: 'auto' })} />
-          <Option active={cfg.mode === 'manual'} icon="sliders" title="Selbst erstellen" desc="Du wählst Workouts und Übungen selbst aus." onClick={() => set({ mode: 'manual' })} />
+          <Option active={cfg.mode === 'auto'} icon="sparkles" title={t('App erstellt einen Plan')} desc={t('Du beantwortest ein paar Fragen, wir bauen das Programm.')} onClick={() => set({ mode: 'auto' })} />
+          <Option active={cfg.mode === 'manual'} icon="sliders" title={t('Selbst erstellen')} desc={t('Du wählst Workouts und Übungen selbst aus.')} onClick={() => set({ mode: 'manual' })} />
         </div>
       )}
 
       {id === 'goal' && (
         <div className="space-y-3">
           {([
-            ['hypertrophy', 'Muskelhypertrophie', 'Mehr Volumen, moderate bis hohe Wiederholungen.', 'workouts'],
-            ['strength', 'Maximalkraft', 'Schwerere Gewichte, niedrigere Wiederholungen.', 'bolt'],
-            ['both', 'Beides', 'Mischung aus Kraft und Aufbau.', 'sparkles'],
+            ['hypertrophy', t('Muskelhypertrophie'), t('Mehr Volumen, moderate bis hohe Wiederholungen.'), 'workouts'],
+            ['strength', t('Maximalkraft'), t('Schwerere Gewichte, niedrigere Wiederholungen.'), 'bolt'],
+            ['both', t('Beides'), t('Mischung aus Kraft und Aufbau.'), 'sparkles'],
           ] as [Goal, string, string, IconName][]).map(([v, t, d, i]) => (
             <Option key={v} active={cfg.goal === v} icon={i} title={t} desc={d} onClick={() => set({ goal: v })} />
           ))}
@@ -139,9 +140,9 @@ export default function Wizard() {
       {id === 'days' && (
         <div className="flex flex-col items-center gap-2 py-8">
           <div className="flex items-center gap-8">
-            <RoundBtn icon="minus" label="Weniger" disabled={cfg.days <= 2} onClick={() => set({ days: Math.max(2, cfg.days - 1) })} />
+            <RoundBtn icon="minus" label={t('Weniger')} disabled={cfg.days <= 2} onClick={() => set({ days: Math.max(2, cfg.days - 1) })} />
             <span className="text-7xl font-bold tabular-nums w-20 text-center" aria-live="polite">{cfg.days}</span>
-            <RoundBtn icon="plus" label="Mehr" disabled={cfg.days >= 6} onClick={() => set({ days: Math.min(6, cfg.days + 1) })} />
+            <RoundBtn icon="plus" label={t('Mehr')} disabled={cfg.days >= 6} onClick={() => set({ days: Math.min(6, cfg.days + 1) })} />
           </div>
           <div className="text-sm text-muted">{de.wizard.perWeek}</div>
         </div>
@@ -150,9 +151,9 @@ export default function Wizard() {
       {id === 'split' && (
         <div className="space-y-3">
           {([
-            ['fullBody', 'Full Body', 'Jede Einheit trainiert den ganzen Körper.'],
-            ['ulfb', 'Upper / Lower / Full Body', 'Oberkörper- und Unterkörpertage im Wechsel.'],
-            ['ppl', 'Push / Pull / Legs', 'Drücken, Ziehen und Beine getrennt.'],
+            ['fullBody', 'Full Body', t('Jede Einheit trainiert den ganzen Körper.')],
+            ['ulfb', 'Upper / Lower / Full Body', t('Oberkörper- und Unterkörpertage im Wechsel.')],
+            ['ppl', 'Push / Pull / Legs', t('Drücken, Ziehen und Beine getrennt.')],
             ['none', de.wizard.auto, de.wizard.autoDesc],
           ] as [Split, string, string][]).map(([v, t, d]) => (
             <Option key={v} active={cfg.split === v} bare lead={<SplitPicto split={v} />} title={t} desc={d} onClick={() => set({ split: v })} />
@@ -162,7 +163,7 @@ export default function Wizard() {
 
       {id === 'time' && (
         <div className="space-y-3">
-          {([['u20', 'Bis 20 min'], ['20-40', '20–40 min'], ['40-60', '40–60 min'], ['60-90', '60–90 min'], ['90-120', '90–120 min'], ['o120', 'Über 120 min']] as [TimeBudget, string][]).map(([v, t]) => (
+          {([['u20', t('Bis 20 min')], ['20-40', '20–40 min'], ['40-60', '40–60 min'], ['60-90', '60–90 min'], ['90-120', '90–120 min'], ['o120', t('Über 120 min')]] as [TimeBudget, string][]).map(([v, t]) => (
             <Option key={v} active={cfg.time === v} lead={<TimeIcon time={v} />} title={t} onClick={() => set({ time: v })} />
           ))}
         </div>
@@ -171,11 +172,11 @@ export default function Wizard() {
       {id === 'rep' && (
         <div className="space-y-3">
           {([
-            ['static', 'Static', 'Gleiches Rep-Ziel jede Woche.', 'repStatic'],
-            ['linear', 'Linear', 'Wiederholungen sinken, Gewichte steigen über das Programm.', 'repLinear'],
-            ['reverseLinear', 'Reverse Linear', 'Wiederholungen steigen, Gewichte sinken über das Programm.', 'repReverse'],
-            ['undulating', 'Undulating', 'Wöchentlicher Wechsel zwischen schwer/wenige und leicht/viele Wiederholungen.', 'repWave'],
-            ['rotating', 'Wechselnde Bereiche', 'Enge Bereiche (3 Wdh.), die jede Übung wöchentlich wechselt. Jeder Tag hat schwere und leichte Übungen.', 'repWave'],
+            ['static', 'Static', t('Gleiches Rep-Ziel jede Woche.'), 'repStatic'],
+            ['linear', 'Linear', t('Wiederholungen sinken, Gewichte steigen über das Programm.'), 'repLinear'],
+            ['reverseLinear', 'Reverse Linear', t('Wiederholungen steigen, Gewichte sinken über das Programm.'), 'repReverse'],
+            ['undulating', 'Undulating', t('Wöchentlicher Wechsel zwischen schwer/wenige und leicht/viele Wiederholungen.'), 'repWave'],
+            ['rotating', t('Wechselnde Bereiche'), t('Enge Bereiche (3 Wdh.), die jede Übung wöchentlich wechselt. Jeder Tag hat schwere und leichte Übungen.'), 'repWave'],
           ] as [RepScheme, string, string, IconName][]).map(([v, t, d, i]) => (
             <Option key={v} active={!repAuto && cfg.repScheme === v} icon={i} title={t} desc={d} onClick={() => { setRepAuto(false); set({ repScheme: v }) }} />
           ))}
@@ -185,18 +186,18 @@ export default function Wizard() {
 
       {id === 'focus' && (
         <div className="space-y-4">
-          <p className="text-sm text-muted">Bis zu 5 Muskeln mit höherer und bis zu 5 mit niedrigerer Priorität. Alle anderen bleiben normal. ({highCount}/5 hoch · {lowCount}/5 niedrig)</p>
+          <p className="text-sm text-muted">{t('Bis zu 5 Muskeln mit höherer und bis zu 5 mit niedrigerer Priorität. Alle anderen bleiben normal. (')}{highCount}{t('/5 hoch ·')} {lowCount}{t('/5 niedrig)')}</p>
           {(['upper', 'lower'] as const).map((region) => (
             <div key={region}>
-              <div className="text-xs uppercase tracking-wide text-muted mb-2">{region === 'upper' ? 'Oberkörper' : 'Unterkörper'}</div>
+              <div className="text-xs uppercase tracking-wide text-muted mb-2">{region === 'upper' ? t('Oberkörper') : t('Unterkörper')}</div>
               <div className="space-y-2">
                 {MUSCLES.filter((m) => m.region === region).map((m) => (
                   <Card key={m.id} className="flex items-center gap-3 !p-3">
                     <MuscleThumb primary={[m.id]} secondary={[]} size={40} />
                     <span className="text-sm flex-1 min-w-0">{m.label}</span>
                     <div className="flex gap-2">
-                      <RoundBtn icon="thumbDown" label={`${m.label}: niedrigere Priorität`} active={cfg.focus[m.id] === 'low'} onClick={() => setFocus(m.id, 'low')} />
-                      <RoundBtn icon="thumbUp" label={`${m.label}: höhere Priorität`} active={cfg.focus[m.id] === 'high'} onClick={() => setFocus(m.id, 'high')} />
+                      <RoundBtn icon="thumbDown" label={t('{0}: niedrigere Priorität', m.label)} active={cfg.focus[m.id] === 'low'} onClick={() => setFocus(m.id, 'low')} />
+                      <RoundBtn icon="thumbUp" label={t('{0}: höhere Priorität', m.label)} active={cfg.focus[m.id] === 'high'} onClick={() => setFocus(m.id, 'high')} />
                     </div>
                   </Card>
                 ))}
@@ -209,21 +210,21 @@ export default function Wizard() {
       {id === 'deload' && (
         <div className="space-y-3">
           <div>
-            <div className="text-sm font-medium mb-2">Trainingswochen pro Block: {blockWeeksOf(cfg)}</div>
+            <div className="text-sm font-medium mb-2">{t('Trainingswochen pro Block:')} {blockWeeksOf(cfg)}</div>
             <Segmented value={String(blockWeeksOf(cfg))} onChange={(v) => set({ blockWeeks: Number(v) })}
               options={BLOCK_WEEK_OPTIONS.map((n) => ({ value: String(n), label: `${n}` }))} />
-            <p className="text-xs text-muted mt-2">Über den Block steigt die Intensität (weniger Reserve, mehr Sätze). Länger lohnt sich vor allem mit Trainingserfahrung.</p>
+            <p className="text-xs text-muted mt-2">{t('Über den Block steigt die Intensität (weniger Reserve, mehr Sätze). Länger lohnt sich vor allem mit Trainingserfahrung.')}</p>
           </div>
-          <Option active={cfg.deload} icon="shield" title="Ja, mit Deload" desc={cfg.deloadFirst
-            ? `Der Block beginnt mit einer Woche mit halbem Volumen und mehr Reserve, danach ${blockWeeksOf(cfg)} Trainingswochen.`
-            : `Nach ${blockWeeksOf(cfg)} Trainingswochen folgt eine Woche mit halbem Volumen und mehr Reserve.`} onClick={() => set({ deload: true })} />
-          <Option active={!cfg.deload} icon="ban" title="Nein" desc={`Durchgehend ohne Entlastungswoche, der Verlauf wiederholt sich alle ${blockWeeksOf(cfg)} Wochen.`} onClick={() => set({ deload: false })} />
+          <Option active={cfg.deload} icon="shield" title={t('Ja, mit Deload')} desc={cfg.deloadFirst
+            ? t('Der Block beginnt mit einer Woche mit halbem Volumen und mehr Reserve, danach {0} Trainingswochen.', blockWeeksOf(cfg))
+            : t('Nach {0} Trainingswochen folgt eine Woche mit halbem Volumen und mehr Reserve.', blockWeeksOf(cfg))} onClick={() => set({ deload: true })} />
+          <Option active={!cfg.deload} icon="ban" title={t('Nein')} desc={t('Durchgehend ohne Entlastungswoche, der Verlauf wiederholt sich alle {0} Wochen.', blockWeeksOf(cfg))} onClick={() => set({ deload: false })} />
           {cfg.deload && (
             <div>
-              <div className="text-sm font-medium mb-2">Deload-Woche</div>
+              <div className="text-sm font-medium mb-2">{t('Deload-Woche')}</div>
               <Segmented value={cfg.deloadFirst ? 'start' : 'end'} onChange={(v) => set({ deloadFirst: v === 'start' })}
-                options={[{ value: 'end', label: 'Am Ende des Blocks' }, { value: 'start', label: 'Am Anfang' }]} />
-              <p className="text-xs text-muted mt-2">Am Anfang passt nach einer Trainingspause oder zum Einstieg in ein neues Programm.</p>
+                options={[{ value: 'end', label: t('Am Ende des Blocks') }, { value: 'start', label: t('Am Anfang') }]} />
+              <p className="text-xs text-muted mt-2">{t('Am Anfang passt nach einer Trainingspause oder zum Einstieg in ein neues Programm.')}</p>
             </div>
           )}
         </div>
@@ -232,10 +233,10 @@ export default function Wizard() {
       {id === 'exp' && (
         <div className="space-y-3">
           {([
-            ['none', 'Keine', 'Du fängst gerade erst an.', 1],
-            ['beginner', 'Anfänger', 'Bis ca. 1 Jahr regelmäßiges Training.', 2],
-            ['intermediate', 'Mittlere Stufe', '1–3 Jahre Erfahrung.', 3],
-            ['advanced', 'Fortgeschritten', 'Mehr als 3 Jahre, gute Technik und Erholungsgefühl.', 4],
+            ['none', t('Keine'), t('Du fängst gerade erst an.'), 1],
+            ['beginner', t('Anfänger'), t('Bis ca. 1 Jahr regelmäßiges Training.'), 2],
+            ['intermediate', t('Mittlere Stufe'), t('1–3 Jahre Erfahrung.'), 3],
+            ['advanced', t('Fortgeschritten'), t('Mehr als 3 Jahre, gute Technik und Erholungsgefühl.'), 4],
           ] as [Experience, string, string, number][]).map(([v, t, d, l]) => (
             <Option key={v} active={cfg.experience === v} lead={<LevelIcon level={l} size={22} />} title={t} desc={d} onClick={() => set({ experience: v })} />
           ))}
@@ -244,7 +245,7 @@ export default function Wizard() {
 
       {id === 'equipment' && (
         <div className="space-y-3">
-          <p className="text-sm text-muted">Nur Übungen mit diesem Equipment werden vorgeschlagen.</p>
+          <p className="text-sm text-muted">{t('Nur Übungen mit diesem Equipment werden vorgeschlagen.')}</p>
           <button type="button" disabled={allSelected} aria-pressed={allSelected} onClick={() => set({ equipment: equipmentAll })}
             className={cx('w-full rounded-xl border px-4 py-2.5 text-sm font-medium flex items-center justify-between', allSelected ? 'border-accent bg-accent/10' : 'border-line bg-surface')}>
             {de.wizard.selectAll}
@@ -273,7 +274,7 @@ export default function Wizard() {
       {id === 'preview' && <Preview cfg={{ ...cfg, equipment, repScheme: repAuto ? recommendedRepScheme(cfg.goal, cfg.experience) : cfg.repScheme }} all={all} onSaved={() => nav('/workouts')} />}
 
       {id !== 'preview' && (
-        <BottomBar><Button className="w-full" disabled={!canNext} onClick={next}>Weiter</Button></BottomBar>
+        <BottomBar><Button className="w-full" disabled={!canNext} onClick={next}>{t('Weiter')}</Button></BottomBar>
       )}
     </Page>
   )
@@ -344,22 +345,22 @@ function PreviewInner({ cfg, all, onSaved, overrides }: PreviewProps & { overrid
                       <div className="text-sm font-medium truncate">{ex?.name}</div>
                       <div className="text-xs text-muted truncate">{ex?.primary.map(muscleLabel).join(', ')}</div>
                     </div>
-                    <button onClick={() => setSwap({ d: di, i: ei })} className="text-xs text-accent whitespace-nowrap">Austauschen</button>
+                    <button onClick={() => setSwap({ d: di, i: ei })} className="text-xs text-accent whitespace-nowrap">{t('Austauschen')}</button>
                   </div>
                   {ex && !ex.cardio && (
                     <div className="flex gap-2 overflow-x-auto snap-x no-scrollbar -mx-1 px-1">
                       {weeklyOverview(e, cfg, ex, ei).map((w) => (
-                        <button key={w.week} onClick={() => setWeekEdit({ d: di, i: ei, week: w.week })} aria-label={`${ex.name}, ${w.isDeload ? de.wizard.deload : de.wizard.week(w.week + 1 - (cfg.deload && cfg.deloadFirst ? 1 : 0))} bearbeiten`}
+                        <button key={w.week} onClick={() => setWeekEdit({ d: di, i: ei, week: w.week })} aria-label={t('{0}, {1} bearbeiten', ex.name, w.isDeload ? de.wizard.deload : de.wizard.week(w.week + 1 - (cfg.deload && cfg.deloadFirst ? 1 : 0)))}
                           className={cx('snap-start shrink-0 w-28 rounded-xl border p-2 text-xs text-left active:opacity-70', w.isDeload ? 'border-dashed border-line' : 'bg-surface2', w.edited ? 'border-accent' : !w.isDeload && 'border-transparent')}>
                           <div className="font-semibold mb-1 flex items-center justify-between gap-1">
                             <span>{w.isDeload ? de.wizard.deload : de.wizard.week(w.week + 1 - (cfg.deload && cfg.deloadFirst ? 1 : 0))}</span>
-                            {w.edited && <span className="text-accent text-2xs">eigen</span>}
+                            {w.edited && <span className="text-accent text-2xs">{t('eigen')}</span>}
                           </div>
-                          {w.skipped ? <div className="text-muted italic">ausgelassen</div> : (
+                          {w.skipped ? <div className="text-muted italic">{t('ausgelassen')}</div> : (
                             <>
-                              <div className="text-muted">{w.sets} Sätze</div>
+                              <div className="text-muted">{w.sets} {lc(t('Sätze'))}</div>
                               <div className="text-muted">{w.repMin}–{w.repMax} {metricUnit(ex.metric, distanceUnitOf(ex))}</div>
-                              <div className="text-muted">RIR {w.rir}{w.failure ? ` · ${hardFirst ? 'erster' : 'letzter'} bis Versagen` : ''}</div>
+                              <div className="text-muted">RIR {w.rir}{w.failure ? t(' · {0} bis Versagen', hardFirst ? 'erster' : 'letzter') : ''}</div>
                             </>
                           )}
                         </button>
@@ -371,12 +372,12 @@ function PreviewInner({ cfg, all, onSaved, overrides }: PreviewProps & { overrid
               )
             })}
           </ul>
-          <button className="text-xs text-accent mt-2" onClick={() => setAdd(di)}>+ Übung hinzufügen</button>
+          <button className="text-xs text-accent mt-2" onClick={() => setAdd(di)}>{t('+ Übung hinzufügen')}</button>
         </Card>
       ))}
 
-      <BottomSheet open={!!swap} onClose={() => setSwap(null)} title={cur ? `Ersatz für ${cur.name}` : ''}>
-        <p className="text-xs text-muted mb-2">Gleiche Muskelgruppe: {cur?.primary.map(muscleLabel).join(', ')}</p>
+      <BottomSheet open={!!swap} onClose={() => setSwap(null)} title={cur ? t('Ersatz für {0}', cur.name) : ''}>
+        <p className="text-xs text-muted mb-2">{t('Gleiche Muskelgruppe:')} {cur?.primary.map(muscleLabel).join(', ')}</p>
         <ul className="divide-y divide-line">
           {alts.map((a) => (
             <li key={a.id}>
@@ -389,13 +390,13 @@ function PreviewInner({ cfg, all, onSaved, overrides }: PreviewProps & { overrid
               </button>
             </li>
           ))}
-          {!alts.length && <li className="py-4 text-sm text-muted">Keine Alternative mit deinem Equipment.</li>}
+          {!alts.length && <li className="py-4 text-sm text-muted">{t('Keine Alternative mit deinem Equipment.')}</li>}
         </ul>
-        <Button variant="ghost" className="w-full mt-3" onClick={() => setSearchAll(true)}>Weitere Ersatzübung suchen</Button>
+        <Button variant="ghost" className="w-full mt-3" onClick={() => setSearchAll(true)}>{t('Weitere Ersatzübung suchen')}</Button>
       </BottomSheet>
 
       <ExercisePicker open={searchAll} onClose={() => setSearchAll(false)} exercises={all}
-        title="Ersatzübung suchen" onPick={(e) => replace(e.id)} />
+        title={t('Ersatzübung suchen')} onPick={(e) => replace(e.id)} />
 
       <ExercisePicker open={add !== null} onClose={() => setAdd(null)} exercises={all}
         onPick={(e) => {
@@ -408,14 +409,14 @@ function PreviewInner({ cfg, all, onSaved, overrides }: PreviewProps & { overrid
       <WeekTargetSheet open={!!editWeek} onClose={() => setWeekEdit(null)} unit={metricUnit(editEx?.metric, distanceUnitOf(editEx))}
         title={editEx && editWeek ? `${editEx.name} · ${editWeek.isDeload ? de.wizard.deload : de.wizard.week(editWeek.week + 1 - (cfg.deload && cfg.deloadFirst ? 1 : 0))}` : ''}
         computed={editWeek && editPe ? weeklyOverview({ ...editPe, weeks: undefined }, cfg, editEx!, weekEdit!.i)[weekEdit!.week] : { sets: 0, repMin: 0, repMax: 0, rir: 0 }}
-        scopes={weekEdit ? [{ key: `b${weekEdit.week}`, label: 'Jeden Block' }] : []}
+        scopes={weekEdit ? [{ key: `b${weekEdit.week}`, label: t('Jeden Block') }] : []}
         current={(key) => editPe?.weeks?.[key]}
         dayWide={weekEdit ? (days[weekEdit.d]?.exercises.length ?? 0) > 1 : false}
         onSave={(key, t, wide) => weekEdit && setDays((ds) => ds.map((d, di) => di !== weekEdit.d ? d : {
           ...d, exercises: setWeekTargetForDay(d.exercises, weekEdit.i, key, t, wide, (x) => !isRepless(exerciseById(x.exerciseId, all)?.metric)),
         }))} />
 
-      <BottomBar><Button className="w-full" onClick={save}>Plan speichern</Button></BottomBar>
+      <BottomBar><Button className="w-full" onClick={save}>{t('Plan speichern')}</Button></BottomBar>
     </div>
   )
 }

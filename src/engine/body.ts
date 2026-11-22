@@ -1,36 +1,37 @@
 import type { MeasureEntry, MeasureSite, WeightEntry } from '../types'
 import type { Point } from './stats'
 import { addDays, daysBetween } from '../utils/dates'
+import { t } from '../i18n'
 
 /** Schlüssel einer Körperkennzahl: Gewicht, Körperfett, eine Maßstelle oder ein Verhältnis. */
 export type RatioId = 'waistHip' | 'waistChest' | 'waistShoulders' | 'bicepsSym' | 'thighSym' | 'calfSym'
 export type BodyKey = 'weight' | 'bodyFat' | MeasureSite | RatioId
 
 export const MEASURE_GROUPS: { id: 'upper' | 'arms' | 'legs'; title: string; items: { id: MeasureSite; label: string }[] }[] = [
-  { id: 'upper', title: 'Oberkörper', items: [
-    { id: 'neck', label: 'Hals' }, { id: 'shoulders', label: 'Schultern' }, { id: 'bust', label: 'Brustumfang' },
-    { id: 'chest', label: 'Brust' }, { id: 'waist', label: 'Taille' },
+  { id: 'upper', title: t('Oberkörper'), items: [
+    { id: 'neck', label: t('Hals') }, { id: 'shoulders', label: t('Schultern') }, { id: 'bust', label: t('Brustumfang') },
+    { id: 'chest', label: t('Brust') }, { id: 'waist', label: t('Taille') },
   ] },
-  { id: 'arms', title: 'Arme', items: [
-    { id: 'bicepsL', label: 'Bizeps links' }, { id: 'bicepsR', label: 'Bizeps rechts' },
-    { id: 'forearmL', label: 'Unterarm links' }, { id: 'forearmR', label: 'Unterarm rechts' },
-    { id: 'wristL', label: 'Handgelenk links' }, { id: 'wristR', label: 'Handgelenk rechts' },
+  { id: 'arms', title: t('Arme'), items: [
+    { id: 'bicepsL', label: t('Bizeps links') }, { id: 'bicepsR', label: t('Bizeps rechts') },
+    { id: 'forearmL', label: t('Unterarm links') }, { id: 'forearmR', label: t('Unterarm rechts') },
+    { id: 'wristL', label: t('Handgelenk links') }, { id: 'wristR', label: t('Handgelenk rechts') },
   ] },
-  { id: 'legs', title: 'Beine', items: [
-    { id: 'hips', label: 'Hüfte' },
-    { id: 'thighL', label: 'Oberschenkel links' }, { id: 'thighR', label: 'Oberschenkel rechts' },
-    { id: 'calfL', label: 'Wade links' }, { id: 'calfR', label: 'Wade rechts' },
-    { id: 'ankleL', label: 'Knöchel links' }, { id: 'ankleR', label: 'Knöchel rechts' },
+  { id: 'legs', title: t('Beine'), items: [
+    { id: 'hips', label: t('Hüfte') },
+    { id: 'thighL', label: t('Oberschenkel links') }, { id: 'thighR', label: t('Oberschenkel rechts') },
+    { id: 'calfL', label: t('Wade links') }, { id: 'calfR', label: t('Wade rechts') },
+    { id: 'ankleL', label: t('Knöchel links') }, { id: 'ankleR', label: t('Knöchel rechts') },
   ] },
 ]
 
 export const RATIOS: { id: RatioId; label: string; a: MeasureSite; b: MeasureSite }[] = [
-  { id: 'waistHip', label: 'Taille / Hüfte', a: 'waist', b: 'hips' },
-  { id: 'waistChest', label: 'Taille / Brust', a: 'waist', b: 'chest' },
-  { id: 'waistShoulders', label: 'Taille / Schultern', a: 'waist', b: 'shoulders' },
-  { id: 'bicepsSym', label: 'Bizeps links / rechts', a: 'bicepsL', b: 'bicepsR' },
-  { id: 'thighSym', label: 'Oberschenkel links / rechts', a: 'thighL', b: 'thighR' },
-  { id: 'calfSym', label: 'Wade links / rechts', a: 'calfL', b: 'calfR' },
+  { id: 'waistHip', label: t('Taille / Hüfte'), a: 'waist', b: 'hips' },
+  { id: 'waistChest', label: t('Taille / Brust'), a: 'waist', b: 'chest' },
+  { id: 'waistShoulders', label: t('Taille / Schultern'), a: 'waist', b: 'shoulders' },
+  { id: 'bicepsSym', label: t('Bizeps links / rechts'), a: 'bicepsL', b: 'bicepsR' },
+  { id: 'thighSym', label: t('Oberschenkel links / rechts'), a: 'thighL', b: 'thighR' },
+  { id: 'calfSym', label: t('Wade links / rechts'), a: 'calfL', b: 'calfR' },
 ]
 
 export function isRatio(key: string): key is RatioId {
@@ -38,8 +39,8 @@ export function isRatio(key: string): key is RatioId {
 }
 
 export function bodyLabel(key: BodyKey): string {
-  if (key === 'weight') return 'Körpergewicht'
-  if (key === 'bodyFat') return 'Körperfett'
+  if (key === 'weight') return t('Körpergewicht')
+  if (key === 'bodyFat') return t('Körperfett')
   const r = RATIOS.find((x) => x.id === key)
   if (r) return r.label
   return MEASURE_GROUPS.flatMap((g) => g.items).find((i) => i.id === key)?.label ?? key

@@ -9,6 +9,7 @@ import { REST_LABEL, formatRest, restCategory } from '../../engine/rest'
 import { ExerciseInfoSheet } from '../workouts/ExerciseInfoSheet'
 import { AutomationSheet, ListRow, NoteSheet, RestOverrideSheet, SchemeEditor, SchemeTable, WeightListSheet, WeightScaleSheet, automationLabel, scaleSummary, schemeSummary, usesWeightList } from '../workouts/sheets'
 import { de } from '../../i18n/de'
+import { t, lc } from '../../i18n'
 
 function SubPage({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const [mounted, setMounted] = useState(open)
@@ -29,7 +30,7 @@ function SubPage({ open, onClose, title, children }: { open: boolean; onClose: (
       style={{ transform: shown ? 'translateX(0)' : 'translateX(100%)' }}>
       <header className="safe-top shrink-0 bg-bg border-b border-line">
         <div className="flex items-center gap-3 px-4 h-14">
-          <button onClick={onClose} aria-label="Zurück" className="text-accent text-xl -ml-1">‹</button>
+          <button onClick={onClose} aria-label={t('Zurück')} className="text-accent text-xl -ml-1">‹</button>
           <h1 className="font-bold text-lg flex-1 truncate">{title}</h1>
         </div>
       </header>
@@ -69,24 +70,24 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
   const defaultRest = settings.restSeconds[cat]
   const openForm = (draft: ExerciseDraft, editId?: string) => { setForm({ draft, editId }); setFormOpen(true) }
   const remove = async () => {
-    if (!confirm(`„${cur.name}“ wirklich löschen?`)) return
+    if (!confirm(t('„{0}“ wirklich löschen?', cur.name))) return
     let usage = await deleteCustomExercise(cur.id)
     if (!usage) { onClose(); return }
     // Nur in Programmen geplant (kein Verlauf): auf Wunsch dort entfernen und löschen
     if (usage.sessions === 0 && usage.programs.length) {
-      if (!confirm(`„${cur.name}“ ist im Programm ${usage.programs.join(', ')} geplant. Dort entfernen und die Übung löschen?`)) return
+      if (!confirm(t('„{0}“ ist im Programm {1} geplant. Dort entfernen und die Übung löschen?', cur.name, usage.programs.join(', ')))) return
       usage = await deleteCustomExercise(cur.id, true)
       if (!usage) { onClose(); return }
       if (usage.emptied?.length) {
-        setBlocked(`Löschen nicht möglich: In ${usage.emptied.join('; ')} ist sie die einzige Übung. Ergänze dort zuerst eine andere (Tauschen in der Vorschau).`)
+        setBlocked(t('Löschen nicht möglich: In {0} ist sie die einzige Übung. Ergänze dort zuerst eine andere (Tauschen in der Vorschau).', usage.emptied.join('; ')))
         return
       }
     }
     const parts = [
-      usage.sessions ? `in ${usage.sessions} ${usage.sessions === 1 ? 'Einheit' : 'Einheiten'} geloggt` : '',
-      usage.programs.length ? `im Programm ${usage.programs.join(', ')}` : '',
-    ].filter(Boolean).join(' und ')
-    setBlocked(`Löschen nicht möglich: Die Übung ist ${parts}. Geloggte Einheiten lassen sich nur im Verlauf bearbeiten (Übung dort entfernen).`)
+      usage.sessions ? t('in {0} {1} geloggt', usage.sessions, lc(usage.sessions === 1 ? t('Einheit') : t('Einheiten'))) : '',
+      usage.programs.length ? t('im Programm {0}', usage.programs.join(', ')) : '',
+    ].filter(Boolean).join(t(' und '))
+    setBlocked(t('Löschen nicht möglich: Die Übung ist {0}. Geloggte Einheiten lassen sich nur im Verlauf bearbeiten (Übung dort entfernen).', parts))
   }
 
   return (
@@ -95,17 +96,17 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
         <h2 className="text-xs uppercase tracking-wide text-muted px-1">{de.common.general}</h2>
         <Card className="divide-y divide-line !py-1">
           <ListRow icon="guide" label="Info" value={de.exercise.infoValue} onClick={() => setInfo(true)} />
-          <ListRow icon="note" label={de.exercise.note} value={ov?.note || 'Keine Notiz'} onClick={() => setNote(true)} />
+          <ListRow icon="note" label={de.exercise.note} value={ov?.note || t('Keine Notiz')} onClick={() => setNote(true)} />
         </Card>
       </section>
 
       {(!cur.cardio || cur.custom) && (
         <section className="space-y-2">
-          <h2 className="text-xs uppercase tracking-wide text-muted px-1">{cur.custom ? 'Eigene Übung' : 'Als Vorlage'}</h2>
+          <h2 className="text-xs uppercase tracking-wide text-muted px-1">{cur.custom ? t('Eigene Übung') : t('Als Vorlage')}</h2>
           <Card className="divide-y divide-line !py-1">
-            {cur.custom && <ListRow icon="note" label="Bearbeiten" value="Name, Muskeln, Gerät …" onClick={() => openForm(draftOf(cur), cur.id)} />}
-            <ListRow icon="blocks" label="Duplizieren" value="Als neue eigene Übung" onClick={() => openForm(duplicateDraft(cur, all))} />
-            {cur.custom && <ListRow icon="note" label="Löschen" value={blocked || 'Nur ohne Verlauf'} onClick={() => void remove()} />}
+            {cur.custom && <ListRow icon="note" label={t('Bearbeiten')} value={t('Name, Muskeln, Gerät …')} onClick={() => openForm(draftOf(cur), cur.id)} />}
+            <ListRow icon="blocks" label={t('Duplizieren')} value={t('Als neue eigene Übung')} onClick={() => openForm(duplicateDraft(cur, all))} />
+            {cur.custom && <ListRow icon="note" label={t('Löschen')} value={blocked || t('Nur ohne Verlauf')} onClick={() => void remove()} />}
           </Card>
           {blocked && <p role="alert" className="text-xs text-danger px-1">{blocked}</p>}
         </section>
@@ -130,12 +131,12 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
       <SubPage open={sub} onClose={() => setSub(false)} title={de.warmup.scheme}>
         <Card className="space-y-1">
           <div className="text-sm font-semibold">{ov?.warmupScheme ? de.warmup.custom : de.common.default}</div>
-          <div className="text-xs text-muted">{ov?.warmupScheme ? de.warmup.customOnly : `Standardschema: ${REST_LABEL[cat]}`}</div>
+          <div className="text-xs text-muted">{ov?.warmupScheme ? de.warmup.customOnly : t('Standardschema: {0}', REST_LABEL[cat])}</div>
         </Card>
         <Card><SchemeTable steps={scheme} editable={false} /></Card>
-        <Button className="w-full" onClick={() => setEditScheme(true)}>{de.warmup.custom} bearbeiten</Button>
+        <Button className="w-full" onClick={() => setEditScheme(true)}>{de.warmup.custom} {t('bearbeiten')}</Button>
         {ov?.warmupScheme && (
-          <Button variant="ghost" className="w-full" onClick={() => void saveExerciseOverride(cur.id, { warmupScheme: undefined })}>Zurück zum Default</Button>
+          <Button variant="ghost" className="w-full" onClick={() => void saveExerciseOverride(cur.id, { warmupScheme: undefined })}>{t('Zurück zum Default')}</Button>
         )}
       </SubPage>
 
@@ -146,7 +147,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
         values={{ exercise: ov?.note }} onSave={(_, t) => void saveExerciseOverride(cur.id, { note: t || undefined })} />
       <SchemeEditor open={editScheme} onClose={() => setEditScheme(false)} title={de.warmup.scheme} steps={scheme}
         onSave={(steps) => void saveExerciseOverride(cur.id, { warmupScheme: steps })}
-        onReset={ov?.warmupScheme ? () => void saveExerciseOverride(cur.id, { warmupScheme: undefined }) : undefined} resetLabel="Zurück zum Default" />
+        onReset={ov?.warmupScheme ? () => void saveExerciseOverride(cur.id, { warmupScheme: undefined }) : undefined} resetLabel={t('Zurück zum Default')} />
       <RestOverrideSheet open={restEdit} onClose={() => setRestEdit(false)} defaultSec={defaultRest} override={ov?.restSeconds}
         onSave={(sec) => void saveExerciseOverride(cur.id, { restSeconds: sec })} />
       {usesWeightList(cur.equipment)

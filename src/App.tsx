@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import { HashRouter, NavLink, Route, Routes, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
-import { useLayoutPrefs, useSettings } from './db/db'
+import { useLayoutPrefs, useSettings, useSettingsLoaded } from './db/db'
 import { visibleIds } from './engine/layout'
 import { BottomSheet, cx } from './components/ui'
 import { Icon, type IconName } from './components/icons'
@@ -11,6 +11,7 @@ import ProgramPage from './features/workouts/ProgramPage'
 import { WeightPage, MeasuresPage } from './features/body/Body'
 import { PeriodPage } from './features/body/Period'
 import { de } from './i18n/de'
+import { LANG, setLanguage, t } from './i18n'
 
 /** Seiten, die nicht beim Start gebraucht werden, laden als eigene Chunks. */
 const Logger = lazy(() => import('./features/workouts/Logger'))
@@ -41,6 +42,16 @@ function PageFallback() {
   return <div role="status" aria-label={de.common.loading} className="p-8 text-center text-sm text-muted">{de.common.loading}</div>
 }
 
+/** Hält localStorage (synchron beim Start gelesen) und gespeicherte Sprache gleich, z. B. nach Backup-Import. */
+function useLanguageSync() {
+  const loaded = useSettingsLoaded()
+  const language = loaded?.language
+  useEffect(() => {
+    document.documentElement.lang = LANG
+    if (language && language !== LANG) setLanguage(language)
+  }, [language])
+}
+
 function useTheme() {
   const { theme } = useSettings()
   useEffect(() => {
@@ -63,6 +74,7 @@ function Tab({ to, label, icon }: { to: string; label: string; icon: IconName })
 
 function Shell() {
   useTheme()
+  useLanguageSync()
   const nav = useNavigate()
   const loc = useLocation()
   const [sheet, setSheet] = useState(false)
@@ -91,10 +103,10 @@ function Shell() {
 
   const layout = useLayoutPrefs()
   const shortcuts: Record<string, { icon: IconName; label: string; to: string }> = {
-    weight: { icon: 'weight', label: 'Gewicht eintragen', to: '/weight' },
-    measures: { icon: 'measures', label: 'Maße eintragen', to: '/measures' },
-    program: { icon: 'program', label: 'Neues Programm', to: '/new' },
-    workout: { icon: 'workouts', label: 'Einzelnes Workout erstellen', to: '/new/manual?single=1' },
+    weight: { icon: 'weight', label: t('Gewicht eintragen'), to: '/weight' },
+    measures: { icon: 'measures', label: t('Maße eintragen'), to: '/measures' },
+    program: { icon: 'program', label: t('Neues Programm'), to: '/new' },
+    workout: { icon: 'workouts', label: t('Einzelnes Workout erstellen'), to: '/new/manual?single=1' },
   }
   const items = visibleIds(layout.shortcuts).map((id) => shortcuts[id]).filter(Boolean)
 
@@ -137,15 +149,15 @@ function Shell() {
           <div className="max-w-2xl mx-auto flex items-center">
             <Tab to="/" label="Dashboard" icon="dashboard" />
             <Tab to="/workouts" label="Workouts" icon="calendar" />
-            <button onClick={() => setSheet(true)} aria-label="Hinzufügen"
+            <button onClick={() => setSheet(true)} aria-label={t('Hinzufügen')}
               className="-mt-3 w-12 h-12 shrink-0 rounded-full bg-accent text-accent-fg text-2xl font-light shadow-md active:scale-95">＋</button>
-            <Tab to="/more/library" label="Übungen" icon="library" />
+            <Tab to="/more/library" label={t('Übungen')} icon="library" />
             <Tab to="/more" label={de.nav.more} icon="more" />
           </div>
         </nav>
       )}
 
-      <BottomSheet open={sheet} onClose={() => setSheet(false)} title="Hinzufügen">
+      <BottomSheet open={sheet} onClose={() => setSheet(false)} title={t('Hinzufügen')}>
         <div className="grid grid-cols-2 gap-3">
           {items.map((i) => (
             <button key={i.to} onClick={() => go(i.to)}

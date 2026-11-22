@@ -1,5 +1,6 @@
 import type { Program, Session, WeekState } from '../types'
 import { blockLength, weekInBlock, weekPlan } from './periodization'
+import { t } from '../i18n'
 
 export const emptyWeek = (week = 0): WeekState => ({ week, done: Array(7).fill(false), markedDates: [] })
 
@@ -86,9 +87,9 @@ export function cycleLength(program: Pick<Program, 'config'>): number {
 /** Anzeigename einer Programmwoche: "Woche 3" bzw. "Deload", ab dem zweiten Block mit "Block n". */
 export function weekLabel(program: Pick<Program, 'config'>, week: number): string {
   const c = program.config
-  if (!c) return `Woche ${week + 1}`
+  if (!c) return t('Woche {0}', week + 1)
   const len = cycleLength(program)
-  const name = weekPlan(c, week).isDeload ? 'Deload' : `Woche ${weekInBlock(week, c) + 1}`
+  const name = weekPlan(c, week).isDeload ? 'Deload' : t('Woche {0}', weekInBlock(week, c) + 1)
   const block = Math.floor(week / len)
   return block > 0 ? `${name} · Block ${block + 1}` : name
 }

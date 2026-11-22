@@ -14,6 +14,7 @@ import type { MuscleId } from '../../types'
 import { kgToDisplay, kmToDisplay } from '../../utils/units'
 import { StatsView } from './StatsView'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 const EX_METRICS: { value: ExerciseMetric; label: string }[] = [
   { value: 'rm1', label: '1RM' }, { value: 'rm3', label: '3RM' }, { value: 'rm10', label: '10RM' },
@@ -23,7 +24,7 @@ const EX_METRICS: { value: ExerciseMetric; label: string }[] = [
 ]
 
 const CARDIO_METRICS: { value: CardioMetric; label: string }[] = [
-  { value: 'minutes', label: 'Dauer' }, { value: 'distance', label: 'Distanz' }, { value: 'pace', label: 'Tempo' },
+  { value: 'minutes', label: t('Dauer') }, { value: 'distance', label: t('Distanz') }, { value: 'pace', label: t('Tempo') },
 ]
 
 function CardioStats({ id }: { id: string }) {
@@ -57,7 +58,7 @@ export function ExerciseStatsPage() {
       : unit === 'reps' ? `${Math.round(v * 10) / 10}` : `${Math.round(v * 10) / 10}`
 
   return (
-    <Page title={ex?.name ?? 'Übung'} back={() => nav(-1)}>
+    <Page title={ex?.name ?? t('Übung')} back={() => nav(-1)}>
       {ex?.cardio
         ? <CardioStats id={id} />
         : <StatsView metrics={EX_METRICS} metric={metric} onMetric={setMetric} daily={daily} bar={isBar(metric)} fmt={fmt} />}
@@ -82,7 +83,7 @@ export function MuscleStatsPage() {
     : `${Math.round(kgToDisplay(v, settings.weightUnit))} ${settings.weightUnit}`
   return (
     <Page title={muscleLabel(id as MuscleId)} back={() => nav(-1)}>
-      <StatsView metrics={[{ value: 'sets', label: de.common.sets }, { value: 'volume', label: 'Volumen' }]}
+      <StatsView metrics={[{ value: 'sets', label: de.common.sets }, { value: 'volume', label: t('Volumen') }]}
         metric={metric} onMetric={setMetric} daily={daily} bar showAveraging fmt={fmt} />
     </Page>
   )

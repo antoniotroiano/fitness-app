@@ -6,6 +6,7 @@ import {
 import { average, type Averaging, type Period, type Point } from '../../engine/stats'
 import { formatDate, todayStr } from '../../utils/dates'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 const PERIODS: Period[] = ['1W', '1M', '3M', '6M', '1Y', 'All']
 const AVG: { value: Averaging; letter: string; label: string }[] = [
@@ -101,7 +102,7 @@ function Chart({ w, points, trend, bar, fmt, mode, canPan, offset, onOffset, tod
   return (
     <div ref={box} className="w-full select-none" style={{ height: H, touchAction: 'pan-y' }}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
-      <svg width={width} height={H} role="img" aria-label="Diagramm">
+      <svg width={width} height={H} role="img" aria-label={t('Diagramm')}>
         {ticksY.map((t) => (
           <g key={t}>
             <line x1={M.left} x2={M.left + plotW} y1={y(t)} y2={y(t)} stroke="var(--line)" strokeWidth={1} />
@@ -146,7 +147,7 @@ function Chart({ w, points, trend, bar, fmt, mode, canPan, offset, onOffset, tod
         })()}
       </svg>
       {points.length === 0 && (
-        <div className="-mt-32 text-center text-sm text-muted pointer-events-none">Keine Daten im Zeitraum</div>
+        <div className="-mt-32 text-center text-sm text-muted pointer-events-none">{t('Keine Daten im Zeitraum')}</div>
       )}
     </div>
   )
@@ -201,7 +202,7 @@ export function TimeSeries({ daily, trend, bar, fmt, defaultPeriod = '1W', showA
 
       <BottomSheet open={sheet} onClose={() => setSheet(false)}>
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => setSheet(false)} aria-label="Schließen" className="text-xl text-muted w-8">✕</button>
+          <button onClick={() => setSheet(false)} aria-label={t('Schließen')} className="text-xl text-muted w-8">✕</button>
           <h2 className="font-bold text-lg">{de.stats.averaging}</h2>
         </div>
         <div className="space-y-2">

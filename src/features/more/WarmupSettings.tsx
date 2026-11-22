@@ -8,6 +8,7 @@ import { REST_CATEGORIES, REST_LABEL } from '../../engine/rest'
 import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../../engine/warmup'
 import { AutomationSheet, ListRow, SchemeEditor, automationLabel } from '../workouts/sheets'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 const MODE_TO_OVERRIDE: Record<Settings['warmupMode'], WarmupOverrideMode> = { smart: 'smart', scheme: 'scheme', off: 'none' }
 
@@ -22,18 +23,16 @@ export function WarmupSettingsPage() {
   const changed = REST_CATEGORIES.some((c) => JSON.stringify(s.warmupSchemes[c]) !== JSON.stringify(DEFAULT_WARMUP_SCHEMES[c]))
 
   return (
-    <Page title="Aufwärmen" back={() => nav('/more/workouts')}>
+    <Page title={t('Aufwärmen')} back={() => nav('/more/workouts')}>
       <Card className="divide-y divide-line !py-1">
         <ListRow icon="automation" label={de.warmup.automation} value={automationLabel(MODE_TO_OVERRIDE[s.warmupMode])} action={de.common.change} onClick={() => setAuto(true)}
           hint={s.warmupMode === 'smart' ? de.warmup.hintAppSmart
             : s.warmupMode === 'scheme' ? de.warmup.hintAppScheme : de.warmup.hintAppNone} />
-        <ListRow icon="blocks" label={de.warmup.scheme} value="Standard je Übungsgruppe" onClick={() => setScheme(true)} />
+        <ListRow icon="blocks" label={de.warmup.scheme} value={t('Standard je Übungsgruppe')} onClick={() => setScheme(true)} />
       </Card>
 
       <p className="text-xs text-muted px-1">
-        Hinweis zur Studienlage: Ein spezifisches Aufwärmen mit leichteren Sätzen derselben Übung hilft teils leicht, teils gar nicht
-        (Systematic Review Ribeiro et al., Motricidade 2021), am ehesten bei Lasten nahe am Maximum. Für Satzzahl und Prozentwerte gibt
-        es keinen Konsens und keine belegte Formel: Smart und die Standard-Schemata sind Praxis-Heuristiken.
+        {t('Hinweis zur Studienlage: Ein spezifisches Aufwärmen mit leichteren Sätzen derselben Übung hilft teils leicht, teils gar nicht (Systematic Review Ribeiro et al., Motricidade 2021), am ehesten bei Lasten nahe am Maximum. Für Satzzahl und Prozentwerte gibt es keinen Konsens und keine belegte Formel: Smart und die Standard-Schemata sind Praxis-Heuristiken.')}
       </p>
 
       <AutomationSheet appLevel open={auto} onClose={() => setAuto(false)} value={MODE_TO_OVERRIDE[s.warmupMode]}
@@ -48,7 +47,7 @@ export function WarmupSettingsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold">{REST_LABEL[c]}</div>
                   <div className="mt-1 space-y-0.5 text-xs text-muted">
-                    {s.warmupSchemes[c].length === 0 && <div>Keine Aufwärmsätze</div>}
+                    {s.warmupSchemes[c].length === 0 && <div>{t('Keine Aufwärmsätze')}</div>}
                     {s.warmupSchemes[c].map((st, j) => <div key={j}>{de.warmup.step(st.pct, st.reps)}</div>)}
                   </div>
                 </div>

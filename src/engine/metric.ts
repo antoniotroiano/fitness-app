@@ -1,4 +1,5 @@
 import type { Exercise } from '../types'
+import { t } from '../i18n'
 
 /**
  * Messgröße einer Übung: Wiederholungen (Standard), Zeit (Sekunden, Halten/Tragen) oder Distanz (Meter, Tragen/Schieben).
@@ -25,8 +26,8 @@ export type DistanceUnit = NonNullable<Exercise['distanceUnit']>
 export const distanceUnitOf = (ex?: Pick<Exercise, 'distanceUnit'>): DistanceUnit => (ex?.distanceUnit === 'yd' ? 'yd' : 'm')
 
 /** Kurzes Einheitenkürzel für Bereiche und Ziele („Wdh“, „Sek“, „m“, „yd“). `dist`: Strecken-Einheit der Übung. */
-export const metricUnit = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? 'Sek' : metric === 'distance' ? (dist === 'yd' ? 'yd' : 'm') : 'Wdh')
+export const metricUnit = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? t('Sek') : metric === 'distance' ? (dist === 'yd' ? 'yd' : 'm') : t('Wdh'))
 /** Spaltenkopf der Satztabelle. */
-export const metricColumn = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? 'Sek.' : metric === 'distance' ? (dist === 'yd' ? 'yd' : 'm') : 'Wdh.')
+export const metricColumn = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? t('Sek.') : metric === 'distance' ? (dist === 'yd' ? 'yd' : 'm') : t('Wdh.'))
 /** Langer Name für das Zahlenfeld („Wiederholungen“, „Sekunden“, „Meter“). */
-export const metricLabel = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? 'Sekunden' : metric === 'distance' ? (dist === 'yd' ? 'Yards' : 'Meter') : 'Wiederholungen')
+export const metricLabel = (metric?: Metric | string, dist?: DistanceUnit): string => (metric === 'time' ? t('Sekunden') : metric === 'distance' ? (dist === 'yd' ? 'Yards' : t('Meter')) : t('Wiederholungen'))

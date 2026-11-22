@@ -9,6 +9,7 @@ import { ProgramSettingsSheet } from './ProgramSettingsSheet'
 import { MenuRow } from './MenuRow'
 import { WeekOrderSheet } from './WeekOrderSheet'
 import WorkoutPreview from './WorkoutPreview'
+import { t } from '../../i18n'
 
 export { MenuRow }
 
@@ -42,8 +43,8 @@ export default function ProgramPage() {
 
   if (!program) {
     return (
-      <Page title="Programm" back={() => nav('/workouts')}>
-        <Card>{loaded ? 'Dieses Programm gibt es nicht (mehr).' : 'Lädt …'}</Card>
+      <Page title={t('Programm')} back={() => nav('/workouts')}>
+        <Card>{loaded ? t('Dieses Programm gibt es nicht (mehr).') : t('Lädt …')}</Card>
       </Page>
     )
   }
@@ -51,7 +52,7 @@ export default function ProgramPage() {
   const scheduled = program.weekSlots.map((slot, i) => ({ key: `s${i}`, slot, i }))
   const extra = program.days.map((d, i) => ({ d, i })).filter(({ i }) => !program.weekSlots.includes(i))
   const chips = [
-    ...scheduled.map(({ key, slot, i }) => ({ key, rest: slot === 'rest', dayIdx: slot === 'rest' ? -1 : (slot as number), label: slot === 'rest' ? 'Pause' : program.days[slot as number].name, param: `p${id}-s${i}` })),
+    ...scheduled.map(({ key, slot, i }) => ({ key, rest: slot === 'rest', dayIdx: slot === 'rest' ? -1 : (slot as number), label: slot === 'rest' ? t('Pause') : program.days[slot as number].name, param: `p${id}-s${i}` })),
     ...extra.map(({ d, i }) => ({ key: `d${i}`, rest: false, dayIdx: i, label: d.name, param: `p${id}-d${i}` })),
   ]
   const cur = chips[Math.min(pick, chips.length - 1)]
@@ -61,13 +62,13 @@ export default function ProgramPage() {
 
   return (
     <Page title={program.name} back={() => nav('/workouts')}
-      right={<button onClick={() => setMenu(true)} aria-label="Programm-Menü" className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-fg active:opacity-70"><Icon name="menu" /></button>}>
+      right={<button onClick={() => setMenu(true)} aria-label={t('Programm-Menü')} className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-fg active:opacity-70"><Icon name="menu" /></button>}>
       <div className="flex items-center gap-2 text-xs text-muted">
         <ProgramBadge icon={program.icon} color={program.color} size={24} />
-        <span>{program.active ? 'Aktives Programm' : program.archived ? 'Archiviert' : 'Inaktiv'} · {program.days.length} Workouts</span>
+        <span>{program.active ? t('Aktives Programm') : program.archived ? t('Archiviert') : t('Inaktiv')} · {program.days.length} Workouts</span>
       </div>
 
-      <div ref={tabsRef} className="relative flex gap-6 overflow-x-auto no-scrollbar -mx-4 px-4 border-b border-line" role="tablist" aria-label="Workouts des Programms">
+      <div ref={tabsRef} className="relative flex gap-6 overflow-x-auto no-scrollbar -mx-4 px-4 border-b border-line" role="tablist" aria-label={t('Workouts des Programms')}>
         {chips.map((c, n) => (
           <button key={c.key} role="tab" aria-selected={cur?.key === c.key} onClick={() => setPick(n)}
             ref={(el) => { tabEls.current[n] = el }}
@@ -81,28 +82,28 @@ export default function ProgramPage() {
 
       {curDay && (
         <button onClick={() => setDayMenu(true)} className="self-start text-sm text-accent active:opacity-70">
-          Workout verwalten{!scheduled0 ? ' · nicht im Wochenplan' : ''}
+          {t('Workout verwalten')}{!scheduled0 ? t(' · nicht im Wochenplan') : ''}
         </button>
       )}
 
-      {cur?.rest ? <Card className="text-sm text-muted">Ruhetag, an diesem Tag ist kein Training geplant.</Card> : cur && <WorkoutPreview key={cur.param} param={cur.param} embedded />}
+      {cur?.rest ? <Card className="text-sm text-muted">{t('Ruhetag, an diesem Tag ist kein Training geplant.')}</Card> : cur && <WorkoutPreview key={cur.param} param={cur.param} embedded />}
 
       <BottomSheet open={menu} onClose={close} title={program.name}>
         <div className="divide-y divide-line">
-          <MenuRow icon="sliders" label="Programm bearbeiten" desc="Name, Blocklänge, Deload, Programm-Ende" onClick={() => { close(); setEditing(true) }} />
-          <MenuRow icon="calendar" label="Wochenplan ordnen" desc="Reihenfolge der Workouts und Ruhetage" onClick={() => { close(); setOrdering(true) }} />
+          <MenuRow icon="sliders" label={t('Programm bearbeiten')} desc={t('Name, Blocklänge, Deload, Programm-Ende')} onClick={() => { close(); setEditing(true) }} />
+          <MenuRow icon="calendar" label={t('Wochenplan ordnen')} desc={t('Reihenfolge der Workouts und Ruhetage')} onClick={() => { close(); setOrdering(true) }} />
           <WorkoutImportRow programId={id} onDone={() => { close(); setPick(chips.length) }} />
-          <MenuRow icon="copy" label="Programm duplizieren" onClick={async () => { close(); const n = await copyProgram(id); if (n) nav(`/program/${n}`, { replace: true }) }} />
-          <MenuRow icon="data" label="Programm exportieren" desc="Datei mit Programm und eigenen Übungen" onClick={async () => {
+          <MenuRow icon="copy" label={t('Programm duplizieren')} onClick={async () => { close(); const n = await copyProgram(id); if (n) nav(`/program/${n}`, { replace: true }) }} />
+          <MenuRow icon="data" label={t('Programm exportieren')} desc={t('Datei mit Programm und eigenen Übungen')} onClick={async () => {
             close()
             const r = await exportProgramJson(id)
             if (r) downloadText(`liftlab-programm-${safeFileName(r.name)}.json`, r.json, 'application/json')
           }} />
-          {!program.active && <MenuRow icon="check" label="Programm aktivieren" desc="Wird zum aktiven Programm" onClick={async () => { close(); await activateProgram(id); nav('/workouts') }} />}
+          {!program.active && <MenuRow icon="check" label={t('Programm aktivieren')} desc={t('Wird zum aktiven Programm')} onClick={async () => { close(); await activateProgram(id); nav('/workouts') }} />}
           {program.archived
-            ? <MenuRow icon="archive" label="Aus dem Archiv holen" onClick={async () => { close(); await restoreProgram(id) }} />
-            : <MenuRow icon="archive" label="Programm archivieren" desc={program.active ? 'Das neueste andere Programm wird aktiv' : undefined} onClick={async () => { close(); await archiveProgram(id); if (program.active) nav('/workouts') }} />}
-          <MenuRow icon="trash" danger label="Programm löschen" desc="Geloggte Einheiten bleiben erhalten" onClick={() => { close(); setConfirmDel(true) }} />
+            ? <MenuRow icon="archive" label={t('Aus dem Archiv holen')} onClick={async () => { close(); await restoreProgram(id) }} />
+            : <MenuRow icon="archive" label={t('Programm archivieren')} desc={program.active ? t('Das neueste andere Programm wird aktiv') : undefined} onClick={async () => { close(); await archiveProgram(id); if (program.active) nav('/workouts') }} />}
+          <MenuRow icon="trash" danger label={t('Programm löschen')} desc={t('Geloggte Einheiten bleiben erhalten')} onClick={() => { close(); setConfirmDel(true) }} />
         </div>
       </BottomSheet>
 
@@ -110,11 +111,11 @@ export default function ProgramPage() {
 
       <WeekOrderSheet program={ordering ? program : null} onClose={() => setOrdering(false)} />
 
-      <BottomSheet open={confirmDel} onClose={() => setConfirmDel(false)} title="Programm löschen?">
-        <p className="text-sm text-muted mb-4">„{program.name}“ wird endgültig gelöscht. Bereits geloggte Einheiten bleiben im Verlauf.</p>
+      <BottomSheet open={confirmDel} onClose={() => setConfirmDel(false)} title={t('Programm löschen?')}>
+        <p className="text-sm text-muted mb-4">„{program.name}{t('“ wird endgültig gelöscht. Bereits geloggte Einheiten bleiben im Verlauf.')}</p>
         <div className="flex gap-2">
-          <Button variant="ghost" className="flex-1" onClick={() => setConfirmDel(false)}>Abbrechen</Button>
-          <Button variant="danger" className="flex-1" onClick={async () => { setConfirmDel(false); await deleteProgram(id); nav('/workouts', { replace: true }) }}>Löschen</Button>
+          <Button variant="ghost" className="flex-1" onClick={() => setConfirmDel(false)}>{t('Abbrechen')}</Button>
+          <Button variant="danger" className="flex-1" onClick={async () => { setConfirmDel(false); await deleteProgram(id); nav('/workouts', { replace: true }) }}>{t('Löschen')}</Button>
         </div>
       </BottomSheet>
 

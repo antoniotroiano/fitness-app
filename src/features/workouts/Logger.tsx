@@ -45,20 +45,21 @@ import { isSegment, uid, withSides, type ActiveWorkout, type Row, type SideRow }
 import { num, rowToSet, sideSet } from './sessionRows'
 import { de } from '../../i18n/de'
 import { progressionNote, reasonText } from './progressionNote'
+import { t, LOCALE } from '../../i18n'
 
 /** Scheiben pro Seite als Text für das Numpad (Langhantel), leer ohne Gewicht */
 function plateHint(kg: number, s: Settings, wl: Settings['weightUnit']): string | undefined {
   if (!(kg > 0)) return undefined
   const r = platesFor(kg, s.barWeight, s.plates)
   // kg exakt (1,25), lb über die Anzeige-Umrechnung
-  const f = (n: number) => (wl === 'kg' ? n : kgToDisplay(n, wl)).toLocaleString('de-DE', { maximumFractionDigits: 2 })
-  if (!r) return `Leichter als die Stange (${f(s.barWeight)} ${wl})`
-  const side = r.perSide.length ? `Pro Seite: ${r.perSide.map(f).join(' + ')}` : 'Nur Stange'
-  return r.rest > 0 ? `${side} · ${f(r.rest)} ${wl} nicht ladbar` : side
+  const f = (n: number) => (wl === 'kg' ? n : kgToDisplay(n, wl)).toLocaleString(LOCALE, { maximumFractionDigits: 2 })
+  if (!r) return t('Leichter als die Stange ({0} {1})', f(s.barWeight), wl)
+  const side = r.perSide.length ? t('Pro Seite: {0}', r.perSide.map(f).join(' + ')) : t('Nur Stange')
+  return r.rest > 0 ? t('{0} · {1} {2} nicht ladbar', side, f(r.rest), wl) : side
 }
 
 /** Körperlast für die Anzeige (eine Nachkommastelle) */
-const fmtLoad = (n: number) => (Math.round(n * 10) / 10).toLocaleString('de-DE')
+const fmtLoad = (n: number) => (Math.round(n * 10) / 10).toLocaleString(LOCALE)
 
 /** Startzeilen einer Übung: Aufwärmsätze und Arbeitssätze aus der Planung. */
 function buildRows(v: PlannedView, wl: Settings['weightUnit'], sides = false, mode: Settings['prefillMode'] = 'suggestion'): Row[] {
@@ -234,17 +235,17 @@ export default function Logger() {
   }, [allDone, celebrated])
 
   if (!program || !day) {
-    return <div className="max-w-2xl mx-auto p-4"><Card>Workout nicht gefunden.</Card></div>
+    return <div className="max-w-2xl mx-auto p-4"><Card>{t('Workout nicht gefunden.')}</Card></div>
   }
   if (stored && !active && !(stored.param === param && stored.programId === (program.id ?? null))) {
     return (
       <div className="max-w-2xl mx-auto p-4 space-y-3 safe-top">
         <Card className="space-y-3">
-          <div className="font-semibold">Ein anderes Workout läuft noch</div>
-          <p className="text-sm text-muted">Setze es fort oder verwirf es, um dieses Workout zu starten.</p>
+          <div className="font-semibold">{t('Ein anderes Workout läuft noch')}</div>
+          <p className="text-sm text-muted">{t('Setze es fort oder verwirf es, um dieses Workout zu starten.')}</p>
           <div className="flex gap-2">
-            <Button className="flex-1" onClick={() => nav(`/workout/${stored.param}`, { replace: true })}>Fortsetzen</Button>
-            <Button variant="danger" className="flex-1" onClick={async () => { await clearActiveWorkout(); setStored(null) }}>Verwerfen</Button>
+            <Button className="flex-1" onClick={() => nav(`/workout/${stored.param}`, { replace: true })}>{t('Fortsetzen')}</Button>
+            <Button variant="danger" className="flex-1" onClick={async () => { await clearActiveWorkout(); setStored(null) }}>{t('Verwerfen')}</Button>
           </div>
         </Card>
       </div>
@@ -628,7 +629,7 @@ export default function Logger() {
     } catch (e) {
       setClosed(false)
       saving.current = false
-      setSaveError(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : 'unbekannter Fehler'}. Das Training bleibt erhalten.`)
+      setSaveError(t('Speichern fehlgeschlagen: {0}. Das Training bleibt erhalten.', e instanceof Error ? e.message : t('unbekannter Fehler')))
       return
     }
     nav(exitTo, { replace: true })
@@ -666,7 +667,7 @@ export default function Logger() {
             <h1 className="text-lg font-bold">{current.ex.name}</h1>
             {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
           </div>
-          {backfill && <p className="text-xs text-accent mt-0.5">Nachgetragen für {formatDate(backfill.date, { day: '2-digit', month: 'long', year: 'numeric' })} · {weekLabel(program, backfill.week)}</p>}
+          {backfill && <p className="text-xs text-accent mt-0.5">{t('Nachgetragen für')} {formatDate(backfill.date, { day: '2-digit', month: 'long', year: 'numeric' })} · {weekLabel(program, backfill.week)}</p>}
           {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : current.ex.metric === 'distance' ? de.logger.targetDistance(distanceUnitOf(current.ex)) : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
           {(() => {
             const why = current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad, distanceUnitOf(current.ex))
@@ -674,36 +675,36 @@ export default function Logger() {
             const check = current.sug.level === 'check'
             return (
               <button onClick={() => setWhyOpen(true)} className={cx('mt-1 flex items-center gap-1 text-xs active:opacity-70', check ? 'text-warn' : 'text-muted')}>
-                <Icon name={check ? 'bolt' : 'sparkles'} size={13} />{check ? 'Vorschlag bitte prüfen' : 'Warum dieser Vorschlag?'}
+                <Icon name={check ? 'bolt' : 'sparkles'} size={13} />{check ? t('Vorschlag bitte prüfen') : t('Warum dieser Vorschlag?')}
               </button>
             )
           })()}
           {settings.prefillMode === 'last' && !current.ex.cardio && current.previous.work.length > 0 && current.sug.weight != null && (
-            <p className="text-xs text-muted mt-0.5">Vorschlag: {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString('de-DE')} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : current.ex.metric === 'distance' ? ` ${distanceUnitOf(current.ex)}` : ' Wdh.'}</p>
+            <p className="text-xs text-muted mt-0.5">{t('Vorschlag:')} {current.sug.weight > 0 || current.bodyLoad <= 0 ? `${current.bodyLoad > 0 ? '+' : ''}${kgToDisplay(current.sug.weight, wl).toLocaleString(LOCALE)} ${wl} × ` : ''}{current.sug.reps}{current.ex.metric === 'time' ? ' s' : current.ex.metric === 'distance' ? ` ${distanceUnitOf(current.ex)}` : t(' Wdh.')}</p>
           )}
           {progressionNote(current.sug, current.range, wl, current.bodyLoad) && (
             <p className="text-xs text-warn mt-1">{progressionNote(current.sug, current.range, wl, current.bodyLoad)}</p>
           )}
           {members.length > 0 && (
             <p className="text-xs text-accent mt-1 flex items-center gap-1"><Icon name="link" size={13} />
-              Supersatz mit {members.filter((m) => m !== current.pe.exerciseId).map((m) => lookup(m)?.name ?? m).join(', ')}
+              {t('Supersatz mit')} {members.filter((m) => m !== current.pe.exerciseId).map((m) => lookup(m)?.name ?? m).join(', ')}
             </p>
           )}
-          {current.ex.assisted && <p className="text-xs text-muted mt-1">Das Gewicht ist die Unterstützung: weniger Gewicht ist schwerer.</p>}
+          {current.ex.assisted && <p className="text-xs text-muted mt-1">{t('Das Gewicht ist die Unterstützung: weniger Gewicht ist schwerer.')}</p>}
           {usesBodyweight(current.ex) && (
             <p className="text-xs text-muted mt-1">
               {current.bodyLoad > 0
-                ? `Körpergewichtsanteil ${Math.round(current.ex.bodyweight! * 100)} % = ${fmtLoad(kgToDisplay(current.bodyLoad, wl))} ${wl}, das Gewicht ist Zusatzgewicht.`
-                : 'Trage dein Körpergewicht ein, dann zählen 1RM und Volumen mit Körpergewichtsanteil.'}
+                ? t('Körpergewichtsanteil {0} % = {1} {2}, das Gewicht ist Zusatzgewicht.', Math.round(current.ex.bodyweight! * 100), fmtLoad(kgToDisplay(current.bodyLoad, wl)), wl)
+                : t('Trage dein Körpergewicht ein, dann zählen 1RM und Volumen mit Körpergewichtsanteil.')}
             </p>
           )}
           <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar">
             <ActionPill icon="guide" label="Info" onClick={() => setInfoOpen(true)} />
-            <ActionPill icon="automation" label="Tauschen" onClick={() => setActionsOpen(true)} />
+            <ActionPill icon="automation" label={t('Tauschen')} onClick={() => setActionsOpen(true)} />
             {!current.ex.cardio && <ActionPill icon="warmup" label={de.logger.warmup} onClick={() => setWarmupOpen(true)} active={modeNow !== 'none'} />}
             <ActionPill icon="note" label={de.common.note} onClick={() => setNoteScope(noteBoxes[0] ?? 'session')} active={noteBoxes.length > 0} />
-            {!current.ex.cardio && <ActionPill icon="sides" label="Links/Rechts" onClick={toggleSides} active={sidesOn} />}
-            {dayList.length > 1 && <ActionPill icon="link" label="Supersatz" onClick={() => setSupersetOpen(true)} active={members.length > 0} />}
+            {!current.ex.cardio && <ActionPill icon="sides" label={t('Links/Rechts')} onClick={toggleSides} active={sidesOn} />}
+            {dayList.length > 1 && <ActionPill icon="link" label={t('Supersatz')} onClick={() => setSupersetOpen(true)} active={members.length > 0} />}
           </div>
         </div>
 
@@ -712,7 +713,7 @@ export default function Logger() {
           onType={setTypeRow} onPad={(rowId, field, side) => setPad({ rowId, field, side })} />
 
         {noteBoxes.length > 0 && (
-          <div className="mt-4 space-y-2" aria-label="Notizen">
+          <div className="mt-4 space-y-2" aria-label={t('Notizen')}>
             {noteBoxes.map((sc) => (
               <button key={sc} onClick={() => setNoteScope(sc)} className="w-full text-left rounded-xl bg-surface2/60 px-3 py-2 active:opacity-70">
                 <span className="flex items-center gap-1.5 text-2xs uppercase tracking-wide text-muted"><Icon name="note" size={13} />{scopeLabel(sc)}</span>
@@ -728,10 +729,10 @@ export default function Logger() {
         const r = pad.side === 'r' ? padRow.right : undefined
         const vals = r ?? padRow
         const set = (p: Partial<SideRow>) => (r ? patchRight(padRow.id, p) : patch(padRow.id, p))
-        const sideLabel = !padRow.right ? '' : r ? ' · rechts' : ' · links'
+        const sideLabel = !padRow.right ? '' : r ? t(' · rechts') : t(' · links')
         return (
           <NumpadSheet key={`${pad.rowId}-${pad.side ?? ''}-${pad.field}`} field={pad.field}
-            label={`${pad.field === 'weight' ? `Gewicht (${wl})` : 'Wiederholungen'}${sideLabel}`}
+            label={`${pad.field === 'weight' ? t('Gewicht ({0})', wl) : t('Wiederholungen')}${sideLabel}`}
             value={pad.field === 'weight' ? vals.weight : vals.reps} rir={vals.rir} showRir={!isSegment(padRow)}
             partial={vals.partial ?? ''} onPartial={(v) => set({ partial: v })}
             onTarget={(partial) => setPad((p) => (p ? { ...p, partial } : p))}
@@ -741,7 +742,7 @@ export default function Logger() {
         )
       })()}
 
-      <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title="Übung hinzufügen" />
+      <ExercisePicker open={addOpen} onClose={() => setAddOpen(false)} exercises={all} onPick={addExercise} title={t('Übung hinzufügen')} />
 
       <SuggestionSheet open={whyOpen} onClose={() => setWhyOpen(false)} warn={current.sug.level === 'check'}
         info={current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad, distanceUnitOf(current.ex))} />
@@ -749,7 +750,7 @@ export default function Logger() {
         persist={persist} onPersist={setPersist} canRemove={views.length > 1}
         hasDone={rows.some((r) => r.done)} onSwap={() => setSwapOpen(true)} onRemove={removeExercise} />
       <ExercisePicker open={swapOpen} onClose={() => setSwapOpen(false)} exercises={swapCandidates} onPick={swapExercise}
-        title={`Ersatz für ${current.ex.name}`} allowCardio={false} defaultMuscle={current.ex.primary[0]} />
+        title={t('Ersatz für {0}', current.ex.name)} allowCardio={false} defaultMuscle={current.ex.primary[0]} />
 
       <ExerciseInfoSheet ex={current.ex} open={infoOpen} onClose={() => setInfoOpen(false)} />
 
@@ -780,8 +781,8 @@ export default function Logger() {
 
       <CompleteSheet open={completeOpen} onClose={() => setCompleteOpen(false)} primary={primaryDone} secondary={secondaryDone}
         stats={[
-          { label: 'Dauer', value: backfill ? '–' : `${durMin} min` }, { label: 'Sätze', value: String(workDone.length) },
-          { label: 'Volumen', value: `${Math.round(kgToDisplay(volumeKg, wl)).toLocaleString('de-DE')} ${wl}` },
+          { label: t('Dauer'), value: backfill ? '–' : `${durMin} min` }, { label: t('Sätze'), value: String(workDone.length) },
+          { label: t('Volumen'), value: `${Math.round(kgToDisplay(volumeKg, wl)).toLocaleString(LOCALE)} ${wl}` },
         ]}
         onSave={() => { setCompleteOpen(false); void finish('completed') }} />
     </div>

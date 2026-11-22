@@ -4,6 +4,7 @@ import { BottomSheet, Button, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { MuscleDetail } from '../../components/MuscleFigure'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 function MenuItem({ icon, label, onClick, danger, disabled }: { icon: IconName; label: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
   return (
@@ -27,7 +28,7 @@ export function WorkoutMenuSheet({ open, onClose, paused, onPause, onMinimize, o
         <MenuItem icon={paused ? 'play' : 'pause'} label={paused ? de.logger.resume : de.logger.pause} onClick={() => { onPause(); close() }} />
         <MenuItem icon="minimize" label={de.logger.minimize} onClick={() => { close(); onMinimize() }} />
         <MenuItem icon="flag" label={de.logger.finish} onClick={() => { close(); onFinish() }} />
-        <MenuItem icon="trash" danger label={confirm ? 'Wirklich verwerfen? Nichts wird gespeichert' : de.logger.discard}
+        <MenuItem icon="trash" danger label={confirm ? t('Wirklich verwerfen? Nichts wird gespeichert') : de.logger.discard}
           onClick={() => (confirm ? (close(), onDiscard()) : setConfirm(true))} />
       </div>
     </BottomSheet>
@@ -40,13 +41,13 @@ export function FinishChoiceSheet({ open, onClose, doneCount, openCount, onChoos
   onChoose: (mode: 'completed' | 'all') => void
 }) {
   return (
-    <BottomSheet open={open} onClose={onClose} title="Workout beenden">
-      <p className="text-sm text-muted mb-4">{doneCount} Sätze abgehakt, {openCount} offen. Was soll gespeichert werden?</p>
+    <BottomSheet open={open} onClose={onClose} title={t('Workout beenden')}>
+      <p className="text-sm text-muted mb-4">{doneCount} {t('Sätze abgehakt,')} {openCount} {t('offen. Was soll gespeichert werden?')}</p>
       <div className="space-y-2">
         <Button className="w-full" onClick={() => onChoose('completed')}>{de.logger.logCompleted}</Button>
         <Button variant="ghost" className="w-full" disabled={openCount === 0} onClick={() => onChoose('all')}>{de.logger.logAll}</Button>
         <p className="text-xs text-muted px-1">{de.logger.logAllHint}</p>
-        <Button variant="ghost" className="w-full" onClick={onClose}>Zurück zum Workout</Button>
+        <Button variant="ghost" className="w-full" onClick={onClose}>{t('Zurück zum Workout')}</Button>
       </div>
     </BottomSheet>
   )
@@ -80,7 +81,7 @@ export function CompleteSheet({ open, onClose, primary, secondary, stats, onSave
     <BottomSheet open={open} onClose={onClose} title={de.logger.complete}>
       <div className="relative">
         {open && <Confetti />}
-        <p className="text-sm text-muted text-center mb-3">Stark! Alle Übungen sind abgeschlossen.</p>
+        <p className="text-sm text-muted text-center mb-3">{t('Stark! Alle Übungen sind abgeschlossen.')}</p>
         <MuscleDetail primary={primary} secondary={secondary} />
         <div className="flex gap-2 my-4">
           {stats.map((s) => (
@@ -91,8 +92,8 @@ export function CompleteSheet({ open, onClose, primary, secondary, stats, onSave
           ))}
         </div>
         <div className="space-y-2">
-          <Button className="w-full" onClick={onSave}>Abschließen und speichern</Button>
-          <Button variant="ghost" className="w-full" onClick={onClose}>Weiter trainieren</Button>
+          <Button className="w-full" onClick={onSave}>{t('Abschließen und speichern')}</Button>
+          <Button variant="ghost" className="w-full" onClick={onClose}>{t('Weiter trainieren')}</Button>
         </div>
       </div>
     </BottomSheet>
@@ -105,12 +106,12 @@ export function SupersetSheet({ open, onClose, prev, next, inSuperset, onPick }:
   onPick: (action: 'prev' | 'next' | 'none') => void
 }) {
   return (
-    <BottomSheet open={open} onClose={onClose} title="Supersatz">
+    <BottomSheet open={open} onClose={onClose} title={t('Supersatz')}>
       <div className="space-y-2">
-        <p className="text-xs text-muted px-1">Die Übungen wechseln sich Satz für Satz ab, die Pause startet erst nach der Runde. Gilt auch für künftige Einheiten dieses Trainingstags.</p>
-        {prev && <MenuItem icon="link" label={`Mit vorheriger verbinden: ${prev}`} onClick={() => onPick('prev')} />}
-        {next && <MenuItem icon="link" label={`Mit nächster verbinden: ${next}`} onClick={() => onPick('next')} />}
-        {inSuperset && <MenuItem icon="ban" label="Aus Supersatz lösen" onClick={() => onPick('none')} />}
+        <p className="text-xs text-muted px-1">{t('Die Übungen wechseln sich Satz für Satz ab, die Pause startet erst nach der Runde. Gilt auch für künftige Einheiten dieses Trainingstags.')}</p>
+        {prev && <MenuItem icon="link" label={t('Mit vorheriger verbinden: {0}', prev)} onClick={() => onPick('prev')} />}
+        {next && <MenuItem icon="link" label={t('Mit nächster verbinden: {0}', next)} onClick={() => onPick('next')} />}
+        {inSuperset && <MenuItem icon="ban" label={t('Aus Supersatz lösen')} onClick={() => onPick('none')} />}
       </div>
     </BottomSheet>
   )
@@ -131,17 +132,17 @@ export function ExerciseActionsSheet({ open, onClose, name, persist, onPersist, 
         {onPersist && <button role="switch" aria-checked={persist} onClick={() => onPersist(!persist)}
           className="w-full flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3 text-left active:opacity-70">
           <span>
-            <span className="block text-sm font-medium">Im Programm übernehmen</span>
-            <span className="block text-xs text-muted">{persist ? 'Gilt auch für künftige Einheiten dieses Trainingstags.' : 'Gilt nur für diese Einheit, das Programm bleibt unverändert.'}</span>
+            <span className="block text-sm font-medium">{t('Im Programm übernehmen')}</span>
+            <span className="block text-xs text-muted">{persist ? t('Gilt auch für künftige Einheiten dieses Trainingstags.') : t('Gilt nur für diese Einheit, das Programm bleibt unverändert.')}</span>
           </span>
           <span className={cx('h-6 w-10 shrink-0 rounded-full p-0.5 transition-colors', persist ? 'bg-accent' : 'bg-surface2')}>
             <span className={cx('block h-5 w-5 rounded-full bg-white transition-transform', persist && 'translate-x-4')} />
           </span>
         </button>}
-        {hasDone && <p className="text-xs text-warn px-1">Die abgehakten Sätze dieser Übung gehen verloren.</p>}
-        <MenuItem icon="automation" label="Übung tauschen" onClick={() => { close(); onSwap() }} />
+        {hasDone && <p className="text-xs text-warn px-1">{t('Die abgehakten Sätze dieser Übung gehen verloren.')}</p>}
+        <MenuItem icon="automation" label={t('Übung tauschen')} onClick={() => { close(); onSwap() }} />
         <MenuItem icon="trash" danger disabled={!canRemove}
-          label={!canRemove ? 'Entfernen nicht möglich: letzte Übung' : confirm ? 'Wirklich entfernen?' : 'Übung entfernen'}
+          label={!canRemove ? t('Entfernen nicht möglich: letzte Übung') : confirm ? t('Wirklich entfernen?') : t('Übung entfernen')}
           onClick={() => (confirm ? (close(), onRemove()) : setConfirm(true))} />
       </div>
     </BottomSheet>
@@ -153,7 +154,7 @@ export function SuggestionSheet({ open, onClose, info, warn }: {
   open: boolean; onClose: () => void; info: { title: string; text: string } | null; warn: boolean
 }) {
   return (
-    <BottomSheet open={open} onClose={onClose} title={info?.title ?? 'Vorschlag'}>
+    <BottomSheet open={open} onClose={onClose} title={info?.title ?? t('Vorschlag')}>
       <p className={cx('text-sm', warn && 'text-warn')}>{info?.text}</p>
     </BottomSheet>
   )

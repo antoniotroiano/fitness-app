@@ -4,6 +4,7 @@ import { stepsToSets } from '../../engine/warmup'
 import { kgToDisplay } from '../../utils/units'
 import { SchemeTable } from './sheets'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 /** "Set Calculator": Aufwärmsätze der Übung, umschaltbar zwischen Smart (berechnet) und Scheme (editierbar). */
 export function WarmupSheet({ open, onClose, mode, smart, scheme, hasOverride, workWeight, equipment, unit, scale, onMode, onScheme, onResetScheme }: {
@@ -26,22 +27,22 @@ export function WarmupSheet({ open, onClose, mode, smart, scheme, hasOverride, w
   const header = (
     <div className="flex items-center gap-3 min-h-8">
       <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{de.logger.calculator}</h2>
-      <div role="tablist" aria-label="Aufwärm-Modus" className="flex gap-1 p-1 rounded-xl bg-surface2">
+      <div role="tablist" aria-label={t('Aufwärm-Modus')} className="flex gap-1 p-1 rounded-xl bg-surface2">
         {seg('smart', 'Smart')}{seg('scheme', de.common.scheme)}
       </div>
-      <button type="button" onClick={onClose} aria-label="Schließen"
+      <button type="button" onClick={onClose} aria-label={t('Schließen')}
         className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
     </div>
   )
   return (
     <BottomSheet open={open} onClose={onClose} header={header}>
-      {mode === 'none' && <p className="text-sm text-muted mb-3">Aufwärmen ist für diese Übung ausgeschaltet. Wähle Smart oder Scheme, um es zu aktivieren.</p>}
+      {mode === 'none' && <p className="text-sm text-muted mb-3">{t('Aufwärmen ist für diese Übung ausgeschaltet. Wähle Smart oder Scheme, um es zu aktivieren.')}</p>}
       {mode === 'smart' && (
-        <p className="text-xs text-muted mb-3">Smart berechnet die Sätze aus der Schwere des Arbeitsgewichts und der Frische des Muskels. Zum Ändern auf Scheme wechseln.</p>
+        <p className="text-xs text-muted mb-3">{t('Smart berechnet die Sätze aus der Schwere des Arbeitsgewichts und der Frische des Muskels. Zum Ändern auf Scheme wechseln.')}</p>
       )}
       {mode !== 'none' && <SchemeTable steps={steps} editable={mode === 'scheme'} onChange={onScheme} weights={weights} />}
       {mode === 'scheme' && hasOverride && (
-        <Button variant="ghost" className="w-full mt-4" onClick={onResetScheme}>Auf Standard zurücksetzen</Button>
+        <Button variant="ghost" className="w-full mt-4" onClick={onResetScheme}>{t('Auf Standard zurücksetzen')}</Button>
       )}
     </BottomSheet>
   )

@@ -7,13 +7,14 @@ import { exerciseById } from '../../data/exercises'
 import { useAllExercises, useSessions, useSettings, useBodyweights } from '../../db/db'
 import { kgToDisplay } from '../../utils/units'
 import { muscleContributions, setTier, volumeSplit, weeklyMuscleSets } from '../../engine/stats'
+import { t, LOCALE, lc } from '../../i18n'
 
 const WEEKS = [1, 4, 12] as const
 /** Farbstufen (setTier 1–4): Muskelfarbe, gemischt mit der Linienfarbe */
 const TIER_COLOR = ['', 30, 55, 80, 100].map((p) => (p === '' ? '' : `color-mix(in srgb, var(--muscle) ${p}%, var(--line))`))
 const LEGEND = [[1, '< 4'], [2, '4–9'], [3, '10–20'], [4, '> 20']] as const
 
-const fmt = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 1 })
+const fmt = (n: number) => n.toLocaleString(LOCALE, { maximumFractionDigits: 1 })
 
 /** Ø Sätze/Woche je Muskel, Farben der Karte und sortierte Liste */
 function useMuscleVolume(weeks: number) {
@@ -39,10 +40,10 @@ export function VolumeTile({ onClick }: { onClick: () => void }) {
       <Card className="flex items-center gap-4 active:opacity-70">
         <MusclePair colors={colors} height={96} />
         <div className="min-w-0 space-y-1">
-          <div className="font-semibold text-sm">Körperkarte</div>
-          <div className="text-sm truncate">{top.length ? top.map((m) => `${m.label} ${fmt(m.v)}`).join(' · ') : 'Noch keine Sätze'}</div>
-          <div className="text-xs text-muted">{low} {low === 1 ? 'Muskel' : 'Muskeln'} unter 4 Sätzen</div>
-          <div className="text-xs text-muted">Ø Sätze pro Woche, letzte 4 Wochen</div>
+          <div className="font-semibold text-sm">{t('Körperkarte')}</div>
+          <div className="text-sm truncate">{top.length ? top.map((m) => `${m.label} ${fmt(m.v)}`).join(' · ') : t('Noch keine Sätze')}</div>
+          <div className="text-xs text-muted">{low} {lc(low === 1 ? t('Muskel') : t('Muskeln'))} {t('unter 4 Sätzen')}</div>
+          <div className="text-xs text-muted">{t('Ø Sätze pro Woche, letzte 4 Wochen')}</div>
         </div>
       </Card>
     </button>
@@ -64,17 +65,17 @@ export function BodyMap({ onMuscle }: { onMuscle: (id: MuscleId) => void }) {
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        {WEEKS.map((w) => <Chip key={w} active={weeks === w} onClick={() => setWeeks(w)}>{w === 1 ? '1 Woche' : `${w} Wochen`}</Chip>)}
+        {WEEKS.map((w) => <Chip key={w} active={weeks === w} onClick={() => setWeeks(w)}>{w === 1 ? t('1 Woche') : t('{0} Wochen', w)}</Chip>)}
       </div>
     <VolumeSplitCard weeks={weeks} />
     <Card className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <div className="font-semibold text-sm">Körperkarte</div>
-          <div className="text-xs text-muted">Ø Sätze pro Woche, sekundäre Muskeln zählen halb</div>
+          <div className="font-semibold text-sm">{t('Körperkarte')}</div>
+          <div className="text-xs text-muted">{t('Ø Sätze pro Woche, sekundäre Muskeln zählen halb')}</div>
         </div>
       </div>
-      <div className="flex justify-center" role="img" aria-label={`Körperkarte, Ø Sätze pro Woche über ${weeks} ${weeks === 1 ? 'Woche' : 'Wochen'}`}>
+      <div className="flex justify-center" role="img" aria-label={t('Körperkarte, Ø Sätze pro Woche über {0} {1}', weeks, lc(weeks === 1 ? t('Woche') : t('Wochen')))}>
         <MusclePair colors={colors} height={240} />
       </div>
       <div className="flex justify-center gap-3 text-2xs text-muted">
@@ -99,17 +100,17 @@ export function BodyMap({ onMuscle }: { onMuscle: (id: MuscleId) => void }) {
               </button>
               {open && (
                 <div className="pb-3 pl-4 space-y-1.5">
-                  {contrib.length === 0 && <p className="text-xs text-muted">Keine Sätze in diesem Zeitraum.</p>}
+                  {contrib.length === 0 && <p className="text-xs text-muted">{t('Keine Sätze in diesem Zeitraum.')}</p>}
                   {contrib.map((c) => (
                     <div key={c.exerciseId} className="flex items-center justify-between gap-2 text-xs">
                       <span className="min-w-0 truncate">
                         {exerciseById(c.exerciseId, all)?.name ?? c.exerciseId}
-                        <span className="text-muted"> · {c.role === 'primary' ? 'Hauptmuskel' : 'Nebenmuskel (½)'}</span>
+                        <span className="text-muted"> · {c.role === 'primary' ? t('Hauptmuskel') : t('Nebenmuskel (½)')}</span>
                       </span>
                       <span className="tabular-nums font-medium">{fmt(c.perWeek)}</span>
                     </div>
                   ))}
-                  <LinkButton onClick={() => onMuscle(m.id)} className="text-xs">Verlauf ansehen</LinkButton>
+                  <LinkButton onClick={() => onMuscle(m.id)} className="text-xs">{t('Verlauf ansehen')}</LinkButton>
                 </div>
               )}
             </li>
@@ -130,20 +131,20 @@ function VolumeSplitCard({ weeks }: { weeks: number }) {
   const v = useMemo(() => volumeSplit(sessions, (id) => exerciseById(id, all), weights, weeks), [sessions, all, weights, weeks])
   const total = v.external + v.bodyweight
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
-  const kg = (n: number) => `${Math.round(kgToDisplay(n, unit)).toLocaleString('de-DE')} ${unit}`
+  const kg = (n: number) => `${Math.round(kgToDisplay(n, unit)).toLocaleString(LOCALE)} ${unit}`
   const rows = [
-    { label: 'Gewicht (Hantel, Maschine, Zusatz)', value: v.external, color: 'var(--muscle)' },
-    { label: 'Körpergewicht', value: v.bodyweight, color: 'color-mix(in srgb, var(--muscle) 40%, var(--line))' },
+    { label: t('Gewicht (Hantel, Maschine, Zusatz)'), value: v.external, color: 'var(--muscle)' },
+    { label: t('Körpergewicht'), value: v.bodyweight, color: 'color-mix(in srgb, var(--muscle) 40%, var(--line))' },
   ]
   return (
     <Card className="space-y-3">
       <div>
-        <div className="font-semibold text-sm">Wochenvolumen</div>
-        <div className="text-xs text-muted">Ø pro Woche, Gewicht × Wdh.</div>
+        <div className="font-semibold text-sm">{t('Wochenvolumen')}</div>
+        <div className="text-xs text-muted">{t('Ø pro Woche, Gewicht × Wdh.')}</div>
       </div>
       <div className="text-2xl font-semibold tabular-nums">{kg(total)}</div>
       <div className="flex h-3 rounded-full overflow-hidden bg-surface2" role="img"
-        aria-label={`${pct(v.external)} % Gewicht, ${pct(v.bodyweight)} % Körpergewicht`}>
+        aria-label={t('{0} % Gewicht, {1} % Körpergewicht', pct(v.external), pct(v.bodyweight))}>
         {rows.map((r) => r.value > 0 && <div key={r.label} style={{ width: `${pct(r.value)}%`, background: r.color }} />)}
       </div>
       <ul className="space-y-1.5">
@@ -154,7 +155,7 @@ function VolumeSplitCard({ weeks }: { weeks: number }) {
           </li>
         ))}
       </ul>
-      {weights.length === 0 && <p className="text-xs text-muted">Ohne eingetragenes Körpergewicht zählt bei Klimmzügen, Dips und Co. nur das Zusatzgewicht.</p>}
+      {weights.length === 0 && <p className="text-xs text-muted">{t('Ohne eingetragenes Körpergewicht zählt bei Klimmzügen, Dips und Co. nur das Zusatzgewicht.')}</p>}
     </Card>
   )
 }

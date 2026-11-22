@@ -1,6 +1,7 @@
 import type { PlannedExercise, Program, ProgramConfig, WeekState } from '../types'
 import { BLOCK_WEEK_OPTIONS, blockLength } from './periodization'
 import { normalizeSupersets } from './superset'
+import { t } from '../i18n'
 
 /**
  * Programm verwalten (PLAN-6 B4): Einstellungen ändern, duplizieren, archivieren, Programm-Ende, Übung auf einen
@@ -49,8 +50,8 @@ export function applySettings(p: Program, s: ProgramSettings): Program {
 export function copyName(name: string, existing: string[]): string {
   const base = name.replace(/ \(Kopie(?: \d+)?\)$/, '')
   const taken = new Set(existing.map((n) => n.toLowerCase()))
-  let candidate = `${base} (Kopie)`
-  for (let n = 2; taken.has(candidate.toLowerCase()); n++) candidate = `${base} (Kopie ${n})`
+  let candidate = t('{0} (Kopie)', base)
+  for (let n = 2; taken.has(candidate.toLowerCase()); n++) candidate = t('{0} (Kopie {1})', base, n)
   return candidate.slice(0, 60)
 }
 

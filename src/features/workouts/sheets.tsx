@@ -7,6 +7,7 @@ import { incrementKg } from '../../engine/progression'
 import { isValidSegment, normalizeWeights, scaleFromSegments } from '../../engine/weightScale'
 import { KG_PER_LB, displayToKg, kgToDisplay } from '../../utils/units'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 export const NOTE_MAX = 300
 
@@ -33,17 +34,17 @@ export function SchemeTable({ steps, onChange, editable, weights }: {
   return (
     <div className={cx(!editable && 'opacity-60')}>
       <div className="grid grid-cols-[2rem_1fr_1fr_3.5rem] gap-2 text-xs text-muted pb-2 border-b border-line">
-        <span>{de.logger.set}</span><span className="text-center">% Arbeitsgewicht</span><span className="text-center">Wdh.</span>
-        <span className="text-right">{weights ? 'Gewicht' : ''}</span>
+        <span>{de.logger.set}</span><span className="text-center">{t('% Arbeitsgewicht')}</span><span className="text-center">{t('Wdh.')}</span>
+        <span className="text-right">{weights ? t('Gewicht') : ''}</span>
       </div>
-      {steps.length === 0 && <p className="py-4 text-sm text-muted text-center">Keine Aufwärmsätze</p>}
+      {steps.length === 0 && <p className="py-4 text-sm text-muted text-center">{t('Keine Aufwärmsätze')}</p>}
       {steps.map((s, i) => (
         <div key={i} className="grid grid-cols-[2rem_1fr_1fr_3.5rem] gap-2 items-center py-1.5 border-b border-line/60">
           <span className="text-sm font-semibold text-warn">W{i + 1}</span>
           {editable ? (
             <>
-              <Stepper label="Prozent" value={s.pct} min={10} max={95} step={5} suffix="%" onChange={(v) => set(i, { pct: v })} />
-              <Stepper label="Wiederholungen" value={s.reps} min={1} max={20} step={1} suffix="" onChange={(v) => set(i, { reps: v })} />
+              <Stepper label={t('Prozent')} value={s.pct} min={10} max={95} step={5} suffix="%" onChange={(v) => set(i, { pct: v })} />
+              <Stepper label={t('Wiederholungen')} value={s.reps} min={1} max={20} step={1} suffix="" onChange={(v) => set(i, { reps: v })} />
             </>
           ) : (
             <>
@@ -57,8 +58,8 @@ export function SchemeTable({ steps, onChange, editable, weights }: {
       {editable && (
         <div className="flex gap-2 pt-3">
           <Button variant="ghost" className="flex-1 !py-2" disabled={steps.length >= 6}
-            onClick={() => onChange?.([...steps, { pct: Math.min(95, (steps.at(-1)?.pct ?? 40) + 10), reps: Math.max(1, (steps.at(-1)?.reps ?? 8) - 2) }])}>+ Satz</Button>
-          <Button variant="ghost" className="flex-1 !py-2" disabled={steps.length === 0} onClick={() => onChange?.(steps.slice(0, -1))}>− Satz</Button>
+            onClick={() => onChange?.([...steps, { pct: Math.min(95, (steps.at(-1)?.pct ?? 40) + 10), reps: Math.max(1, (steps.at(-1)?.reps ?? 8) - 2) }])}>{t('+ Satz')}</Button>
+          <Button variant="ghost" className="flex-1 !py-2" disabled={steps.length === 0} onClick={() => onChange?.(steps.slice(0, -1))}>{t('− Satz')}</Button>
         </div>
       )}
     </div>
@@ -66,7 +67,7 @@ export function SchemeTable({ steps, onChange, editable, weights }: {
 }
 
 /** Sheet zum Bearbeiten eines Schemas (Einstellungen und Übungs-Override). */
-export function SchemeEditor({ open, onClose, title, steps, onSave, onReset, resetLabel = 'Standard wiederherstellen' }: {
+export function SchemeEditor({ open, onClose, title, steps, onSave, onReset, resetLabel = t('Standard wiederherstellen') }: {
   open: boolean; onClose: () => void; title: string; steps: WarmupStep[]
   onSave: (s: WarmupStep[]) => void; onReset?: () => void; resetLabel?: string
 }) {
@@ -76,7 +77,7 @@ export function SchemeEditor({ open, onClose, title, steps, onSave, onReset, res
     <BottomSheet open={open} onClose={onClose} title={title}>
       <SchemeTable steps={draft} editable onChange={setDraft} />
       <div className="space-y-2 pt-4">
-        <Button className="w-full" onClick={() => { onSave(draft); onClose() }}>Speichern</Button>
+        <Button className="w-full" onClick={() => { onSave(draft); onClose() }}>{t('Speichern')}</Button>
         {onReset && <Button variant="ghost" className="w-full" onClick={() => { onReset(); onClose() }}>{resetLabel}</Button>}
       </div>
     </BottomSheet>
@@ -127,15 +128,15 @@ export function RestOverrideSheet({ open, onClose, defaultSec, override, onSave 
   const btn = 'w-11 h-11 rounded-xl bg-surface2 text-xl'
   return (
     <BottomSheet open={open} onClose={onClose} title={de.warmup.restTimer}>
-      <p className="text-xs text-muted mb-4">Pause nach Arbeitssätzen dieser Übung. Standard ihrer Gruppe: {formatRest(defaultSec)}.</p>
+      <p className="text-xs text-muted mb-4">{t('Pause nach Arbeitssätzen dieser Übung. Standard ihrer Gruppe:')} {formatRest(defaultSec)}.</p>
       <div className="flex items-center justify-center gap-5 mb-5">
-        <button className={btn} aria-label="Kürzer" onClick={() => setV(Math.max(15, v - 15))}>−</button>
+        <button className={btn} aria-label={t('Kürzer')} onClick={() => setV(Math.max(15, v - 15))}>−</button>
         <span className="w-24 text-center text-2xl font-bold tabular-nums">{formatRest(v)}</span>
-        <button className={btn} aria-label="Länger" onClick={() => setV(Math.min(600, v + 15))}>+</button>
+        <button className={btn} aria-label={t('Länger')} onClick={() => setV(Math.min(600, v + 15))}>+</button>
       </div>
       <div className="space-y-2">
-        <Button className="w-full" onClick={() => { onSave(v === defaultSec ? undefined : v); onClose() }}>Speichern</Button>
-        {override !== undefined && <Button variant="ghost" className="w-full" onClick={() => { onSave(undefined); onClose() }}>Zurück zum Default</Button>}
+        <Button className="w-full" onClick={() => { onSave(v === defaultSec ? undefined : v); onClose() }}>{t('Speichern')}</Button>
+        {override !== undefined && <Button variant="ghost" className="w-full" onClick={() => { onSave(undefined); onClose() }}>{t('Zurück zum Default')}</Button>}
       </div>
     </BottomSheet>
   )
@@ -151,7 +152,7 @@ export function scaleSummary(s: WeightScale | undefined, unit: Settings['weightU
   if (!s) return de.common.default
   const d = (kg: number) => Math.round((unit === 'lb' ? kg / KG_PER_LB : kg) * 100) / 100
   if (s.kind === 'range') return `${d(s.min)}–${d(s.max)} ${unit} · ${d(s.step)} ${unit}`
-  if (s.segments?.length) return `${s.segments.length > 1 ? `${s.segments.length} Bereiche · ` : ''}${d(s.segments[0].from)}–${d(s.segments.at(-1)!.to)} ${unit}${s.micro ? ` · +${d(s.micro)}` : ''}`
+  if (s.segments?.length) return `${s.segments.length > 1 ? t('{0} Bereiche · ', s.segments.length) : ''}${d(s.segments[0].from)}–${d(s.segments.at(-1)!.to)} ${unit}${s.micro ? ` · +${d(s.micro)}` : ''}`
   const l = normalizeWeights(s.weights).map(d)
   return l.length > 4 ? `${l.slice(0, 3).join(', ')} … ${l[l.length - 1]} ${unit}` : `${l.join(', ')} ${unit}`
 }
@@ -231,7 +232,7 @@ export function WeightScaleSheet({ open, onClose, scale, unit, onSave }: {
       {valid && <p className="text-xs text-muted mb-3">{de.exercise.scaleCount(count)}</p>}
       {!valid && <p className="text-xs text-danger mb-3" role="alert">{de.exercise.scaleInvalid}</p>}
       <div className="space-y-2">
-        <Button className="w-full" disabled={!built} onClick={() => { if (built) { onSave(built); onClose() } }}>Speichern</Button>
+        <Button className="w-full" disabled={!built} onClick={() => { if (built) { onSave(built); onClose() } }}>{t('Speichern')}</Button>
         {scale && <Button variant="ghost" className="w-full" onClick={() => { onSave(undefined); onClose() }}>{de.exercise.resetDefault}</Button>}
       </div>
     </BottomSheet>
@@ -282,7 +283,7 @@ export function WeightListSheet({ open, onClose, equipment, scale, unit, onSave 
       <h2 className="font-bold text-lg flex-1 min-w-0 truncate">{de.exercise.weightScale}</h2>
       <button type="button" onClick={() => setAdding(true)} aria-label={de.exercise.addWeight}
         className="w-8 h-8 shrink-0 rounded-full bg-surface2 flex items-center justify-center text-lg leading-none">+</button>
-      <button type="button" onClick={onClose} aria-label="Schließen"
+      <button type="button" onClick={onClose} aria-label={t('Schließen')}
         className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
     </div>
   )
@@ -302,24 +303,24 @@ export function WeightListSheet({ open, onClose, equipment, scale, unit, onSave 
         </ul>
         <div className="space-y-2">
           <Button className="w-full" disabled={checked.length === 0}
-            onClick={() => { onSave({ kind: 'list', weights: normalizeWeights(checked.map((w) => displayToKg(w, unit))) }); onClose() }}>Speichern</Button>
+            onClick={() => { onSave({ kind: 'list', weights: normalizeWeights(checked.map((w) => displayToKg(w, unit))) }); onClose() }}>{t('Speichern')}</Button>
           {scale && <Button variant="ghost" className="w-full" onClick={() => { onSave(undefined); onClose() }}>{de.exercise.resetDefault}</Button>}
         </div>
       </BottomSheet>
       <BottomSheet open={open && adding} onClose={() => setAdding(false)} title={de.exercise.addWeight}>
         <div className="relative mb-4">
           <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} inputMode="decimal"
-            placeholder="Gewicht" aria-label="Gewicht" autoFocus className="w-full h-12 rounded-xl bg-surface2 border border-line pl-4 pr-12 text-base" />
+            placeholder={t('Gewicht')} aria-label={t('Gewicht')} autoFocus className="w-full h-12 rounded-xl bg-surface2 border border-line pl-4 pr-12 text-base" />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none">{unit.toUpperCase()}</span>
         </div>
-        <Button className="w-full" disabled={!canAdd} onClick={add}>Speichern</Button>
+        <Button className="w-full" disabled={!canAdd} onClick={add}>{t('Speichern')}</Button>
       </BottomSheet>
     </>
   )
 }
 
 export const schemeSummary = (steps: WarmupStep[]) =>
-  steps.length ? steps.map((s) => `${s.pct}% × ${s.reps}`).join(' · ') : 'Keine Aufwärmsätze'
+  steps.length ? steps.map((s) => `${s.pct}% × ${s.reps}`).join(' · ') : t('Keine Aufwärmsätze')
 
 /**
  * Listenzeile mit Icon, Titel, Sub Header und optional Hinweistext. Mit `action` ist nur der
@@ -368,7 +369,7 @@ export function NoteSheet({ open, onClose, ex, scopes, initialScope, values, onS
   const pick = (s: NoteScope) => { setScope(s); setText(values[s] ?? '') }
   if (!ex) return null
   return (
-    <BottomSheet open={open} onClose={onClose} title={`Notiz · ${ex.name}`}>
+    <BottomSheet open={open} onClose={onClose} title={t('Notiz · {0}', ex.name)}>
       {scopes.length > 1 && (
         <div role="tablist" className="flex gap-1 p-1 rounded-xl bg-surface2 mb-3">
           {scopes.map((s) => (
@@ -378,18 +379,18 @@ export function NoteSheet({ open, onClose, ex, scopes, initialScope, values, onS
         </div>
       )}
       <p className="text-xs text-muted mb-2">
-        {scope === 'session' ? 'Gilt nur für dieses Workout und wird mit der Einheit gespeichert.'
-          : scope === 'exercise' ? 'Gilt für diese Übung in jedem Workout und Programm.' : 'Gilt für diese Übung nur in diesem Programm.'}
+        {scope === 'session' ? t('Gilt nur für dieses Workout und wird mit der Einheit gespeichert.')
+          : scope === 'exercise' ? t('Gilt für diese Übung in jedem Workout und Programm.') : t('Gilt für diese Übung nur in diesem Programm.')}
       </p>
       <textarea value={text} maxLength={NOTE_MAX} rows={5} onChange={(e) => setText(e.target.value.slice(0, NOTE_MAX))}
-        aria-label="Notiz" placeholder="Notiz eingeben…"
+        aria-label={t('Notiz')} placeholder={t('Notiz eingeben…')}
         className="w-full rounded-xl bg-surface2 border border-line px-3 py-2.5 text-sm outline-none focus:border-accent resize-none" />
       <div className="text-right text-xs text-muted tabular-nums mt-1 mb-3">{text.length}/{NOTE_MAX}</div>
       <div className="flex gap-2">
         {(values[scope] ?? '') !== '' && (
-          <Button variant="danger" onClick={() => { onSave(scope, ''); onClose() }}>Löschen</Button>
+          <Button variant="danger" onClick={() => { onSave(scope, ''); onClose() }}>{t('Löschen')}</Button>
         )}
-        <Button className="flex-1" onClick={() => { onSave(scope, text.trim()); onClose() }}>Speichern</Button>
+        <Button className="flex-1" onClick={() => { onSave(scope, text.trim()); onClose() }}>{t('Speichern')}</Button>
       </div>
     </BottomSheet>
   )

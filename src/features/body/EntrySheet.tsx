@@ -7,6 +7,7 @@ import { deleteBodyEntry, saveBodyEntry } from '../../db/db'
 import { displayToKg, kgToDisplay } from '../../utils/units'
 import { formatDate } from '../../utils/dates'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 /** Sheet zum Bearbeiten von Gewicht und Körperfett eines Tages (Vergangenheit/heute). */
 export function EntrySheet({ date, today, entry, unit, onClose }: {
@@ -59,12 +60,12 @@ export function EntrySheet({ date, today, entry, unit, onClose }: {
 
   const header = (
     <div className="flex items-center gap-3 min-h-8 border-b border-line pb-3 -mx-5 px-5">
-      <button type="button" onClick={onClose} aria-label="Schließen"
+      <button type="button" onClick={onClose} aria-label={t('Schließen')}
         className="w-8 h-8 shrink-0 rounded-full bg-surface2 text-muted flex items-center justify-center text-sm">✕</button>
       <h2 className="flex-1 text-center font-bold truncate">
         {date ? formatDate(date, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }) : ''}
       </h2>
-      <button type="button" onClick={remove} disabled={future || !entry} aria-label="Eintrag löschen"
+      <button type="button" onClick={remove} disabled={future || !entry} aria-label={t('Eintrag löschen')}
         className={cx('w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-sm',
           confirmDel ? 'bg-danger text-danger-fg' : 'bg-danger/15 text-danger', (future || !entry) && 'opacity-30')}><Icon name="trash" size={16} /></button>
     </div>
@@ -75,8 +76,8 @@ export function EntrySheet({ date, today, entry, unit, onClose }: {
       <BottomSheet open={open} onClose={onClose} header={header} height="40%">
         <div className="text-center py-8 space-y-2">
           <div className="text-4xl">📅</div>
-          <p className="font-semibold">Dieses Datum liegt in der Zukunft</p>
-          <p className="text-sm text-muted">Klicke auf ein Datum, das schon war.</p>
+          <p className="font-semibold">{t('Dieses Datum liegt in der Zukunft')}</p>
+          <p className="text-sm text-muted">{t('Klicke auf ein Datum, das schon war.')}</p>
         </div>
       </BottomSheet>
     )
@@ -93,12 +94,12 @@ export function EntrySheet({ date, today, entry, unit, onClose }: {
   return (
     <BottomSheet open={open} onClose={onClose} header={header} height="75%">
       <div className="space-y-3">
-        {confirmDel && <p className="text-xs text-danger text-center">Nochmal auf das Papierkorb-Symbol tippen, um den Eintrag endgültig zu löschen.</p>}
+        {confirmDel && <p className="text-xs text-danger text-center">{t('Nochmal auf das Papierkorb-Symbol tippen, um den Eintrag endgültig zu löschen.')}</p>}
         <div className="flex gap-2">
           {box('kg', de.common.weight, kg, unit)}
           {box('bf', de.common.bodyFat, bf, '%')}
         </div>
-        <Button className="w-full" onClick={save} disabled={!canSave}>Speichern</Button>
+        <Button className="w-full" onClick={save} disabled={!canSave}>{t('Speichern')}</Button>
         <NumberPad onDigit={press} onComma={() => press(',')} onBack={() => press('back')} />
       </div>
     </BottomSheet>

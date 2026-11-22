@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { WeekTarget } from '../../types'
 import { BottomSheet, Button, cx, inputCls } from '../../components/ui'
+import { t } from '../../i18n'
 
 export interface WeekScope { key: string; label: string }
 
@@ -11,7 +12,7 @@ export interface WeekValues { sets: number; repMin: number; repMax: number; rir:
  * Ziele einer Übung für eine Woche bearbeiten: Sätze, Wdh.-Bereich, RIR, auslassen. Leere Felder = berechneter Wert.
  * `scopes`: wofür das Ziel gilt (z. B. nur diese Woche / jeden Block); das erste ist vorausgewählt.
  */
-export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: computedIn, current, scopes: scopesIn, dayWide, onSave, onClose }: {
+export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), computed: computedIn, current, scopes: scopesIn, dayWide, onSave, onClose }: {
   open: boolean; title: string; unit?: string
   computed: WeekValues
   /** Bestehende eigene Ziele je Scope-Schlüssel */
@@ -73,7 +74,7 @@ export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: 
     <BottomSheet open={open} onClose={onClose} title={title}>
       <div className="space-y-4">
         {scopes.length > 1 && (
-          <div role="radiogroup" aria-label="Gilt für" className="grid grid-cols-2 gap-1 rounded-xl bg-surface2 p-1">
+          <div role="radiogroup" aria-label={t('Gilt für')} className="grid grid-cols-2 gap-1 rounded-xl bg-surface2 p-1">
             {scopes.map((s) => (
               <button key={s.key} role="radio" aria-checked={scope === s.key} onClick={() => { setScope(s.key); load(s.key) }}
                 className={cx('rounded-lg py-2 text-xs font-medium', scope === s.key ? 'bg-surface shadow text-fg' : 'text-muted')}>{s.label}</button>
@@ -81,18 +82,18 @@ export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: 
           </div>
         )}
         <div className="flex gap-2">
-          {field('sets', 'Sätze', computed.sets)}
+          {field('sets', t('Sätze'), computed.sets)}
           {field('repMin', `${unit} von`, computed.repMin)}
           {field('repMax', 'bis', computed.repMax)}
           {field('rir', 'RIR', computed.rir)}
         </div>
-        <p className="text-xs text-muted">Leere Felder übernehmen den Wert aus dem Wochenplan.</p>
+        <p className="text-xs text-muted">{t('Leere Felder übernehmen den Wert aus dem Wochenplan.')}</p>
         <label className="flex items-center gap-3">
           <span className="flex-1 min-w-0">
-            <span className="block text-sm font-medium">In dieser Woche auslassen</span>
-            <span className="block text-xs text-muted">Die Übung erscheint nicht im Training und zählt nicht zum Wochenfortschritt.</span>
+            <span className="block text-sm font-medium">{t('In dieser Woche auslassen')}</span>
+            <span className="block text-xs text-muted">{t('Die Übung erscheint nicht im Training und zählt nicht zum Wochenfortschritt.')}</span>
           </span>
-          <button role="switch" aria-checked={f.skip} aria-label="In dieser Woche auslassen" onClick={() => setF((x) => ({ ...x, skip: !x.skip }))}
+          <button role="switch" aria-checked={f.skip} aria-label={t('In dieser Woche auslassen')} onClick={() => setF((x) => ({ ...x, skip: !x.skip }))}
             className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', f.skip ? 'bg-accent' : 'bg-line')}>
             <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', f.skip ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
           </button>
@@ -100,18 +101,18 @@ export function WeekTargetSheet({ open, title: titleIn, unit = 'Wdh', computed: 
         {dayWide && (
           <label className="flex items-center gap-3">
             <span className="flex-1 min-w-0">
-              <span className="block text-sm font-medium">Auf alle Übungen des Tages anwenden</span>
-              <span className="block text-xs text-muted">Nur die ausgefüllten Felder. Zurücksetzen entfernt das Ziel bei allen Übungen des Tages.</span>
+              <span className="block text-sm font-medium">{t('Auf alle Übungen des Tages anwenden')}</span>
+              <span className="block text-xs text-muted">{t('Nur die ausgefüllten Felder. Zurücksetzen entfernt das Ziel bei allen Übungen des Tages.')}</span>
             </span>
-            <button role="switch" aria-checked={wide} aria-label="Auf alle Übungen des Tages anwenden" onClick={() => setWide((x) => !x)}
+            <button role="switch" aria-checked={wide} aria-label={t('Auf alle Übungen des Tages anwenden')} onClick={() => setWide((x) => !x)}
               className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', wide ? 'bg-accent' : 'bg-line')}>
               <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', wide ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
             </button>
           </label>
         )}
         <div className="flex gap-2">
-          {(has || wide) && <Button variant="ghost" className="flex-1" onClick={() => { onSave(scope, undefined, wide ? {} : undefined); onClose() }}>Zurücksetzen</Button>}
-          <Button className="flex-1" onClick={save}>Speichern</Button>
+          {(has || wide) && <Button variant="ghost" className="flex-1" onClick={() => { onSave(scope, undefined, wide ? {} : undefined); onClose() }}>{t('Zurücksetzen')}</Button>}
+          <Button className="flex-1" onClick={save}>{t('Speichern')}</Button>
         </div>
       </div>
     </BottomSheet>

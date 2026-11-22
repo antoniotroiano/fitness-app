@@ -7,6 +7,7 @@ import { db, saveProgram, useActiveProgram, useAllExercises } from '../../db/db'
 import { weekSlots } from '../../engine/planGenerator'
 import { ExercisePicker, IdentityFields, SupersetLinkRow } from './shared'
 import { linksOf, normalizeSupersets, toggleSupersetLink } from '../../engine/superset'
+import { t } from '../../i18n'
 
 /** Ganzzahlfeld, das sich leeren lässt: der Wert wird erst übernommen, wenn eine gültige Zahl drinsteht, beim Verlassen wird zurückgesetzt. */
 function IntInput({ value, min = 1, max, className, onValue }: { value: number; min?: number; max?: number; className: string; onValue: (n: number) => void }) {
@@ -62,17 +63,17 @@ export default function ManualBuilder() {
   }
 
   return (
-    <Page title={single ? 'Neues Workout' : 'Programm selbst erstellen'} back={() => nav(-1)}>
+    <Page title={single ? t('Neues Workout') : t('Programm selbst erstellen')} back={() => nav(-1)}>
       {!single && <Card><IdentityFields name={name} icon={icon} color={color}
         onChange={(v) => { if (v.name !== undefined) setName(v.name); if (v.icon) setIcon(v.icon); if (v.color) setColor(v.color) }} /></Card>}
 
       {days.map((d, di) => (
         <Card key={d.id} className="space-y-3">
           <div className="flex gap-2">
-            <input className={inputCls} value={d.name} placeholder="Name des Workouts"
+            <input className={inputCls} value={d.name} placeholder={t('Name des Workouts')}
               onChange={(e) => update(di, (x) => ({ ...x, name: e.target.value }))} />
             {!single && days.length > 1 && (
-              <button className="text-danger text-sm px-2" onClick={() => setDays((ds) => ds.filter((_, i) => i !== di))}>Löschen</button>
+              <button className="text-danger text-sm px-2" onClick={() => setDays((ds) => ds.filter((_, i) => i !== di))}>{t('Löschen')}</button>
             )}
           </div>
           <ul className="divide-y divide-line">
@@ -82,11 +83,11 @@ export default function ManualBuilder() {
               <li className="py-2.5 space-y-2">
                 <div className="flex justify-between gap-2">
                   <span className="text-sm font-medium">{exerciseById(e.exerciseId, all)?.name}</span>
-                  <button className="text-xs text-danger" onClick={() => update(di, (x) => ({ ...x, exercises: normalizeSupersets(x.exercises.filter((_, i) => i !== ei)) }))}>Entfernen</button>
+                  <button className="text-xs text-danger" onClick={() => update(di, (x) => ({ ...x, exercises: normalizeSupersets(x.exercises.filter((_, i) => i !== ei)) }))}>{t('Entfernen')}</button>
                 </div>
                 {!exerciseById(e.exerciseId, all)?.cardio && (
                   <div className="flex gap-2 items-center text-xs text-muted">
-                    <label className="flex items-center gap-1">Sätze
+                    <label className="flex items-center gap-1">{t('Sätze')}
                       <IntInput max={10} className={`${inputCls} !w-16 !py-1.5`} value={e.sets} onValue={(n) => patchEx(di, ei, { sets: n })} /></label>
                     <label className="flex items-center gap-1">Reps
                       <IntInput className={`${inputCls} !w-14 !py-1.5`} value={e.repMin} onValue={(n) => patchEx(di, ei, { repMin: n })} />–
@@ -97,14 +98,14 @@ export default function ManualBuilder() {
               </Fragment>
             ))}
           </ul>
-          <Button variant="ghost" className="w-full" onClick={() => setPicker(di)}>+ Übung hinzufügen</Button>
+          <Button variant="ghost" className="w-full" onClick={() => setPicker(di)}>{t('+ Übung hinzufügen')}</Button>
         </Card>
       ))}
 
       {!single && days.length < 6 && (
         <Button variant="ghost" className="w-full" onClick={() =>
           setDays((ds) => [...ds, { id: `day-${ds.length}`, name: `Workout ${String.fromCharCode(65 + ds.length)}`, exercises: [] }])}>
-          + Workout hinzufügen
+          {t('+ Workout hinzufügen')}
         </Button>
       )}
 
@@ -118,7 +119,7 @@ export default function ManualBuilder() {
           }))
         }} />
 
-      <BottomBar><Button className="w-full" disabled={!valid} onClick={save}>Speichern</Button></BottomBar>
+      <BottomBar><Button className="w-full" disabled={!valid} onClick={save}>{t('Speichern')}</Button></BottomBar>
     </Page>
   )
 }

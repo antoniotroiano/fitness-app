@@ -3,6 +3,7 @@ import { LinkButton, cx } from '../../components/ui'
 import { habitDots, monthGrid, shiftMonth, monthOf } from '../../engine/habits'
 import { formatMonth, WEEKDAYS } from '../../utils/dates'
 import { de } from '../../i18n/de'
+import { t } from '../../i18n'
 
 /** Ring, bei dem sich nur die Linie füllt. */
 export function Ring({ done, total, color, size, stroke, children }: {
@@ -28,14 +29,14 @@ export function RingStat({ label, done, total, color, big, shown }: { label: str
   const num = shown ?? Math.round(done * 10) / 10
   const left = Math.max(0, total - num)
   return (
-    <div className="flex flex-col items-center gap-3.5" role="img" aria-label={`${label}: ${num} von ${total}, ${left} übrig`}>
+    <div className="flex flex-col items-center gap-3.5" role="img" aria-label={t('{0}: {1} von {2}, {3} übrig', label, num, total, left)}>
       <Ring done={done} total={total} color={color} size={big ? 136 : 88} stroke={big ? 7 : 5}>
         <span className={cx('font-bold tabular-nums', big ? 'text-3xl' : 'text-xl')}>{num}</span>
-        <span className={cx('text-muted', big ? 'text-xs' : 'text-2xs')}>{left} übrig</span>
+        <span className={cx('text-muted', big ? 'text-xs' : 'text-2xs')}>{left} {t('übrig')}</span>
       </Ring>
       <div className="text-center">
         <div className={cx('font-semibold', big ? 'text-sm' : 'text-xs')}>{label}</div>
-        <div className="text-2xs text-muted">{total} Ziel</div>
+        <div className="text-2xs text-muted">{total} {t('Ziel')}</div>
       </div>
     </div>
   )
@@ -83,7 +84,7 @@ export function StatBox({ title, values, line, total, unit, onClick }: {
   return (
     <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
       <div className="text-sm font-semibold truncate">{title}</div>
-      <div className="text-2xs text-muted mb-1.5">Letzte 7 Tage</div>
+      <div className="text-2xs text-muted mb-1.5">{t('Letzte 7 Tage')}</div>
       {line ? <MiniLine values={line} /> : <MiniBars values={values} />}
       <div className="mt-2 pt-2 border-t border-line text-xs text-muted">
         <span className="text-fg font-semibold tabular-nums">{Math.round(total * 10) / 10}</span> {unit}
@@ -100,7 +101,7 @@ export function MetricBox({ title, values, last, unit, onClick }: {
     <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
       <div className="text-sm font-semibold truncate">{title}</div>
       <div className="text-2xs text-muted mb-1.5">{de.dashboard.last7Entries}</div>
-      {values.length ? <MiniLine values={values} /> : <div className="h-9 flex items-center text-xs text-muted">Noch keine Daten</div>}
+      {values.length ? <MiniLine values={values} /> : <div className="h-9 flex items-center text-xs text-muted">{t('Noch keine Daten')}</div>}
       <div className="mt-2 pt-2 border-t border-line text-xs text-muted">
         <span className="text-fg font-semibold tabular-nums">{last ?? '–'}</span> {last ? unit : ''}
       </div>
@@ -125,12 +126,12 @@ export function HabitBox({ title, dates, today, color, weekDone, onClick }: {
   return (
     <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
       <div className="text-sm font-semibold">{title}</div>
-      <div className="text-2xs text-muted mb-2">Letzte 30 Tage</div>
+      <div className="text-2xs text-muted mb-2">{t('Letzte 30 Tage')}</div>
       <div className="grid grid-cols-10 gap-1.5" aria-hidden>
         {dots.map((d) => <i key={d.date} className="aspect-square rounded-full" style={{ background: d.on ? color : 'var(--surface2)' }} />)}
       </div>
       <div className="mt-2.5 pt-2 border-t border-line text-xs text-muted">
-        <span className="text-fg font-semibold tabular-nums">{weekDone}/7</span> diese Woche
+        <span className="text-fg font-semibold tabular-nums">{weekDone}/7</span> {t('diese Woche')}
       </div>
     </button>
   )
@@ -155,9 +156,9 @@ export function MonthCalendar({ tracked, today, color, onSelect }: { tracked: Se
         if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.5) go(dx < 0 ? 1 : -1)
       }}>
       <div className="flex items-center justify-between mb-3">
-        <button onClick={() => go(-1)} aria-label="Vorheriger Monat" className="w-9 h-9 text-xl text-muted">‹</button>
+        <button onClick={() => go(-1)} aria-label={t('Vorheriger Monat')} className="w-9 h-9 text-xl text-muted">‹</button>
         <div className="font-semibold capitalize">{formatMonth(key)}</div>
-        <button onClick={() => go(1)} aria-label="Nächster Monat" className="w-9 h-9 text-xl text-muted">›</button>
+        <button onClick={() => go(1)} aria-label={t('Nächster Monat')} className="w-9 h-9 text-xl text-muted">›</button>
       </div>
       <div className="grid grid-cols-7 gap-y-2 text-center">
         {WEEKDAYS.map((w) => <div key={w} className="text-2xs text-muted">{w}</div>)}
@@ -183,8 +184,8 @@ export function MonthCalendar({ tracked, today, color, onSelect }: { tracked: Se
 export function CalendarLegend({ color }: { color: string }) {
   return (
     <div className="flex justify-center gap-6 text-xs text-muted pt-2">
-      <span className="flex items-center gap-2"><i className="w-3.5 h-3.5 rounded-full inline-block" style={{ background: color }} /> Erfasst</span>
-      <span className="flex items-center gap-2"><i className="w-3.5 h-3.5 rounded-full inline-block border border-line" /> Nicht erfasst</span>
+      <span className="flex items-center gap-2"><i className="w-3.5 h-3.5 rounded-full inline-block" style={{ background: color }} /> {t('Erfasst')}</span>
+      <span className="flex items-center gap-2"><i className="w-3.5 h-3.5 rounded-full inline-block border border-line" /> {t('Nicht erfasst')}</span>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { kgToDisplay, formatTime } from '../../utils/units'
 import { formatDate, formatMonth, monthKey } from '../../utils/dates'
 import { BackfillSheet } from './BackfillSheet'
 import { sessionProgram, sessionTitle } from './format'
+import { t, LOCALE } from '../../i18n'
 
 /** Woher der Verlauf geöffnet wurde (Zurück-Ziel); bleibt beim Wechsel in die Bearbeitung und zurück erhalten. */
 let historyOrigin = '/more'
@@ -38,12 +39,12 @@ export default function HistoryPage() {
   const name = (id: string) => all.find((e) => e.id === id)?.name ?? id
 
   return (
-    <Page title="Verlauf" back={() => nav(historyOrigin)} right={<button onClick={() => setBackfill(true)} className="text-accent text-sm font-medium">Nachtragen</button>}>
-      {sessions === undefined ? <div className="text-sm text-muted">Lädt …</div> : groups.length === 0 ? (
+    <Page title={t('Verlauf')} back={() => nav(historyOrigin)} right={<button onClick={() => setBackfill(true)} className="text-accent text-sm font-medium">{t('Nachtragen')}</button>}>
+      {sessions === undefined ? <div className="text-sm text-muted">{t('Lädt …')}</div> : groups.length === 0 ? (
         <Card className="text-center space-y-3 py-8">
-          <div className="font-semibold">Noch keine Einheit geloggt</div>
-          <p className="text-sm text-muted">Abgeschlossene Workouts erscheinen hier und lassen sich nachträglich korrigieren.</p>
-          <Button variant="ghost" onClick={() => setBackfill(true)}>Workout nachtragen</Button>
+          <div className="font-semibold">{t('Noch keine Einheit geloggt')}</div>
+          <p className="text-sm text-muted">{t('Abgeschlossene Workouts erscheinen hier und lassen sich nachträglich korrigieren.')}</p>
+          <Button variant="ghost" onClick={() => setBackfill(true)}>{t('Workout nachtragen')}</Button>
         </Card>
       ) : groups.map((g) => (
         <section key={g.month} className="space-y-2" aria-label={formatMonth(g.month)}>
@@ -51,7 +52,7 @@ export default function HistoryPage() {
           {g.items.map((s) => {
             const sum = sessionSummary(s, (id) => all.find((e) => e.id === id))
             const p = sessionProgram(s, programs)
-            const meta = [`${sum.sets} Sätze`, sum.volumeKg > 0 ? `${Math.round(kgToDisplay(sum.volumeKg, settings.weightUnit)).toLocaleString('de-DE')} ${settings.weightUnit}` : null,
+            const meta = [t('{0} Sätze', sum.sets), sum.volumeKg > 0 ? `${Math.round(kgToDisplay(sum.volumeKg, settings.weightUnit)).toLocaleString(LOCALE)} ${settings.weightUnit}` : null,
               s.durationSec ? `${Math.round(s.durationSec / 60)} min` : null].filter(Boolean).join(' · ')
             return (
               <button key={s.id} onClick={() => nav(`/history/${s.id}`)} className="w-full text-left rounded-2xl bg-surface border border-line p-4 active:opacity-70">

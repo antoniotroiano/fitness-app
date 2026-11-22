@@ -1,0 +1,81 @@
+/** UI-Texte (Englisch), gleiche Struktur wie `deBase` in `de.ts`. */
+import type { deBase } from './de'
+
+export const en: typeof deBase = {
+  nav: { more: 'More' },
+  wizard: {
+    q: {
+      mode: 'How do you want to create your plan?', goal: 'What is your goal?', days: 'How many days do you want to train?',
+      split: 'How should your training be split?', time: 'How much time do you have per workout?',
+      rep: 'How should reps develop over the weeks?', focus: 'Which muscles should have priority?',
+      deload: 'How long should a training block be?', exp: 'How much training experience do you have?',
+      equipment: 'Which equipment do you have available?', identity: 'What should your program be called?', preview: 'This is your plan',
+    },
+    perWeek: 'times per week', auto: 'Automatic', autoDesc: 'We pick a recommended option for you',
+    selectAll: 'Select all', week: (n: number) => `Week ${n}`, deload: 'Deload',
+  },
+  common: {
+    edit: 'Edit', change: 'Edit', default: 'Default', general: 'General', display: 'Display',
+    sets: 'Sets', reps: 'Reps', seconds: 'Sec.', streak: 'Streak', scheme: 'Scheme', note: 'Note', restDay: 'Rest day',
+    weight: 'Weight', bodyFat: 'Body fat', best: 'Best', loading: 'Loading …', showAll: 'Show all',
+  },
+  dashboard: {
+    recentRecords: 'Recent records', bodyMetrics: 'Body metrics', weightAndBodyFat: 'Weight & body fat', ratios: 'Ratios',
+    last7Entries: 'Last 7 entries',
+  },
+  workouts: {
+    activeProgram: 'Active program', library: 'Workout library', expand: 'Open all', collapse: 'Close all',
+    week: (n: number) => `Week ${n}`, targetMuscles: 'Target muscles',
+  },
+  logger: {
+    set: 'Set', addSet: 'Add set', previous: 'Last', perSide: (unit: string) => `${unit}/side`, repsPerSide: 'Reps/side',
+    warmup: 'Warm-up', calculator: 'Set calculator', targetReps: (min: number, max: number) => `Target: ${min}–${max} reps`,
+    targetSeconds: (min: number, max: number) => `Target: ${min}–${max} sec.`,
+    targetDistance: (unit: string) => (min: number, max: number) => `Target: ${min}–${max} ${unit}`,
+    resume: 'Resume workout', pause: 'Pause workout', minimize: 'Minimize workout', finish: 'Finish workout',
+    discard: 'Discard workout', logCompleted: 'Save checked-off sets only', logAll: 'Save all sets',
+    logAllHint: '“Save all sets” also keeps sets that are not checked off, with the values entered.',
+    complete: 'Workout complete',
+  },
+  info: { instructions: 'Instructions', details: 'Details', history: 'History' },
+  notes: { session: 'Workout', exercise: 'Exercise', program: 'Program' },
+  warmup: {
+    automation: 'Warm-up automation', scheme: 'Warm-up scheme', restTimer: 'Rest timer',
+    optDefault: 'Default', optSmart: 'Smart warm-up', optScheme: 'Scheme warm-up', optNone: 'Off',
+    descDefault: 'Warm-up automation follows the app setting (More › Workouts › Warm-up).',
+    descSmart: 'Warm-up sets are added automatically based on muscle freshness and how heavy the weight is.',
+    descScheme: 'Warm-up sets follow a fixed scheme of percentages and reps (category default or your own scheme).',
+    descNone: 'Warm-up sets are not added to your workout automatically.',
+    hintAppLevel: 'Warm-up automation follows the app settings.',
+    hintNone: 'Warm-up sets are not added to your workout automatically.',
+    hintAppSmart: 'Warm-up sets are added automatically based on muscle freshness and how heavy the weight is.',
+    hintAppScheme: 'Warm-up sets follow the scheme of the respective exercise group.',
+    hintAppNone: 'Warm-up sets are not added to your workouts automatically.',
+    step: (pct: number, reps: number) => `${pct} % working weight × ${reps} reps`, resetScheme: 'Reset scheme',
+    custom: 'Custom scheme', customOnly: 'Custom scheme for this exercise only.',
+    hintRest: (def: string) => `The rest timer follows the setting of this exercise group (${def}).`,
+  },
+  exercise: {
+    note: 'Exercise note', overrides: 'Exercise-specific', infoValue: 'Instructions, details, history',
+    weightScale: 'Machine weights', rangeStart: 'Range start', rangeEnd: 'Range end', rangeStep: 'Step size',
+    addWeight: 'Add weight', removeWeight: 'Remove weight', noWeights: 'No weights yet.',
+    scaleRangeIntro: 'Ranges and step sizes of your machine, e.g. 15–25 in steps of 5, 25–55 in steps of 10. Suggestions are rounded to them.',
+    rangeN: (n: number) => `Range ${n}`, addRange: 'Add range', removeRange: 'Remove',
+    microStep: 'Micro step', microHint: 'Optional: an extra plate or pin added to every step (e.g. 1.25). Leave empty if you have none.',
+    scaleCount: (n: number) => `${n} weight steps`,
+    scaleListIntro: 'Choose the weights you have available (per side for dumbbells). Suggestions are rounded to these values.',
+    scaleInvalid: 'The end must be greater than the start, the step size greater than 0.',
+    resetDefault: 'Back to default',
+  },
+  more: {
+    title: 'More', general: 'General', units: 'Units', language: 'Language', features: 'Feature settings', theme: 'Theme',
+    themeSystem: 'System', themeLight: 'Light', themeDark: 'Dark', data: 'Data', other: 'Other', about: 'About',
+    keepAlive: 'Keep screen on', keepAliveDesc: 'Keeps the screen on during a running workout.',
+    seeLess: 'Show less', seeMore: (n: number) => `Show ${n} more`,
+  },
+  stats: {
+    heaviest: 'Heaviest weight', totalVolume: 'Total volume', bestSetVolume: 'Best set (volume)', totalReps: 'Total reps',
+    bestSetReps: 'Best set (reps)', totalSets: 'Total sets', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly',
+    averaging: 'Chart smoothing',
+  },
+}

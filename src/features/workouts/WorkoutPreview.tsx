@@ -25,6 +25,7 @@ import { ExercisePicker } from '../wizard/shared'
 import { ExerciseActionsSheet, SuggestionSheet } from './LoggerSheets'
 import { DayManageSheet } from './DayManageSheet'
 import { de } from '../../i18n/de'
+import { t, lc } from '../../i18n'
 
 /** Vorschau eines Workouts: Übungen, Sätze, Rep-Bereiche und Ziel-RIR. Start über den Button unten. */
 export default function WorkoutPreview({ param: paramProp, embedded }: { param?: string; embedded?: boolean } = {}) {
@@ -77,10 +78,10 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
   const targets = useMemo(() => targetMuscles(active.map((v) => ({ ex: v.ex, sets: v.sets }))), [active])
   const editPe = editIdx !== null ? day?.exercises[editIdx] : undefined
   const editView = editPe ? views.find((v) => v.pe === editPe) : undefined
-  const saveWeek = (key: string, t: Parameters<typeof setWeekTarget>[2], wide?: { raw?: Parameters<typeof setWeekTarget>[2] }) => {
+  const saveWeek = (key: string, tgt: Parameters<typeof setWeekTarget>[2], wide?: { raw?: Parameters<typeof setWeekTarget>[2] }) => {
     if (!program?.id || editIdx === null) return
     const repsOk = (x: PlannedExercise) => !isRepless(exerciseById(x.exerciseId, all)?.metric)
-    const days = program.days.map((d, di) => (di !== dayIdx ? d : { ...d, exercises: setWeekTargetForDay(d.exercises, editIdx, key, t, wide, repsOk) }))
+    const days = program.days.map((d, di) => (di !== dayIdx ? d : { ...d, exercises: setWeekTargetForDay(d.exercises, editIdx, key, tgt, wide, repsOk) }))
     void db.programs.update(program.id, { days })
   }
 
@@ -109,7 +110,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
   })()
 
   if (!program || !day) {
-    return <Page title="Workout" back={() => nav('/workouts')}><Card>Workout nicht gefunden.</Card></Page>
+    return <Page title="Workout" back={() => nav('/workouts')}><Card>{t('Workout nicht gefunden.')}</Card></Page>
   }
 
   const body = (
@@ -119,15 +120,15 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         <section className="space-y-2" aria-label={de.workouts.targetMuscles}>
           <h2 className="font-semibold">{de.workouts.targetMuscles}</h2>
           <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 py-1">
-            {targets.map((t) => (
-              <button key={t.muscle} onClick={() => setFocus(focus === t.muscle ? null : t.muscle)} aria-pressed={focus === t.muscle}
+            {targets.map((tm) => (
+              <button key={tm.muscle} onClick={() => setFocus(focus === tm.muscle ? null : tm.muscle)} aria-pressed={focus === tm.muscle}
                 className={cx('shrink-0 min-w-[10.5rem] rounded-2xl border-2 bg-surface p-2 pr-4 flex items-center gap-3 text-left',
-                  focus === t.muscle ? 'border-accent' : focus ? 'border-transparent opacity-60' : 'border-transparent')}>
-                <MuscleThumb primary={[t.muscle]} secondary={[]} size={56} />
+                  focus === tm.muscle ? 'border-accent' : focus ? 'border-transparent opacity-60' : 'border-transparent')}>
+                <MuscleThumb primary={[tm.muscle]} secondary={[]} size={56} />
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold leading-tight">{muscleLabel(t.muscle)}</span>
-                  <span className="block text-xs text-muted mt-0.5">{t.exercises} {t.exercises === 1 ? 'Übung' : 'Übungen'}</span>
-                  <span className="block text-xs text-muted">{t.sets} {t.sets === 1 ? 'Satz' : 'Sätze'}</span>
+                  <span className="block text-sm font-semibold leading-tight">{muscleLabel(tm.muscle)}</span>
+                  <span className="block text-xs text-muted mt-0.5">{tm.exercises} {lc(tm.exercises === 1 ? t('Übung') : t('Übungen'))}</span>
+                  <span className="block text-xs text-muted">{tm.sets} {lc(tm.sets === 1 ? t('Satz') : t('Sätze'))}</span>
                 </span>
               </button>
             ))}
@@ -135,7 +136,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         </section>
       )}
 
-      <div className="text-sm text-muted">{active.length} {active.length === 1 ? 'Übung' : 'Übungen'}{views.length > active.length ? ` · ${views.length - active.length} diese Woche ausgelassen` : ''}</div>
+      <div className="text-sm text-muted">{active.length} {active.length === 1 ? t('Übung') : t('Übungen')}{views.length > active.length ? t(' · {0} diese Woche ausgelassen', views.length - active.length) : ''}</div>
 
       {views.map((v) => {
         const lines = v.ex.cardio ? 1 : v.sets
@@ -148,7 +149,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         const ssLinked = !!ss && (active[ai - 1]?.pe.superset === ss || active[ai + 1]?.pe.superset === ss)
         return (
           <div key={v.pe.exerciseId}>
-          {ssStart && <div className="text-xs font-semibold text-accent flex items-center gap-1 mb-1 px-1"><Icon name="link" size={13} />Supersatz</div>}
+          {ssStart && <div className="text-xs font-semibold text-accent flex items-center gap-1 mb-1 px-1"><Icon name="link" size={13} />{t('Supersatz')}</div>}
           <Card className={cx('!p-3 transition-opacity', ssLinked && 'border-l-4 border-l-accent', dim && 'opacity-40 grayscale')}>
             <div className="grid grid-cols-[64px_1fr_auto] gap-x-3 gap-y-1 items-center">
               <div style={{ gridRow: `1 / span ${lines + 2 + (progressionNote(v.sug, v.range, settings.weightUnit, v.bodyLoad) ? 1 : 0) + (whyOf(v) ? 1 : 0)}` }} className="self-start"><ExercisePhoto ex={v.ex} size={64} /></div>
@@ -157,7 +158,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
               {Array.from({ length: lines }, (_, i) => (
                 <div key={i} className="contents">
                   <div className="text-sm text-muted">
-                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? `Satz ${i + 1} · ${v.range.min}+ Wdh, bis zum Versagen` : `Satz ${i + 1} · ${v.range.min}–${v.range.max} ${metricUnit(v.ex.metric, distanceUnitOf(v.ex))}`}
+                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? t('Satz {0} · {1}+ Wdh, bis zum Versagen', i + 1, v.range.min) : t('Satz {0} · {1}–{2} {3}', i + 1, v.range.min, v.range.max, metricUnit(v.ex.metric, distanceUnitOf(v.ex)))}
                   </div>
                   <div className="text-sm font-bold text-right tabular-nums" style={v.ex.cardio ? undefined : { color: rirColor(v.setRirs[i]) }}>
                     {v.ex.cardio ? '' : v.setRirs[i]}
@@ -172,16 +173,16 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
                 const check = v.sug.level === 'check'
                 return (
                   <button onClick={() => setWhyId(v.pe.exerciseId)} className={cx('col-span-2 flex items-center gap-1 text-xs text-left pointer-events-auto active:opacity-70', check ? 'text-warn' : 'text-muted')}>
-                    <Icon name={check ? 'bolt' : 'sparkles'} size={13} />{check ? 'Vorschlag bitte prüfen' : 'Warum dieser Vorschlag?'}
+                    <Icon name={check ? 'bolt' : 'sparkles'} size={13} />{check ? t('Vorschlag bitte prüfen') : t('Warum dieser Vorschlag?')}
                   </button>
                 )
               })()}
               <div className="text-xs text-muted col-span-2 space-y-1.5">
-                <div>{v.skipped ? 'Diese Woche ausgelassen' : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? ` · ${v.warmups.length} Aufwärmsätze` : ''}</>}</div>
+                <div>{v.skipped ? t('Diese Woche ausgelassen') : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? t(' · {0} Aufwärmsätze', v.warmups.length) : ''}</>}</div>
                 <div className="flex items-center justify-end gap-4">
-                  {idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setActIdx(idx)}>Tauschen</button>}
-                  {program.days.length > 1 && day.exercises.length > 1 && idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setMoveIdx(idx)}>Verschieben</button>}
-                  {!v.ex.cardio && idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? 'Ziele · eigen' : 'Ziele'}</button>}
+                  {idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setActIdx(idx)}>{t('Tauschen')}</button>}
+                  {program.days.length > 1 && day.exercises.length > 1 && idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setMoveIdx(idx)}>{t('Verschieben')}</button>}
+                  {!v.ex.cardio && idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? t('Ziele · eigen') : t('Ziele')}</button>}
                 </div>
               </div>
             </div>
@@ -190,7 +191,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         )
       })}
 
-      <BottomSheet open={moveIdx !== null} onClose={closeMove} title={moveDay === null ? 'Übung verschieben' : 'Position wählen'}>
+      <BottomSheet open={moveIdx !== null} onClose={closeMove} title={moveDay === null ? t('Übung verschieben') : t('Position wählen')}>
         {(() => {
           const pe = moveIdx !== null ? day.exercises[moveIdx] : undefined
           if (!pe) return null
@@ -198,15 +199,15 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
           if (moveDay === null) {
             return (
               <>
-                <p className="text-xs text-muted mb-3">Wähle das Workout, in dem die Übung stehen soll (auch dieses, um die Reihenfolge zu ändern). Ihre Historie bleibt erhalten, ein Supersatz wird gelöst.</p>
+                <p className="text-xs text-muted mb-3">{t('Wähle das Workout, in dem die Übung stehen soll (auch dieses, um die Reihenfolge zu ändern). Ihre Historie bleibt erhalten, ein Supersatz wird gelöst.')}</p>
                 <div className="space-y-2">
                   {program.days.map((d, i) => {
                     const has = i !== dayIdx && d.exercises.some((e) => e.exerciseId === pe.exerciseId)
                     return (
                       <button key={d.id} disabled={has} onClick={() => setMoveDay(i)}
                         className="w-full text-left rounded-xl bg-surface2 px-4 py-3 active:opacity-70 disabled:opacity-40">
-                        <div className="text-sm font-medium truncate">{d.name}{i === dayIdx ? ' (dieses)' : ''}</div>
-                        <div className="text-xs text-muted">{has ? 'Übung ist dort schon geplant' : `${d.exercises.length} Übungen`}</div>
+                        <div className="text-sm font-medium truncate">{d.name}{i === dayIdx ? t(' (dieses)') : ''}</div>
+                        <div className="text-xs text-muted">{has ? t('Übung ist dort schon geplant') : t('{0} Übungen', d.exercises.length)}</div>
                       </button>
                     )
                   })}
@@ -221,12 +222,12 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
           )
           return (
             <>
-              <p className="text-xs text-muted mb-3">{target.name}: Wo soll „{name(pe.exerciseId)}“ stehen?</p>
+              <p className="text-xs text-muted mb-3">{target.name}{t(': Wo soll „')}{name(pe.exerciseId)}{t('“ stehen?')}</p>
               <div className="space-y-2">
-                {slotBtn(0, others.length ? `Ganz oben, vor „${name(others[0].exerciseId)}“` : 'Als einzige Übung')}
-                {others.map((e, i) => slotBtn(i + 1, `Nach „${name(e.exerciseId)}“${i === others.length - 1 ? ' (ganz unten)' : ''}`))}
+                {slotBtn(0, others.length ? t('Ganz oben, vor „{0}“', name(others[0].exerciseId)) : t('Als einzige Übung'))}
+                {others.map((e, i) => slotBtn(i + 1, t('Nach „{0}“{1}', name(e.exerciseId), i === others.length - 1 ? t(' (ganz unten)') : '')))}
               </div>
-              <button className="text-accent text-sm mt-3" onClick={() => setMoveDay(null)}>‹ Anderes Workout wählen</button>
+              <button className="text-accent text-sm mt-3" onClick={() => setMoveDay(null)}>{t('‹ Anderes Workout wählen')}</button>
             </>
           )
         })()}
@@ -242,7 +243,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         canRemove={day.exercises.length > 1} hasDone={false}
         onSwap={() => setSwapIdx(actIdx)}
         onRemove={() => { if (actPe) editDay((l) => removeFromDay(l, actPe.exerciseId)) }} />
-      <ExercisePicker open={!!swapPe} onClose={() => setSwapIdx(null)} exercises={swapCandidates} title="Übung tauschen" allowCardio={false}
+      <ExercisePicker open={!!swapPe} onClose={() => setSwapIdx(null)} exercises={swapCandidates} title={t('Übung tauschen')} allowCardio={false}
         onPick={(to) => {
           const from = swapPe?.exerciseId
           setSwapIdx(null)
@@ -254,10 +255,10 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         computed={(() => {
           if (!editView || editIdx === null) return { sets: 0, repMin: 0, repMax: 0, rir: 0 }
           const base = { ...editView.pe, weeks: undefined }
-          const t = exerciseTargets(base, plan, editIdx, isRepless(editView.ex.metric), editView.ex.compound)
-          return { sets: plannedSets(base, plan), repMin: t.range.min, repMax: t.range.max, rir: t.rir }
+          const tg = exerciseTargets(base, plan, editIdx, isRepless(editView.ex.metric), editView.ex.compound)
+          return { sets: plannedSets(base, plan), repMin: tg.range.min, repMax: tg.range.max, rir: tg.rir }
         })()}
-        scopes={[{ key: `w${curWeek}`, label: 'Nur diese Woche' }, ...(program.config && plan.blockPos != null ? [{ key: `b${plan.blockPos}`, label: 'In jedem Block' }] : [])]}
+        scopes={[{ key: `w${curWeek}`, label: t('Nur diese Woche') }, ...(program.config && plan.blockPos != null ? [{ key: `b${plan.blockPos}`, label: t('In jedem Block') }] : [])]}
         current={(key) => editPe?.weeks?.[key]}
         dayWide={(day?.exercises.length ?? 0) > 1}
         onSave={saveWeek} />
@@ -272,7 +273,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
       right={(
         <span className="flex items-center gap-2">
           {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
-          <button onClick={() => setManageOpen(true)} aria-label="Workout verwalten" className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-fg active:opacity-70"><Icon name="menu" /></button>
+          <button onClick={() => setManageOpen(true)} aria-label={t('Workout verwalten')} className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-fg active:opacity-70"><Icon name="menu" /></button>
         </span>
       )}>
       {body}
@@ -282,14 +283,14 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         <div className="flex gap-2">
           {canSkip && (
             <Button variant="ghost" className="shrink-0" onClick={async () => { await saveWeekState(skipSlot(week, ownSlot!)); nav('/workouts') }}>
-              Überspringen
+              {t('Überspringen')}
             </Button>
           )}
           {skipped ? (
-            <Button variant="ghost" className="w-full" onClick={() => saveWeekState(unmarkSlot(week, ownSlot!))}>Nicht mehr überspringen</Button>
+            <Button variant="ghost" className="w-full" onClick={() => saveWeekState(unmarkSlot(week, ownSlot!))}>{t('Nicht mehr überspringen')}</Button>
           ) : (
             <Button className="w-full" onClick={() => nav(`/workout/${param}`)}>
-              {running === param ? 'Workout fortsetzen' : 'Workout starten'}
+              {running === param ? t('Workout fortsetzen') : t('Workout starten')}
             </Button>
           )}
         </div>
