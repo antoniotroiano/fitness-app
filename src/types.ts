@@ -236,6 +236,8 @@ export interface Settings {
   hideDoneWarmups: boolean
   /** Logger: nach dem letzten Satz einer Übung zur nächsten offenen Übung wechseln (Supersätze wechseln immer) */
   autoAdvance: boolean
+  /** Pausentimer: Signalton am Ende der Pause (zusätzlich zur Vibration) */
+  restSound: boolean
   /** Pause zwischen linker und rechter Seite eines Satzes, Sekunden (0 = kein Timer) */
   sideRest: number
   /** Logger-Vorbelegung der Arbeitssätze: Progressionsvorschlag oder Werte der letzten Einheit */
