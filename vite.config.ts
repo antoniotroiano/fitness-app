@@ -13,7 +13,7 @@ export default defineConfig({
         VitePWA({
             registerType: 'autoUpdate',
             // Poster (klein, ~1,4 MB) mit vorcachen, damit sie offline sichtbar sind
-            workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,jpg}'] },
+            workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,jpg,woff2}'] },
             manifest: {
                 name: 'Lift Lab',
                 short_name: 'Lift Lab',

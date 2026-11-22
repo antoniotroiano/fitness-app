@@ -60,7 +60,7 @@ export function WeightPage() {
         {latest && <div className="text-xs text-muted">{t('Zuletzt:')} {kgToDisplay(latest.kg, u)} {u} {t('am')} {formatDate(latest.date)}{trend.length > 1 && <> · Trend {kgToDisplay(trend.at(-1)!.value, u)} {u}</>}</div>}
       </Card>
 
-      <Card><MonthCalendar tracked={dates} today={todayStr()} color="var(--habit-weight)" onSelect={setSheetDate} /><CalendarLegend color="var(--habit-weight)" /></Card>
+      <Card><MonthCalendar tracked={dates} today={todayStr()} color="var(--habit-weight)" textColor="var(--on-habit-weight)" onSelect={setSheetDate} /><CalendarLegend color="var(--habit-weight)" /></Card>
       <EntrySheet date={sheetDate} today={todayStr()} entry={weights.find((w) => w.date === sheetDate)} unit={u} onClose={() => setSheetDate(null)} />
 
       <Card className="space-y-3">

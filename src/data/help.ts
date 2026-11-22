@@ -811,18 +811,22 @@ export const HELP_CATEGORIES: HelpCategory[] = [
   },
 ]
 
-export const ALL_ARTICLES: { cat: HelpCategory; article: HelpArticle }[] = HELP_CATEGORIES.flatMap((cat) => cat.articles.map((article) => ({ cat, article })))
+export type HelpEntry = { cat: HelpCategory; article: HelpArticle }
 
-export function findArticle(id: string) {
-  return ALL_ARTICLES.find((x) => x.article.id === id)
+export const articlesOf = (cats: HelpCategory[]): HelpEntry[] => cats.flatMap((cat) => cat.articles.map((article) => ({ cat, article })))
+
+export const ALL_ARTICLES: HelpEntry[] = articlesOf(HELP_CATEGORIES)
+
+export function findArticle(id: string, cats: HelpCategory[] = HELP_CATEGORIES) {
+  return articlesOf(cats).find((x) => x.article.id === id)
 }
 
 /** Suche in Titeln und Texten (Groß-/Kleinschreibung egal, alle Wörter müssen vorkommen). */
-export function searchArticles(q: string) {
+export function searchArticles(q: string, cats: HelpCategory[] = HELP_CATEGORIES) {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return []
   const flat = (b: HelpBlock): string => (typeof b === 'string' ? b : Array.isArray(b) ? b.join(' ') : b.steps.join(' '))
-  return ALL_ARTICLES.filter(({ article }) => {
+  return articlesOf(cats).filter(({ article }) => {
     const hay = (article.title + ' ' + article.blocks.map(flat).join(' ')).toLowerCase()
     return words.every((w) => hay.includes(w))
   }).sort((a, b) => Number(words.every((w) => b.article.title.toLowerCase().includes(w))) - Number(words.every((w) => a.article.title.toLowerCase().includes(w))))
