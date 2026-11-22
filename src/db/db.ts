@@ -10,6 +10,7 @@ import { ALL_EXERCISES, exerciseById } from '../data/exercises'
 import { applyBodyweight } from '../engine/bodyweight'
 import { emptyWeek, jumpToWeek, maxReachedWeek } from '../engine/weekCycle'
 import { weekStateAfterDelete, weekStateAfterMove } from '../engine/history'
+import { duplicateProgram } from '../engine/programAdmin'
 import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
@@ -99,6 +100,10 @@ export function useProgramByParam(param: string): Program | undefined {
   const programs = useLiveQuery(() => db.programs.toArray(), [])
   const m = /^p(\d+)-/.exec(param)
   return m ? programs?.find((p) => p.id === Number(m[1])) : programs?.find((p) => p.active)
+}
+/** undefined = lädt noch */
+export function useProgramsLoaded(): Program[] | undefined {
+  return useLiveQuery(() => db.programs.toArray(), [])
 }
 export function usePrograms(): Program[] {
   return useLiveQuery(() => db.programs.toArray(), [], []) ?? []
@@ -351,23 +356,54 @@ export async function activateProgram(id: number) {
     const program = await db.programs.get(id)
     if (!program) return
     const sessions = await db.sessions.toArray()
-    await db.programs.toCollection().modify((p) => { p.active = p.id === id })
+    await db.programs.toCollection().modify((p) => { p.active = p.id === id; if (p.id === id) p.archived = false })
     await saveWeekState(jumpToWeek(program, sessions, maxReachedWeek(program, sessions, 0)))
   })
 }
+
+/** Nächstes Programm nach dem Wegfall des aktiven (neuestes nicht archiviertes) aktivieren, sonst keins. */
+async function activateFallback() {
+  const next = (await db.programs.orderBy('id').toArray()).filter((p) => !p.archived).at(-1)
+  if (next?.id !== undefined) {
+    await db.programs.update(next.id, { active: true })
+    const sessions = await db.sessions.toArray()
+    await saveWeekState(jumpToWeek(next, sessions, maxReachedWeek(next, sessions, 0)))
+  } else await saveWeekState(emptyWeek())
+}
+
+/** Einstellungen/Tage eines Programms speichern (`applySettings`, `moveExercise`); Aktiv-Status und Archiv bleiben. */
+export async function updateProgram(p: Program) {
+  if (p.id === undefined) return
+  await db.programs.update(p.id, { name: p.name, icon: p.icon, color: p.color, config: p.config, days: p.days })
+}
+
+/** Kopie anlegen (inaktiv, mit neuem Namen); liefert die neue ID. */
+export async function copyProgram(id: number): Promise<number | undefined> {
+  return db.transaction('rw', db.programs, async () => {
+    const p = await db.programs.get(id)
+    if (!p) return undefined
+    const copy = duplicateProgram(p, (await db.programs.toArray()).map((x) => x.name), () => Math.random().toString(36).slice(2, 10))
+    return (await db.programs.add({ ...copy, createdAt: Date.now(), active: false })) as number
+  })
+}
+
+/** Ins Archiv legen (auch zum Abschließen): nicht mehr aktiv; war es das aktive, rückt das neueste andere nach. */
+export async function archiveProgram(id: number) {
+  await db.transaction('rw', db.programs, db.sessions, db.kv, async () => {
+    const program = await db.programs.get(id)
+    if (!program) return
+    await db.programs.update(id, { archived: true, active: false })
+    if (program.active) await activateFallback()
+  })
+}
+
+export const restoreProgram = (id: number) => db.programs.update(id, { archived: false })
 
 export async function deleteProgram(id: number) {
   await db.transaction('rw', db.programs, db.sessions, db.kv, async () => {
     const program = await db.programs.get(id)
     await db.programs.delete(id)
-    if (program?.active) {
-      const next = await db.programs.orderBy('id').last()
-      if (next?.id !== undefined) {
-        await db.programs.update(next.id, { active: true })
-        const sessions = await db.sessions.toArray()
-        await saveWeekState(jumpToWeek(next, sessions, maxReachedWeek(next, sessions, 0)))
-      } else await saveWeekState(emptyWeek())
-    }
+    if (program?.active) await activateFallback()
   })
 }
 

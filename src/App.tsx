@@ -6,6 +6,7 @@ import { Icon, type IconName } from './components/icons'
 import Dashboard from './features/dashboard/Dashboard'
 import Workouts from './features/workouts/Workouts'
 import WorkoutPreview from './features/workouts/WorkoutPreview'
+import ProgramPage from './features/workouts/ProgramPage'
 import { WeightPage, MeasuresPage } from './features/body/Body'
 import { de } from './i18n/de'
 
@@ -83,7 +84,7 @@ function Shell() {
     return () => cancelAnimationFrame(raf)
   }, [loc.pathname, navType])
   const go = (to: string) => { setSheet(false); nav(to) }
-  const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/workout-preview/') || loc.pathname.startsWith('/new') || loc.pathname.startsWith('/history/')
+  const hideTabs = loc.pathname.startsWith('/workout/') || loc.pathname.startsWith('/workout-preview/') || loc.pathname.startsWith('/new') || loc.pathname.startsWith('/history/') || loc.pathname.startsWith('/program/')
 
   const items = [
     { icon: 'weight' as IconName, label: 'Gewicht eintragen', to: '/weight' },
@@ -101,6 +102,7 @@ function Shell() {
         <Route path="/workouts" element={<Workouts />} />
         <Route path="/workout/:slot" element={<Logger />} />
         <Route path="/workout-preview/:slot" element={<WorkoutPreview />} />
+        <Route path="/program/:id" element={<ProgramPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/history/:id" element={<SessionEditorPage />} />
         <Route path="/new" element={<Wizard />} />

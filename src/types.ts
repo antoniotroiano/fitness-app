@@ -66,6 +66,8 @@ export interface ProgramConfig {
   blockWeeks?: number
   /** Deload-Woche am Anfang statt am Ende des Blocks (z. B. nach einer Pause) */
   deloadFirst?: boolean
+  /** Anzahl Blöcke bis zum Programm-Ende (fehlt = läuft endlos) */
+  blocks?: number
   experience: Experience
   /** Verfügbares Equipment; undefined = alles */
   equipment?: Equipment[]
@@ -121,6 +123,8 @@ export interface Program {
   weekSlots: (number | 'rest')[]
   createdAt: number
   active: boolean
+  /** Im Archiv: nicht aktiv, in der Bibliothek ausgeblendet (fehlt = nicht archiviert) */
+  archived?: boolean
 }
 
 export interface LoggedSet {

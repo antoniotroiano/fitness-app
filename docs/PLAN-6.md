@@ -9,7 +9,8 @@ Stand: 2026-11-22. Ergänzt PLAN-1 bis PLAN-5 und `REVIEW-2026-11-21.md`. Reine 
 2. **Vor dem Start** `[ ]` → `[~]` setzen und Datum eintragen, damit keine zweite Session dasselbe beginnt.
 3. Umsetzen laut Abschnitt 1/2 (Detailbeschreibung unter der jeweiligen ID) und Abschnitt 5 (Tests). Vor dem Abschluss `npm run typecheck && npm test && npm run build`.
 4. **Nach dem Abschluss** `[~]` → `[x]`, Datum und eine kurze Notiz (Dateien, Abweichungen vom Plan, offene Punkte) eintragen. CLAUDE.md um die neue Invariante ergänzen, wie bei früheren Plänen.
-5. Nicht committen, außer der Nutzer verlangt es.
+5. **Reste festhalten:** Alles, was aus der Aufgabe bewusst nicht umgesetzt wurde oder ungetestet blieb, kommt in die Tabelle „Offene Reste“ (unten) mit ID, Beschreibung und Status. Kurz in der Notiz der Checkliste erwähnen reicht nicht. Erledigte Reste auf `[x]` setzen, nicht löschen.
+6. Nicht committen, außer der Nutzer verlangt es.
 
 Legende: `[ ]` offen · `[~]` in Arbeit · `[x]` erledigt · `[-]` bewusst nicht umsetzen.
 
@@ -21,8 +22,8 @@ Legende: `[ ]` offen · `[~]` in Arbeit · `[x]` erledigt · `[-]` bewusst nicht
 - [x] **A4** Schalter „Im Programm übernehmen / nur heute“. Hinweis: nach oder mit B1. Notiz: erledigt 2026-11-22. Schalter im Sheet „Tauschen“ (Standard an, gilt je Workout-Sitzung). Aus = `ActiveWorkout.custom` (Liste nur für diese Einheit). Supersatz-Verbinden folgt `custom` (bei Liste „nur heute“ bleibt das Programm unberührt), sonst wie zuvor sofort im Programm.
 - [x] **A1** Begründung (`reason`) und Warnstufe (`level`) der Progressionsvorschläge. Hinweis: unabhängig, parallel möglich. Notiz: erledigt 2026-11-22. Neu: `suggestExplained`/`explainSuggestion`/`SuggestionReason` in `engine/progression.ts` (leitet Grund aus Eingabe und Ergebnis ab, `suggestNext` bleibt unverändert), `plannedDay` nutzt `suggestExplained`, Texte `reasonText` in `features/workouts/progressionNote.ts`, `SuggestionSheet` in `LoggerSheets.tsx`, Zeile „Warum dieser Vorschlag?“ im Logger (gelb „Vorschlag bitte prüfen“ bei `check`). Nur Begründung für die Anzeige, keine Änderung der Rechenwege. Nicht umgesetzt: Anzeige auch in der Programm-Vorschau.
 - [x] **B3** Eigene Übungen anlegen, duplizieren, löschen. Notiz: erledigt 2026-11-22. Neu: `engine/customExercise.ts` (`validateDraft`, `buildExercise`, `newCustomId`, `duplicateDraft`, `exerciseUsage`/`canDeleteExercise`, Test in `engine.test.ts`), `features/more/ExerciseForm.tsx` (`ExerciseFormSheet`), `db.ts` `saveCustomExercise`/`deleteCustomExercise`. „+“ in der Übungen-Kopfzeile, in `ExerciseDetail` die Abschnitte Bearbeiten/Duplizieren/Löschen (Duplizieren auch für Standardübungen als Vorlage). Löschen nur, wenn weder Einheit noch Programm die Übung nutzen (sonst Hinweis mit Anzahl/Programmnamen). Nachtrag: Beschreibung und verkleinertes Bild (`utils/image.ts`), Art Verbund/Isolation, Gerät „Cardio“, Gruppe nach Gerät. Distanz (Meter) als Messgröße (Nachtrag 2026-11-22, in der B3-Tabellenzeile als „Metrik Wdh./Zeit/Distanz“ vorgesehen): `engine/metric.ts`, Progression +5 m, Formular „Distanz (Meter)", Logger/Vorschau/Wizard zeigen m. Nicht umgesetzt: Meilen/Yards-Umrechnung der Strecke, Löschen mit Entfernen aus Programmen; Blockiertext im Browser nicht geprüft (nur Engine-Test).
-- [~] **B4** Programm verwalten (Umbenennen, Duplizieren, Archiv, Blocklänge/Deload nachträglich, Übung auf anderen Tag verschieben, Programm-Ende). Notiz: in Arbeit seit 2026-11-22.
-- [x] **B5** Auto-Weiter zur nächsten Übung (`Settings.autoAdvance`). Notiz: erledigt 2026-11-22. Der Logger sprang schon immer zur nächsten offenen Übung; neu ist nur der Schalter `autoAdvance` (Standard an, Einstellungen › Workouts › Anzeige). Aus = bei Abschluss bleibt die Übung stehen (auch bei „alle abhaken“). Supersatz-Wechsel (`nextInSuperset`) bleibt immer aktiv. Änderungen: `types.ts`, `db.ts` (Default), `Logger.tsx` (`toggleWhole`, `toggleAll`), `More.tsx`. Kein Engine-Test (reine UI-Logik), nicht im Browser getestet.
+- [x] **B4** Programm verwalten (Umbenennen, Duplizieren, Archiv, Blocklänge/Deload nachträglich, Übung auf anderen Tag verschieben, Programm-Ende). Notiz: erledigt 2026-11-22, im Browser geprüft. Neu: `engine/programAdmin.ts` (`applySettings`, `duplicateProgram`, `copyName`, `programEnded`, `extendProgram`, `moveExercise`, Test in `engine.test.ts`), `Program.archived`, `ProgramConfig.blocks`, `db.ts` (`updateProgram`, `copyProgram`, `archiveProgram`, `restoreProgram`, `activateFallback`), `features/workouts/ProgramSettingsSheet.tsx`, ⋯-Menü in `Workouts.tsx`, Programm-Seite `ProgramPage.tsx` (`/program/:id`), „Verschieben“ (Tag + Position) in `WorkoutPreview.tsx`. Nachtrag 2026-11-22 (Nutzerwunsch): Zahnrad → ⋯-Sheet, Bibliothek einklappbar, eigene Programm-Seite; außerdem Zurück-Bug im Verlauf behoben (`historyOrigin` in `HistoryPage.tsx`). Abweichungen: Programm-Ende als Blockanzahl (`blocks`, Standard endlos) mit Karte „Block wiederholen / Abschließen“ (Abschließen = Archiv); Tag-Reihenfolge (Day Order), Workouts einzeln umbenennen/duplizieren/archivieren und Verschieben auf Tage ohne Wochenplan-Slot nicht umgesetzt.
+- [x] **B5** Auto-Weiter zur nächsten Übung (`Settings.autoAdvance`). Notiz: erledigt 2026-11-22. Der Logger sprang schon immer zur nächsten offenen Übung; neu ist nur der Schalter `autoAdvance` (Standard an, Einstellungen › Workouts › Anzeige). Aus = bei Abschluss bleibt die Übung stehen (auch bei „alle abhaken“). Supersatz-Wechsel (`nextInSuperset`) bleibt immer aktiv. Änderungen: `types.ts`, `db.ts` (Default), `Logger.tsx` (`toggleWhole`, `toggleAll`), `More.tsx`. Kein Engine-Test (reine UI-Logik); „alle abhaken“ im Browser mit Schalter an/aus geprüft (Rest siehe „Offene Reste“).
 
 **Mittel**
 - [ ] **B7** Dashboard-Ringe: Umschalter „Aktives Programm / Alle“ und Vorwoche. Notiz: –
@@ -42,6 +43,26 @@ Legende: `[ ]` offen · `[~]` in Arbeit · `[x]` erledigt · `[-]` bewusst nicht
 **Entschieden: nicht umsetzen**
 - [-] **A2** Startgewicht ohne Historie: bleibt wie bei MF (kein Vorschlag), Entscheidung des Nutzers vom 2026-11-22.
 - [-] **A8, A10, B13, B19, B20**: bereits abgedeckt bzw. in B4 enthalten, kein eigener Auftrag.
+
+### Offene Reste (nicht umgesetzt oder ungetestet)
+
+Eine Zeile pro Rest, nach Aufgabe sortiert. Status: `[ ]` offen · `[~]` in Arbeit · `[x]` erledigt · `[-]` bewusst verworfen. Neue Reste ergänzt die Session, die sie erzeugt (Spalte „Aus“), und trägt Datum ein.
+
+| Status | Aus | Rest | Art | Stand |
+|---|---|---|---|---|
+| [ ] | B1 | Tausch/Entfernen aus der **Programm-Vorschau** heraus (bisher nur im laufenden Workout) | fehlt | 2026-11-22 |
+| [ ] | B1 | Tausch/Entfernen im Logger **nicht im Browser getestet** | Test | 2026-11-22 |
+| [ ] | B2 | **Programmwoche** einer vorhandenen Einheit ändern | fehlt | 2026-11-22 |
+| [ ] | B2 | **Notizen** im Verlauf-Editor bearbeiten | fehlt | 2026-11-22 |
+| [ ] | A1 | Begründung der Vorschläge auch in der **Programm-Vorschau** (bisher nur im Logger) | fehlt | 2026-11-22 |
+| [ ] | B3 | **Meilen/Yards** für Distanzübungen (Meter werden nie umgerechnet) | fehlt | 2026-11-22 |
+| [ ] | B3 | **Löschen einer eigenen Übung mit Entfernen** aus Programmen (bisher gesperrt, solange verwendet) | fehlt | 2026-11-22 |
+| [ ] | B3 | Blockiertext beim Löschen im Browser nicht geprüft (nur Engine-Test) | Test | 2026-11-22 |
+| [ ] | B4 | **Tag-Reihenfolge** (Day Order) ändern | fehlt | 2026-11-22 |
+| [ ] | B4 | Einzelne **Workouts** umbenennen, duplizieren, archivieren | fehlt | 2026-11-22 |
+| [ ] | B4 | Programm-Ende: „Abschließen“ der Karte nicht einzeln im Browser durchgespielt (Archivieren selbst getestet) | Test | 2026-11-22 |
+| [ ] | B4 | Zurück aus dem Verlauf über **Mehr** nicht im Browser nachgeklickt (über Workouts getestet) | Test | 2026-11-22 |
+| [ ] | B5 | Einzelne Sätze der letzten Übung abhaken und Supersatz-Wechsel bei Schalter aus nicht im Browser getestet (nur „alle abhaken“) | Test | 2026-11-22 |
 
 ## 0. Vorgehen und Grenzen
 
