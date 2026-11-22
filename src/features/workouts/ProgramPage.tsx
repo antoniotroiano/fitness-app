@@ -1,20 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BottomSheet, Button, Card, Page, cx } from '../../components/ui'
-import { Icon, ProgramBadge, type IconName } from '../../components/icons'
+import { Icon, ProgramBadge } from '../../components/icons'
 import { downloadText, safeFileName } from '../../utils/download'
 import { activateProgram, archiveProgram, copyProgram, deleteProgram, exportProgramJson, restoreProgram, updateProgram, usePrograms, useProgramsLoaded } from '../../db/db'
+import { DayManageSheet, WorkoutImportRow } from './DayManageSheet'
 import { ProgramSettingsSheet } from './ProgramSettingsSheet'
+import { MenuRow } from './MenuRow'
+import { WeekOrderSheet } from './WeekOrderSheet'
 import WorkoutPreview from './WorkoutPreview'
 
-export function MenuRow({ icon, label, desc, danger, onClick }: { icon: IconName; label: string; desc?: string; danger?: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className={cx('w-full flex items-center gap-3 py-3.5 text-left active:opacity-70', danger && 'text-danger')}>
-      <Icon name={icon} />
-      <span className="flex-1 min-w-0"><span className="block text-sm font-medium">{label}</span>{desc && <span className="block text-xs text-muted">{desc}</span>}</span>
-    </button>
-  )
-}
+export { MenuRow }
 
 /** Ein Programm der Bibliothek: Tage als Leiste, darunter die Übungen des gewählten Tags; ⋯ mit allen Programm-Aktionen. */
 export default function ProgramPage() {
@@ -28,6 +24,8 @@ export default function ProgramPage() {
   const [menu, setMenu] = useState(false)
   const [editing, setEditing] = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [ordering, setOrdering] = useState(false)
+  const [dayMenu, setDayMenu] = useState(false)
   useEffect(() => { setPick(0) }, [id])
   const tabsRef = useRef<HTMLDivElement>(null)
   const tabEls = useRef<(HTMLButtonElement | null)[]>([])
@@ -53,11 +51,13 @@ export default function ProgramPage() {
   const scheduled = program.weekSlots.map((slot, i) => ({ key: `s${i}`, slot, i }))
   const extra = program.days.map((d, i) => ({ d, i })).filter(({ i }) => !program.weekSlots.includes(i))
   const chips = [
-    ...scheduled.map(({ key, slot, i }) => ({ key, rest: slot === 'rest', label: slot === 'rest' ? 'Pause' : program.days[slot as number].name, param: `p${id}-s${i}` })),
-    ...extra.map(({ d, i }) => ({ key: `d${i}`, rest: false, label: d.name, param: `p${id}-d${i}` })),
+    ...scheduled.map(({ key, slot, i }) => ({ key, rest: slot === 'rest', dayIdx: slot === 'rest' ? -1 : (slot as number), label: slot === 'rest' ? 'Pause' : program.days[slot as number].name, param: `p${id}-s${i}` })),
+    ...extra.map(({ d, i }) => ({ key: `d${i}`, rest: false, dayIdx: i, label: d.name, param: `p${id}-d${i}` })),
   ]
   const cur = chips[Math.min(pick, chips.length - 1)]
   const close = () => setMenu(false)
+  const curDay = cur && !cur.rest ? program.days[cur.dayIdx] : undefined
+  const scheduled0 = curDay ? program.weekSlots.includes(cur.dayIdx) : false
 
   return (
     <Page title={program.name} back={() => nav('/workouts')}
@@ -79,11 +79,19 @@ export default function ProgramPage() {
           style={{ left: bar.left, width: bar.width, opacity: bar.width ? 1 : 0 }} />
       </div>
 
+      {curDay && (
+        <button onClick={() => setDayMenu(true)} className="self-start text-sm text-accent active:opacity-70">
+          Workout verwalten{!scheduled0 ? ' · nicht im Wochenplan' : ''}
+        </button>
+      )}
+
       {cur?.rest ? <Card className="text-sm text-muted">Ruhetag, an diesem Tag ist kein Training geplant.</Card> : cur && <WorkoutPreview key={cur.param} param={cur.param} embedded />}
 
       <BottomSheet open={menu} onClose={close} title={program.name}>
         <div className="divide-y divide-line">
           <MenuRow icon="sliders" label="Programm bearbeiten" desc="Name, Blocklänge, Deload, Programm-Ende" onClick={() => { close(); setEditing(true) }} />
+          <MenuRow icon="calendar" label="Wochenplan ordnen" desc="Reihenfolge der Workouts und Ruhetage" onClick={() => { close(); setOrdering(true) }} />
+          <WorkoutImportRow programId={id} onDone={() => { close(); setPick(chips.length) }} />
           <MenuRow icon="copy" label="Programm duplizieren" onClick={async () => { close(); const n = await copyProgram(id); if (n) nav(`/program/${n}`, { replace: true }) }} />
           <MenuRow icon="data" label="Programm exportieren" desc="Datei mit Programm und eigenen Übungen" onClick={async () => {
             close()
@@ -97,6 +105,10 @@ export default function ProgramPage() {
           <MenuRow icon="trash" danger label="Programm löschen" desc="Geloggte Einheiten bleiben erhalten" onClick={() => { close(); setConfirmDel(true) }} />
         </div>
       </BottomSheet>
+
+      {curDay && cur && <DayManageSheet program={program} dayIdx={cur.dayIdx} open={dayMenu} onClose={() => setDayMenu(false)} />}
+
+      <WeekOrderSheet program={ordering ? program : null} onClose={() => setOrdering(false)} />
 
       <BottomSheet open={confirmDel} onClose={() => setConfirmDel(false)} title="Programm löschen?">
         <p className="text-sm text-muted mb-4">„{program.name}“ wird endgültig gelöscht. Bereits geloggte Einheiten bleiben im Verlauf.</p>

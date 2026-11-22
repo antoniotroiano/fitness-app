@@ -26,7 +26,7 @@ export function reasonText(sug: Suggestion, range: RepRange, unit: Settings['wei
   const w = (kg: number) => `${sign}${formatWeight(kg, unit)}`
   const u = metric === 'time' ? 's' : metric === 'distance' ? 'm' : 'Wdh.'
   const prev = sug.prev ? `Letzte Einheit: ${w(sug.prev.weight)} × ${sug.prev.reps} ${u} (schwächster Satz am schwersten Gewicht). ` : ''
-  const now = `Vorschlag: ${w(sug.weight)} × ${sug.reps} ${u}. `
+  const now = `Vorschlag: ${w(sug.weight)} × ${sug.reps} ${u}${u.endsWith('.') ? '' : '.'} `
   const body: Record<SuggestionReason, string> = {
     start: '',
     time: metric === 'distance' ? 'Die Strecke steigt je Einheit um 5 m, bis die Obergrenze erreicht ist.' : 'Die Zeit steigt je Einheit um 5 s, bis die Obergrenze erreicht ist.',

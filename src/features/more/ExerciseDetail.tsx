@@ -70,13 +70,23 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
   const openForm = (draft: ExerciseDraft, editId?: string) => { setForm({ draft, editId }); setFormOpen(true) }
   const remove = async () => {
     if (!confirm(`„${cur.name}“ wirklich löschen?`)) return
-    const usage = await deleteCustomExercise(cur.id)
+    let usage = await deleteCustomExercise(cur.id)
     if (!usage) { onClose(); return }
+    // Nur in Programmen geplant (kein Verlauf): auf Wunsch dort entfernen und löschen
+    if (usage.sessions === 0 && usage.programs.length) {
+      if (!confirm(`„${cur.name}“ ist im Programm ${usage.programs.join(', ')} geplant. Dort entfernen und die Übung löschen?`)) return
+      usage = await deleteCustomExercise(cur.id, true)
+      if (!usage) { onClose(); return }
+      if (usage.emptied?.length) {
+        setBlocked(`Löschen nicht möglich: In ${usage.emptied.join('; ')} ist sie die einzige Übung. Ergänze dort zuerst eine andere (Tauschen in der Vorschau).`)
+        return
+      }
+    }
     const parts = [
       usage.sessions ? `in ${usage.sessions} ${usage.sessions === 1 ? 'Einheit' : 'Einheiten'} geloggt` : '',
       usage.programs.length ? `im Programm ${usage.programs.join(', ')}` : '',
     ].filter(Boolean).join(' und ')
-    setBlocked(`Löschen nicht möglich: Die Übung ist ${parts}. Entferne sie dort zuerst (Verlauf, Tauschen im Workout).`)
+    setBlocked(`Löschen nicht möglich: Die Übung ist ${parts}. Geloggte Einheiten lassen sich nur im Verlauf bearbeiten (Übung dort entfernen).`)
   }
 
   return (
@@ -95,7 +105,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise | null; onClose: 
           <Card className="divide-y divide-line !py-1">
             {cur.custom && <ListRow icon="note" label="Bearbeiten" value="Name, Muskeln, Gerät …" onClick={() => openForm(draftOf(cur), cur.id)} />}
             <ListRow icon="blocks" label="Duplizieren" value="Als neue eigene Übung" onClick={() => openForm(duplicateDraft(cur, all))} />
-            {cur.custom && <ListRow icon="note" label="Löschen" value={blocked || 'Nur ohne Verlauf und Programm'} onClick={() => void remove()} />}
+            {cur.custom && <ListRow icon="note" label="Löschen" value={blocked || 'Nur ohne Verlauf'} onClick={() => void remove()} />}
           </Card>
           {blocked && <p role="alert" className="text-xs text-danger px-1">{blocked}</p>}
         </section>

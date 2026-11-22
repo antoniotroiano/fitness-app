@@ -1,5 +1,6 @@
 import type { Metric } from './metric'
 import { isRepless } from './metric'
+import { removeFromDay } from './dayEdit'
 import type { Equipment, Exercise, MuscleId, Pattern, Program, Session } from '../types'
 
 /**
@@ -116,12 +117,26 @@ export interface ExerciseUsage {
   programs: string[]
 }
 
+/** Entfernen der Übung aus den Trainingstagen eines Programms: neue Tage und Namen der Tage, die dadurch leer würden (bleiben unverändert). */
+export function removeExerciseFromDays(days: Program['days'], id: string): { days: Program['days']; emptied: string[] } {
+  const emptied: string[] = []
+  const out = days.map((d) => {
+    if (!d.exercises.some((e) => e.exerciseId === id)) return d
+    if (d.exercises.length < 2) { emptied.push(d.name); return d }
+    return { ...d, exercises: removeFromDay(d.exercises, id) }
+  })
+  return { days: emptied.length || out.every((d, i) => d === days[i]) ? days : out, emptied }
+}
+
 export function exerciseUsage(id: string, sessions: Pick<Session, 'exercises'>[], programs: Pick<Program, 'name' | 'days'>[]): ExerciseUsage {
   return {
     sessions: sessions.filter((s) => s.exercises.some((e) => e.exerciseId === id)).length,
     programs: programs.filter((p) => p.days.some((d) => d.exercises.some((e) => e.exerciseId === id))).map((p) => p.name),
   }
 }
+
+/** Löschen mit Entfernen aus den Programmen: nur ohne geloggte Einheiten (der Verlauf behielte sonst eine unbekannte Übung). */
+export const canDeleteByRemoving = (u: ExerciseUsage) => u.sessions === 0
 
 /** Löschen nur, wenn nichts darauf verweist (sonst verlören Verlauf und Pläne ihre Übung). */
 export const canDeleteExercise = (u: ExerciseUsage) => u.sessions === 0 && u.programs.length === 0

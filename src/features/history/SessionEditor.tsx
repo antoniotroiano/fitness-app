@@ -11,7 +11,7 @@ import { canFreeSlot, moveSessionToDate, sessionTime, setSessionDuration, setSes
 import { bodyLoadOf, bodyweightAt } from '../../engine/bodyweight'
 import { loadSteps, previousSets } from '../../engine/progression'
 import { nextSegment } from '../../engine/setTypes'
-import { weekLabel } from '../../engine/weekCycle'
+import { weekLabel, weekOptions } from '../../engine/weekCycle'
 import { displayToKg, kgToDisplay } from '../../utils/units'
 import { todayStr, formatDate } from '../../utils/dates'
 import { ExercisePicker } from '../wizard/shared'
@@ -23,7 +23,7 @@ import { num, rowHasValue, rowToSet, setToRow } from '../workouts/sessionRows'
 import { sessionProgram, sessionTitle } from './format'
 
 interface DraftExercise { exerciseId: string; rows: Row[] }
-interface Draft { date: string; time: string; durationMin: string; exercises: DraftExercise[] }
+interface Draft { date: string; time: string; durationMin: string; week: number; notes: Record<string, string>; exercises: DraftExercise[] }
 
 export default function SessionEditorPage() {
   const { id } = useParams()
@@ -48,7 +48,7 @@ function SessionEditor({ session }: { session: Session }) {
   const lookup = (exId: string) => all.find((e) => e.id === exId)
 
   const initial = useMemo<Draft>(() => ({
-    date: session.date, time: sessionTime(session), durationMin: session.durationSec != null ? String(Math.round(session.durationSec / 60)) : '',
+    date: session.date, time: sessionTime(session), durationMin: session.durationSec != null ? String(Math.round(session.durationSec / 60)) : '', week: session.week, notes: { ...(session.notes ?? {}) },
     exercises: session.exercises.map((e) => ({
       exerciseId: e.exerciseId, rows: e.sets.map((s) => setToRow(s, lookup(e.exerciseId) ?? { cardio: false }, units)),
     })),
@@ -163,11 +163,9 @@ function SessionEditor({ session }: { session: Session }) {
       if (sets.length) exercises.push({ exerciseId: e.exerciseId, sets })
     }
     if (!exercises.length) { setError('Die Einheit hat keinen Satz mit Wiederholungen. Zum Entfernen „Einheit löschen“ wählen.'); return }
-    let next: Session = { ...session, exercises }
-    if (session.notes) {
-      const notes = Object.fromEntries(Object.entries(session.notes).filter(([k]) => exercises.some((e) => e.exerciseId === k)))
-      if (Object.keys(notes).length) next.notes = notes; else delete next.notes
-    }
+    let next: Session = { ...session, exercises, week: draft.week }
+    const notes = Object.fromEntries(Object.entries(draft.notes).map(([k, v]) => [k, v.trim()]).filter(([k, v]) => v && exercises.some((e) => e.exerciseId === k)))
+    if (Object.keys(notes).length) next.notes = notes; else delete next.notes
     next = moveSessionToDate(next, draft.date)
     if (draft.time !== initial.time && /^\d{2}:\d{2}$/.test(draft.time)) next = setSessionStartTime(next, Number(draft.time.slice(0, 2)), Number(draft.time.slice(3)))
     if (draft.durationMin !== initial.durationMin) {
@@ -189,6 +187,11 @@ function SessionEditor({ session }: { session: Session }) {
     nav('/history', { replace: true })
   }
 
+  // Wochenauswahl des Programms; eine Woche außerhalb der Liste (z. B. nach Blocklängen-Änderung) bleibt wählbar
+  const weekChoices = !program ? [] : (() => {
+    const o = weekOptions(program, sessions, week.week)
+    return o.some((x) => x.week === session.week) ? o : [...o, { week: session.week, block: 0, label: weekLabel(program, session.week).replace(/ · Block \d+$/, '') }]
+  })()
   const freeable = canFreeSlot(week, program, session)
   const goBack = () => (dirty ? setBackOpen(true) : nav('/history'))
 
@@ -210,6 +213,15 @@ function SessionEditor({ session }: { session: Session }) {
               <input type="time" className={`${inputCls} mt-1`} value={draft.time} onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))} />
             </label>
           </div>
+          {program && (
+            <label className="block text-xs text-muted">Programmwoche
+              <select className={`${inputCls} mt-1`} value={draft.week} onChange={(e) => setDraft((d) => ({ ...d, week: Number(e.target.value) }))}>
+                {weekChoices.map((o) => (
+                  <option key={o.week} value={o.week}>{o.label}{o.block > 0 ? ` · Block ${o.block + 1}` : ''}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="block text-xs text-muted">Dauer (Minuten, leer = unbekannt)
             <input inputMode="numeric" className={`${inputCls} mt-1`} value={draft.durationMin} placeholder="z. B. 60"
               onChange={(e) => setDraft((d) => ({ ...d, durationMin: e.target.value.replace(/[^\d]/g, '') }))} />
@@ -236,6 +248,8 @@ function SessionEditor({ session }: { session: Session }) {
                   onType={(rowId) => setTypeRow({ exId: e.exerciseId, rowId })}
                   onPad={(rowId, field, side) => setPad({ exId: e.exerciseId, rowId, field, side })} />
               </Card>
+              <textarea aria-label={`Notiz zu ${ex.name}`} rows={2} placeholder="Notiz zur Übung" className={inputCls} value={draft.notes[e.exerciseId] ?? ''}
+                onChange={(ev) => setDraft((d) => ({ ...d, notes: { ...d.notes, [e.exerciseId]: ev.target.value } }))} />
             </section>
           )
         })}
