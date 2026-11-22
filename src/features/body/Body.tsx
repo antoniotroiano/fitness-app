@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { MeasureSite } from '../../types'
-import { Button, Card, Page, cx, inputCls } from '../../components/ui'
+import { Button, Card, Page, Segmented, cx, inputCls } from '../../components/ui'
 import { db, parseWeightFile, saveBodyEntry, setWeight, useMeasures, useSettings, useWeights } from '../../db/db'
 import { EntrySheet } from './EntrySheet'
 import { cmToDisplay, displayToCm, displayToKg, kgToDisplay } from '../../utils/units'
 import { formatDate, todayStr } from '../../utils/dates'
-import { trendSeries } from '../../engine/body'
+import { compareRows, trendSeries, type ComparePeriod } from '../../engine/body'
+import { bodyUnit, formatBody } from './format'
 import { streakDays } from '../../engine/habits'
 import { CalendarLegend, MonthCalendar } from '../dashboard/widgets'
 import { TimeSeries } from '../stats/TimeSeries'
@@ -120,6 +121,10 @@ export function MeasuresPage() {
   const u = settings.lengthUnit
   const [vals, setVals] = useState<Partial<Record<MeasureSite, string>>>({})
   const [site, setSite] = useState<MeasureSite>('waist')
+  const weights = useWeights()
+  const [period, setPeriod] = useState<ComparePeriod>(90)
+  const today = todayStr()
+  const compare = useMemo(() => compareRows(weights, measures, today, period), [weights, measures, today, period])
 
   const save = async () => {
     const values: Partial<Record<MeasureSite, number>> = {}
@@ -161,6 +166,32 @@ export function MeasuresPage() {
       <Card className="space-y-2">
         <div className="font-semibold text-sm">Verlauf: {label}</div>
         <TimeSeries daily={series} bar={false} fmt={(v) => `${cmToDisplay(v, u)}`} defaultPeriod="3M" showAveraging={false} />
+      </Card>
+      <Card className="space-y-3">
+        <div className="font-semibold text-sm">Vergleich</div>
+        <Segmented value={String(period)} onChange={(v) => setPeriod(v === 'null' ? null : (Number(v) as ComparePeriod))}
+          options={[{ value: '28', label: '4 Wochen' }, { value: '90', label: '3 Monate' }, { value: '365', label: '1 Jahr' }, { value: 'null', label: 'Gesamt' }]} />
+        {compare.length === 0 ? (
+          <p className="text-sm text-muted">Für einen Vergleich braucht ein Wert mindestens zwei Einträge an verschiedenen Tagen.</p>
+        ) : (
+          <div className="divide-y divide-line">
+            {compare.map((r) => {
+              const unit = bodyUnit(r.key, settings)
+              const d = formatBody(r.key, r.delta, settings)
+              const sign = r.delta > 0 ? '+' : r.delta < 0 ? '−' : ''
+              return (
+                <div key={r.key} className="flex items-baseline gap-2 py-2 text-sm">
+                  <span className="flex-1 min-w-0 truncate">{r.label}</span>
+                  <span className="text-xs text-muted tabular-nums">{formatBody(r.key, r.from.value, settings)} → {formatBody(r.key, r.to.value, settings)} {unit}</span>
+                  <span className="w-28 text-right font-semibold tabular-nums">{sign}{d.replace('-', '')} {unit}
+                    <span className="block text-2xs font-normal text-muted">{r.pct > 0 ? '+' : r.pct < 0 ? '−' : ''}{Math.abs(r.pct).toLocaleString('de-DE')} %</span>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <p className="text-xs text-muted">Ausgangswert ist der letzte Eintrag am oder vor Beginn des Zeitraums, sonst der erste Eintrag darin. Verglichen wird mit dem neuesten Eintrag.</p>
       </Card>
       <p className="text-xs text-muted">Werte werden intern in cm gespeichert.</p>
     </Page>
