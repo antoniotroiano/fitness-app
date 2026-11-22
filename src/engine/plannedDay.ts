@@ -1,5 +1,5 @@
 import type { Exercise, Program, Session, WorkoutDay, PlannedExercise } from '../types'
-import { isStalled, previousSets, sessionPerformance, suggestNext, type RepRange, type Suggestion } from './progression'
+import { isStalled, previousSets, sessionPerformance, suggestExplained, type RepRange, type Suggestion } from './progression'
 import { exerciseTargets, failureSetIndex, isSkipped, plannedSets, setRir, weekPlan, type WeekPlan } from './periodization'
 import { effectiveMode, freshnessFor, intensityOf, resolveWarmup, type WarmupContext, type WarmupSet } from './warmup'
 import { restCategory } from './rest'
@@ -70,7 +70,7 @@ export function plannedDay(
     const daysSince = today && lastDate ? daysBetween(lastDate, today) : undefined
     const sets = ex.cardio ? 1 : plannedSets(pe, plan)
     const ov = overrides[pe.exerciseId]
-    const sug: Suggestion = ex.cardio ? { weight: null, reps: 0 } : suggestNext({
+    const sug: Suggestion = ex.cardio ? { weight: null, reps: 0 } : suggestExplained({
       range, targetRir: rir, equipment: ex.equipment, last: previous.work, bodyLoad, lastBodyLoad: bodyLoad > 0 ? loadOn(lastDate) : undefined, stalled: !ex.assisted && !time && isStalled(e1rms), assisted: ex.assisted, metric: ex.metric, unit: warmup.weightUnit, scale: ov?.weightScale, daysSince,
       target: warmup.progressionTarget, weightMatch: warmup.weightMatch, expandRange: warmup.expandRange,
     })

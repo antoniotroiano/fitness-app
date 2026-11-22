@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { mergeSides, splitsSides, weakerSide } from './sides'
 import { prefillSets } from './prefill'
 import { DEFAULT_PLATES, platesFor } from './plates'
-import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, sessionE1rm, suggestNext, weightForReps } from './progression'
+import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, sessionE1rm, suggestExplained, suggestNext, weightForReps } from './progression'
 import {
   DEFAULT_WARMUP_SCHEMES, collapsedWarmups, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
   type WarmupContext,
@@ -19,6 +19,7 @@ import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
 import { baseRepRange, effectiveSets, exerciseTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives, recommendable, swapPlanned } from './swap'
+import { removeFromDay, swapInDay } from './dayEdit'
 import { targetMuscles } from './targetMuscles'
 import { weekProgress } from './weekProgress'
 import { deloadSessionOf, plannedDay } from './plannedDay'
@@ -912,7 +913,7 @@ describe('Plateau-Reset (A1)', () => {
     const view = (deload?: (s: Session) => boolean) =>
       plannedDay(day, weekPlan(config, 0), sessions, (id) => exerciseById(id), warm, {}, deload)[0]
     expect(view().sug.weight!).toBeLessThan(100)
-    expect(view(deloadSessionOf({ id: 1, config })).sug).toEqual({ weight: 100, reps: 7 })
+    expect(view(deloadSessionOf({ id: 1, config })).sug).toMatchObject({ weight: 100, reps: 7 })
   })
 })
 
@@ -1944,5 +1945,85 @@ describe('Verlauf bearbeiten (B2)', () => {
     // Datum so ändern, dass die schwere Einheit vor der leichten liegt
     const moved = moveSessionToDate(newer, '2026-11-01')
     expect(previousSets([older, moved], 'bb-bench').work[0].weight).toBe(60)
+  })
+})
+
+describe('Trainingstag im Logger ändern (dayEdit)', () => {
+  const pe = (id: string, superset?: string) => ({ exerciseId: id, sets: 3, repMin: 6, repMax: 10, rir: 2, ...(superset ? { superset } : {}) })
+  const look = (id: string) => exerciseById(id)
+  it('Tausch ersetzt die Übung an derselben Stelle und verwirft Wochenziele bei anderer Art', () => {
+    const list = [pe('bb-bench'), { ...pe('bb-row'), weeks: { w1: { sets: 5 } } }, pe('bb-squat')]
+    const out = swapInDay(list, 'bb-row', exerciseById('cable-curl')!, look, { goal: 'hypertrophy' })
+    expect(out.map((e) => e.exerciseId)).toEqual(['bb-bench', 'cable-curl', 'bb-squat'])
+    expect(out[1].weeks).toBeUndefined()
+    expect(out[1]).toMatchObject({ repMin: 10, repMax: 15 })
+    expect(list[1].exerciseId).toBe('bb-row') // Eingabe unverändert
+  })
+  it('Tausch derselben Art behält Sätze und Bereich', () => {
+    const out = swapInDay([pe('bb-bench')], 'bb-bench', exerciseById('bb-ohp')!, look)
+    expect(out[0]).toMatchObject({ exerciseId: 'bb-ohp', sets: 3, repMin: 6, repMax: 10 })
+  })
+  it('Tausch: unbekannte oder gleiche Übung ändert nichts', () => {
+    const list = [pe('bb-bench')]
+    expect(swapInDay(list, 'bb-row', exerciseById('bb-ohp')!, look)).toBe(list)
+    expect(swapInDay(list, 'bb-bench', exerciseById('bb-bench')!, look)).toBe(list)
+  })
+  it('Supersatz-ID folgt der ersten Übung nach dem Tausch', () => {
+    const list = [pe('bb-bench', 'bb-bench'), pe('bb-row', 'bb-bench'), pe('bb-squat')]
+    const out = swapInDay(list, 'bb-bench', exerciseById('bb-ohp')!, look)
+    expect(out[0].superset).toBe('bb-ohp')
+    expect(out[1].superset).toBe('bb-ohp')
+  })
+  it('Entfernen löst verwaiste Supersätze', () => {
+    const list = [pe('bb-bench', 'bb-bench'), pe('bb-row', 'bb-bench'), pe('bb-squat')]
+    const out = removeFromDay(list, 'bb-row')
+    expect(out.map((e) => e.exerciseId)).toEqual(['bb-bench', 'bb-squat'])
+    expect(out.every((e) => !e.superset)).toBe(true)
+    expect(removeFromDay(list, 'unbekannt')).toBe(list)
+  })
+})
+
+describe('Begründung der Vorschläge (suggestExplained, PLAN-6 A1)', () => {
+  const set = (weight: number, reps: number, rir = 2) => ({ weight, reps, rir })
+  const base = { range: { min: 6, max: 10 }, targetRir: 2, equipment: 'barbell' as const }
+  const sets = (w: number, r: number) => [1, 2, 3].map(() => set(w, r))
+  it('liefert dieselben Werte wie suggestNext, nur mit Begründung', () => {
+    const input = { ...base, last: sets(100, 8) }
+    const { weight, reps } = suggestExplained(input)
+    expect({ weight, reps }).toEqual(suggestNext(input))
+  })
+  it('ohne Historie: start', () => {
+    expect(suggestExplained(base)).toMatchObject({ weight: null, reason: 'start', level: 'info' })
+  })
+  it('+1 Wdh. bei gleichem Gewicht: reps, mit der letzten Einheit als Bezug', () => {
+    expect(suggestExplained({ ...base, last: sets(100, 8) })).toMatchObject({ reason: 'reps', level: 'info', prev: { weight: 100, reps: 8 } })
+  })
+  it('Obergrenze erreicht: top (Gewicht steigt)', () => {
+    const r = suggestExplained({ ...base, last: sets(100, 10) })
+    expect(r.reason).toBe('top')
+    expect(r.weight!).toBeGreaterThan(100)
+  })
+  it('Zeitübung: time, Körpergewicht ohne Zusatz: reps', () => {
+    expect(suggestExplained({ ...base, metric: 'time', range: { min: 30, max: 60 }, last: sets(0, 40) }).reason).toBe('time')
+    expect(suggestExplained({ ...base, equipment: 'bodyweight', last: sets(0, 8) }).reason).toBe('reps')
+  })
+  it('Plateau-Reset: stall; Pause mit gedeckeltem Gewicht: break', () => {
+    expect(suggestExplained({ ...base, last: sets(100, 8), stalled: true })).toMatchObject({ reason: 'stall', level: 'info' })
+    expect(suggestExplained({ ...base, last: sets(100, 8), daysSince: 56 })).toMatchObject({ reason: 'break', level: 'info' })
+    // Kurze Pause ändert nichts: normale Begründung
+    expect(suggestExplained({ ...base, last: sets(100, 8), daysSince: 10 }).reason).toBe('reps')
+  })
+  it('Gerätegrenze: extend/gap bleiben als Grund erhalten', () => {
+    const db = { range: { min: 10, max: 15 }, targetRir: 2, equipment: 'dumbbell' as const, last: sets(10, 15) }
+    const r = suggestExplained(db)
+    expect(r.note).toBeDefined()
+    expect(r.reason).toBe(r.note)
+  })
+  it('Warnstufe check bei großer Gewichts- oder Wdh.-Änderung', () => {
+    // Bereichswechsel von 12 auf 3–5 Wdh.: Gewicht und Wdh. weichen deutlich von der letzten Einheit ab
+    expect(suggestExplained({ ...base, range: { min: 3, max: 5 }, last: sets(100, 12) }).level).toBe('check')
+  })
+  it('Schwellen: bis 10 % und 3 Wdh. info', () => {
+    expect(suggestExplained({ ...base, last: sets(100, 8) }).level).toBe('info')
   })
 })
