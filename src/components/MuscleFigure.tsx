@@ -156,8 +156,8 @@ export function MuscleDetail({ primary, secondary }: { primary: MuscleId[]; seco
         ))}
       </div>
       <div className="flex gap-4 justify-center text-xs text-muted mt-2">
-        <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm bg-accent inline-block" /> Primär</span>
-        <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm bg-accent/45 inline-block" /> Sekundär</span>
+        <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm inline-block" style={{ background: 'var(--muscle)' }} /> Primär</span>
+        <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm inline-block" style={{ background: 'var(--muscle)', opacity: 0.45 }} /> Sekundär</span>
       </div>
     </div>
   )
