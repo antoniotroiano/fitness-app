@@ -1,4 +1,5 @@
 import { canDeleteByRemoving, canDeleteExercise, exerciseUsage, removeExerciseFromDays, type ExerciseUsage } from '../engine/customExercise'
+import { togglePeriodDay } from '../engine/cycle'
 import { defaultPrefs, normalizePrefs, type LayoutPrefs } from '../engine/layout'
 import Dexie, { type EntityTable } from 'dexie'
 import { DEFAULT_BAR, DEFAULT_PLATES } from '../engine/plates'
@@ -54,7 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   name: '', birthday: '', sex: '', heightCm: null,
   restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST,
   keepAlive: false, warmupMode: 'smart', warmupSchemes: DEFAULT_WARMUP_SCHEMES,
-  progressionTarget: 'mid', weightMatch: true, expandRange: true, hardSetFirst: false, hideDoneWarmups: true, autoAdvance: true, restSound: true, sideRest: 15, prefillMode: 'suggestion', barWeight: DEFAULT_BAR, plates: DEFAULT_PLATES,
+  progressionTarget: 'mid', weightMatch: true, expandRange: true, hardSetFirst: false, hideDoneWarmups: true, autoAdvance: true, periodTracking: false, restSound: true, sideRest: 15, prefillMode: 'suggestion', barWeight: DEFAULT_BAR, plates: DEFAULT_PLATES,
 }
 
 async function getKV<T>(key: string, fallback: T): Promise<T> {
@@ -86,6 +87,14 @@ export function useActiveWorkoutParam(): string | null {
   return useLiveQuery(() => db.kv.get(ACTIVE_WORKOUT_KEY).then((r) => ((r?.value as { param?: string } | undefined)?.param ?? null)), [], null) ?? null
 }
 
+const PERIOD_KEY = 'periodDays'
+export const getPeriodDays = () => getKV<string[]>(PERIOD_KEY, [])
+/** Tag der Periode markieren oder die Markierung entfernen (atomar aus der DB gelesen). */
+export const togglePeriod = (date: string) =>
+  db.transaction('rw', db.kv, async () => { await setKV(PERIOD_KEY, togglePeriodDay(await getPeriodDays(), date)) })
+export function usePeriodDays(): string[] {
+  return useLiveQuery(getPeriodDays, [], []) ?? []
+}
 const LAYOUT_KEY = 'layoutPrefs'
 export const getLayoutPrefs = () => getKV<Partial<LayoutPrefs> | null>(LAYOUT_KEY, null).then(normalizePrefs)
 export const saveLayoutPrefs = (p: LayoutPrefs) => setKV(LAYOUT_KEY, p)

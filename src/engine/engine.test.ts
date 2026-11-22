@@ -4,6 +4,7 @@ import { prefillSets } from './prefill'
 import { DEFAULT_PLATES, platesFor } from './plates'
 import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, rirOf, sessionE1rm, suggestExplained, suggestNext, weightForReps } from './progression'
 import { DASHBOARD_SECTIONS, SHORTCUTS, moveItem, normalizeLayout, normalizePrefs, toggleHidden, visibleIds, type ListLayout } from './layout'
+import { averageCycle, cycleLengths, cycleSummary, periodStarts, togglePeriodDay } from './cycle'
 import {
   DEFAULT_WARMUP_SCHEMES, collapsedWarmups, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
   type WarmupContext,
@@ -45,7 +46,7 @@ import { BODYWEIGHT_SHARE } from '../data/exercises'
 import { canFreeSlot, moveSessionToDate, sessionSummary, setSessionDuration, setSessionStartTime, weekStateAfterDelete, weekStateAfterMove, weekStateAfterWeekChange } from './history'
 import { buildImportSessions, parseTrainingCsv, suggestMapping } from './trainingImport'
 import { IMPORT_ALIASES } from '../data/importAliases'
-import { bodySeries, lastEntries, ratioSeries, smoothWeights, trendSeries, weightSeries } from './body'
+import { bodySeries, compareRows, lastEntries, ratioSeries, smoothWeights, trendSeries, weightSeries } from './body'
 import type { MeasureEntry, Program, ProgramConfig, Session, WeightEntry } from '../types'
 
 const range = { min: 6, max: 10 }
@@ -2599,5 +2600,56 @@ describe('Anpassbare Listen (PLAN-6 B17)', () => {
     expect(p.sections.order[0]).toBe('exercises')
     expect(p.sections.order.length).toBe(DASHBOARD_SECTIONS.length)
     expect(p.shortcuts.order).toEqual([...SHORTCUTS])
+  })
+})
+
+describe('Periode (PLAN-6 B16)', () => {
+  const days = ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-29', '2026-01-30', '2026-02-26', '2026-02-27']
+  it('togglePeriodDay: setzt/entfernt, sortiert, ohne Doppelte', () => {
+    expect(togglePeriodDay(['2026-01-02'], '2026-01-01')).toEqual(['2026-01-01', '2026-01-02'])
+    expect(togglePeriodDay(['2026-01-01', '2026-01-02'], '2026-01-01')).toEqual(['2026-01-02'])
+  })
+  it('periodStarts: Beginn je zusammenhängendem Block', () => {
+    expect(periodStarts(days)).toEqual(['2026-01-01', '2026-01-29', '2026-02-26'])
+    expect(periodStarts([])).toEqual([])
+  })
+  it('cycleLengths/averageCycle: Lücken und Ausreißer zählen nicht', () => {
+    expect(cycleLengths(['2026-01-01', '2026-01-29', '2026-02-26'])).toEqual([28, 28])
+    expect(cycleLengths(['2026-01-01', '2026-01-05', '2026-06-01'])).toEqual([])
+    expect(averageCycle(['2026-01-01', '2026-01-29', '2026-02-24'])).toBe(27)
+    expect(averageCycle(['2026-01-01'])).toBeNull()
+  })
+  it('cycleSummary: Zyklustag, nächster Beginn, Tage bis dahin', () => {
+    const s = cycleSummary(days, '2026-03-05')
+    expect(s).toMatchObject({ lastStart: '2026-02-26', average: 28, next: '2026-03-26', cycleDay: 8, daysUntilNext: 21 })
+    expect(cycleSummary(days, '2026-06-01').cycleDay).toBeNull()
+    expect(cycleSummary([], '2026-03-05')).toMatchObject({ lastStart: null, next: null, cycleDay: null })
+    // Markierungen in der Zukunft zählen nicht
+    expect(cycleSummary(days, '2026-02-10').lastStart).toBe('2026-01-29')
+  })
+})
+
+describe('Maße-Vergleich (PLAN-6 B21)', () => {
+  const w = [{ date: '2026-01-01', kg: 80 }, { date: '2026-02-01', kg: 79 }, { date: '2026-03-01', kg: 78 }] as Parameters<typeof compareRows>[0]
+  const m = [{ date: '2026-01-01', values: { waist: 90 } }, { date: '2026-03-01', values: { waist: 86, neck: 38 } }] as Parameters<typeof compareRows>[1]
+  const row = (rows: ReturnType<typeof compareRows>, key: string) => rows.find((r) => r.key === key)
+  it('Ausgangswert = letzter Eintrag am oder vor Zeitraumbeginn', () => {
+    const rows = compareRows(w, m, '2026-03-10', 28)
+    expect(row(rows, 'weight')).toMatchObject({ delta: -1, pct: -1.3, from: { date: '2026-02-01', value: 79 } })
+    expect(row(rows, 'waist')).toMatchObject({ delta: -4, pct: -4.4, from: { date: '2026-01-01', value: 90 } })
+  })
+  it('Gesamt: seit dem ersten Eintrag; Werte mit nur einem Eintrag fehlen', () => {
+    const rows = compareRows(w, m, '2026-03-10', null)
+    expect(row(rows, 'weight')).toMatchObject({ delta: -2, pct: -2.5 })
+    expect(row(rows, 'neck')).toBeUndefined()
+    expect(row(rows, 'bodyFat')).toBeUndefined()
+  })
+  it('ohne Eintrag vor dem Zeitraum: erster Eintrag im Zeitraum, Zukunft zählt nicht', () => {
+    const rows = compareRows(w, m, '2026-03-10', 28)
+    expect(row(compareRows(w, m, '2026-03-10', 365), 'weight')?.from.date).toBe('2026-01-01')
+    const only = compareRows([{ date: '2026-03-01', kg: 78 }, { date: '2026-03-05', kg: 77 }] as typeof w, [], '2026-03-10', 28)
+    expect(row(only, 'weight')).toMatchObject({ from: { date: '2026-03-01' }, delta: -1 })
+    expect(row(compareRows(w, m, '2026-01-15', null), 'weight')).toBeUndefined()
+    expect(rows.length).toBe(2)
   })
 })
