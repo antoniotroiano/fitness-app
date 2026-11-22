@@ -1,6 +1,6 @@
 import type { MeasureEntry, MeasureSite, WeightEntry } from '../types'
 import type { Point } from './stats'
-import { daysBetween } from '../utils/dates'
+import { addDays, daysBetween } from '../utils/dates'
 
 /** Schlüssel einer Körperkennzahl: Gewicht, Körperfett, eine Maßstelle oder ein Verhältnis. */
 export type RatioId = 'waistHip' | 'waistChest' | 'waistShoulders' | 'bicepsSym' | 'thighSym' | 'calfSym'
@@ -110,4 +110,46 @@ export function smoothWeights<T extends { date: string; kg: number }>(weights: T
   return weights
     .filter((w) => trend.has(w.date))
     .map((w) => ({ ...w, kg: Math.round(trend.get(w.date)! * 10) / 10 }))
+}
+
+/** Zeitraum der Vergleichsansicht in Tagen, `null` = seit dem ersten Eintrag. */
+export type ComparePeriod = 28 | 90 | 365 | null
+
+export interface CompareRow {
+  key: BodyKey
+  label: string
+  /** Ausgangswert (Stand am Beginn des Zeitraums) und aktueller Wert, jeweils mit Datum */
+  from: Point
+  to: Point
+  delta: number
+  /** Veränderung in Prozent des Ausgangswerts (1 Nachkommastelle) */
+  pct: number
+}
+
+/**
+ * Vergleichsansicht (PLAN-6 B21): Veränderung jeder erfassten Kennzahl (Gewicht, Körperfett, alle Maßstellen,
+ * keine Verhältnisse) über einen Zeitraum. Ausgangswert = letzter Eintrag am oder vor dem Beginn des Zeitraums,
+ * gibt es keinen, der erste Eintrag im Zeitraum. Aktuell = letzter Eintrag. Mindestens zwei verschiedene Tage nötig.
+ */
+export function compareRows(weights: WeightEntry[], measures: MeasureEntry[], today: string, period: ComparePeriod): CompareRow[] {
+  const cutoff = period === null ? null : addDays(today, -period)
+  const keys: BodyKey[] = ['weight', 'bodyFat', ...MEASURE_GROUPS.flatMap((g) => g.items.map((i) => i.id))]
+  const rows: CompareRow[] = []
+  for (const key of keys) {
+    const pts = bodySeries(key, weights, measures).filter((p) => p.date <= today)
+    if (pts.length < 2) continue
+    const to = pts[pts.length - 1]
+    let from: Point | undefined
+    if (cutoff === null) from = pts[0]
+    else {
+      const before = pts.filter((p) => p.date <= cutoff)
+      from = before.length ? before[before.length - 1] : pts.find((p) => p.date > cutoff)
+    }
+    if (!from || from.date === to.date || from.value <= 0) continue
+    rows.push({
+      key, label: bodyLabel(key), from, to, delta: Math.round((to.value - from.value) * 10) / 10,
+      pct: Math.round(((to.value - from.value) / from.value) * 1000) / 10,
+    })
+  }
+  return rows
 }

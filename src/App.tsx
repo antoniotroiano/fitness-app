@@ -9,6 +9,7 @@ import Workouts from './features/workouts/Workouts'
 import WorkoutPreview from './features/workouts/WorkoutPreview'
 import ProgramPage from './features/workouts/ProgramPage'
 import { WeightPage, MeasuresPage } from './features/body/Body'
+import { PeriodPage } from './features/body/Period'
 import { de } from './i18n/de'
 
 /** Seiten, die nicht beim Start gebraucht werden, laden als eigene Chunks. */
@@ -113,6 +114,7 @@ function Shell() {
         <Route path="/new/manual" element={<ManualBuilder />} />
         <Route path="/weight" element={<WeightPage />} />
         <Route path="/measures" element={<MeasuresPage />} />
+        <Route path="/period" element={<PeriodPage />} />
         <Route path="/stats/exercise/:id" element={<ExerciseStatsPage />} />
         <Route path="/stats/muscle/:id" element={<MuscleStatsPage />} />
         <Route path="/stats/body/:key" element={<BodyStatsPage />} />

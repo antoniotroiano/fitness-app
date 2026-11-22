@@ -61,8 +61,8 @@ body::before {
 
 /* Dashboard: Ringe und Gewohnheiten. Bewusst eine Farbfamilie (Teal wie Diagramme/Muskelfigur):
    Fortschritt ist eine Bedeutung, die Beschriftung unterscheidet. Signalfarben bleiben RIR und Warnungen. */
-:root { --ring-sets: #0d9488; --ring-muscles: #14b8a6; --ring-ex: #14b8a6; --habit-weight: #14b8a6; --habit-workout: #14b8a6; }
-.dark { --ring-sets: #2dd4bf; --ring-muscles: #2dd4bf; --ring-ex: #2dd4bf; --habit-weight: #2dd4bf; --habit-workout: #2dd4bf; }
+:root { --period: #e11d48; --ring-sets: #0d9488; --ring-muscles: #14b8a6; --ring-ex: #14b8a6; --habit-weight: #14b8a6; --habit-workout: #14b8a6; }
+.dark { --period: #fb7185; --ring-sets: #2dd4bf; --ring-muscles: #2dd4bf; --ring-ex: #2dd4bf; --habit-weight: #2dd4bf; --habit-workout: #2dd4bf; }
 
 /* Konfetti im Abschluss-Sheet */
 .confetti i { position: absolute; top: -12px; border-radius: 2px; opacity: 0; animation-name: confetti-fall; animation-timing-function: ease-in; animation-iteration-count: 1; animation-fill-mode: forwards; }

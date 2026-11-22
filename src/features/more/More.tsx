@@ -114,6 +114,7 @@ export default function More() {
       <Section title={de.more.data}>
         <Row icon="weight" label="Körpergewicht" to="/weight" />
         <Row icon="measures" label="Körpermaße" to="/measures" />
+        {s.periodTracking && <Row icon="heart" label="Periode" desc="Tage markieren, Zyklus" to="/period" />}
         <Row icon="data" label="Daten" desc="Backup, Import, Zurücksetzen" to="/more/data" />
       </Section>
 
@@ -309,6 +310,11 @@ export function ProfilePage() {
           <Segmented value={s.sex || 'x'} onChange={(v) => update({ sex: v })}
             options={[{ value: 'm', label: 'Männlich' }, { value: 'f', label: 'Weiblich' }, { value: 'x', label: 'Divers / k. A.' }]} />
         </div>
+        {s.sex !== 'm' && (
+          <div className="divide-y divide-line -my-1">
+            <SwitchRow icon="heart" label="Periode tracken" desc="Optional: eigene Seite unter Mehr, nur auf dem Gerät" checked={s.periodTracking} onChange={(v) => update({ periodTracking: v })} />
+          </div>
+        )}
         <label className="block text-xs text-muted">Größe in cm {s.heightCm ? `(${formatHeight(s.heightCm, s.lengthUnit)})` : ''}
           <input inputMode="decimal" className={`${inputCls} mt-1`} value={h || (s.heightCm ?? '')}
             onChange={(e) => { setH(e.target.value); const n = Number(e.target.value.replace(',', '.')); update({ heightCm: n > 0 ? n : null }) }} /></label>

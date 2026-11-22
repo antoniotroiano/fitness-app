@@ -238,6 +238,8 @@ export interface Settings {
   hideDoneWarmups: boolean
   /** Logger: nach dem letzten Satz einer Übung zur nächsten offenen Übung wechseln (Supersätze wechseln immer) */
   autoAdvance: boolean
+  /** Periode tracken (Standard aus): Seite unter Mehr, markierte Tage in kv['periodDays'] */
+  periodTracking: boolean
   /** Pausentimer: Signalton am Ende der Pause (zusätzlich zur Vibration) */
   restSound: boolean
   /** Pause zwischen linker und rechter Seite eines Satzes, Sekunden (0 = kein Timer) */
