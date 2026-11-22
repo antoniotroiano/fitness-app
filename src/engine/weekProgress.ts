@@ -8,12 +8,34 @@ export interface WeekProgress {
   muscles: { done: number; total: number; full: number }
 }
 
+export interface WeekProgressOptions {
+  /** program (Standard): nur Einheiten dieses Programms in der Programmwoche. all: alle Einheiten im Datumsbereich (auch andere Programme, Importe, Nachträge). */
+  scope?: 'program' | 'all'
+  /** Programmwoche, die geplant wird (Standard: state.week) */
+  week?: number
+  /** Bei scope 'all': Datumsbereich (yyyy-mm-dd, inklusive) */
+  from?: string
+  to?: string
+}
+
 /** Fortschritt der aktuellen Programmwoche (nur geplante Workout-Slots, primäre Muskeln). */
 export function weekProgress(
   program: Program, state: WeekState, sessions: Session[], lookup: (id: string) => Exercise | undefined,
+  opts: WeekProgressOptions = {},
 ): WeekProgress {
-  const plan = program.config ? weekPlan(program.config, state.week) : neutralWeek(state.week)
-  const cycle = sessions.filter((s) => s.programId === program.id && s.week === state.week)
+  const week = opts.week ?? state.week
+  const all = opts.scope === 'all'
+  const plan = program.config ? weekPlan(program.config, week) : neutralWeek(week)
+  const cycle = all
+    ? sessions.filter((s) => (!opts.from || s.date >= opts.from) && (!opts.to || s.date <= opts.to))
+    : sessions.filter((s) => s.programId === program.id && s.week === week)
+  // „Alle“: Sätze einer Übung zählen unabhängig vom Tag/Programm, in dem sie geloggt wurden
+  const pool = new Map<string, number>()
+  if (all) {
+    for (const s of cycle) for (const e of s.exercises) {
+      pool.set(e.exerciseId, (pool.get(e.exerciseId) ?? 0) + e.sets.filter((x) => !x.warmup && !x.segment).length)
+    }
+  }
   const plannedSets: Partial<Record<MuscleId, number>> = {}
   const doneSets: Partial<Record<MuscleId, number>> = {}
   let exTotal = 0, exDone = 0, setTotal = 0, setDone = 0
@@ -22,12 +44,14 @@ export function weekProgress(
   for (const dayIdx of new Set(scheduled)) {
     const day = program.days[dayIdx]
     if (!day) continue
-    const session = cycle.find((s) => s.dayIndex === dayIdx)
+    const session = all ? undefined : cycle.find((s) => s.dayIndex === dayIdx)
     for (const pe of day.exercises) {
       const ex = lookup(pe.exerciseId)
       if (!ex || ex.cardio || isSkipped(pe, plan)) continue
       const planned = setsInWeek(pe, plan)
-      const logged = session?.exercises.find((e) => e.exerciseId === pe.exerciseId)?.sets.filter((x) => !x.warmup && !x.segment).length ?? 0
+      const logged = all
+        ? pool.get(pe.exerciseId) ?? 0
+        : session?.exercises.find((e) => e.exerciseId === pe.exerciseId)?.sets.filter((x) => !x.warmup && !x.segment).length ?? 0
       exTotal += 1
       if (logged > 0) exDone += 1
       setTotal += planned

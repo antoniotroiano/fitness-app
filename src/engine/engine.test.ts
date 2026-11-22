@@ -671,6 +671,35 @@ describe('weekProgress Muskeln', () => {
   })
 })
 
+describe('weekProgress Umschalter und Vorwoche', () => {
+  const ex = (id: string) => exerciseById(id, ALL_EXERCISES)!
+  const pe = (id: string) => ({ exerciseId: id, sets: 2, repMin: 8, repMax: 12, rir: 2 })
+  const program = {
+    id: 1, name: 'T', icon: '', color: '', weekSlots: [0], createdAt: 0,
+    days: [{ id: 'a', name: 'A', exercises: [pe('bb-bench'), pe('bb-curl')] }],
+  } as unknown as Parameters<typeof weekProgress>[0]
+  const state = { week: 1, done: [false], markedDates: [] } as unknown as Parameters<typeof weekProgress>[1]
+  const mk = (programId: number | null, week: number, date: string, id: string, n: number) => ({
+    programId, week, dayIndex: programId === null ? -1 : 0, date, finishedAt: 1,
+    exercises: [{ exerciseId: id, sets: Array.from({ length: n }, () => ({ weight: 50, reps: 8 })) }],
+  }) as unknown as Parameters<typeof weekProgress>[2][number]
+  const sessions = [
+    mk(1, 0, '2026-01-05', 'bb-bench', 2), // Vorwoche, Programm
+    mk(null, 0, '2026-01-13', 'bb-curl', 2), // Import in der aktuellen Kalenderwoche
+  ]
+  it('Programm-Modus zählt nur Einheiten der gewählten Programmwoche', () => {
+    expect(weekProgress(program, state, sessions, ex).sets.done).toBe(0)
+    expect(weekProgress(program, state, sessions, ex, { week: 0 }).sets.done).toBe(2)
+  })
+  it('Alle-Modus zählt jede Einheit im Datumsbereich, auch ohne Programm', () => {
+    const p = weekProgress(program, state, sessions, ex, { scope: 'all', from: '2026-01-12', to: '2026-01-18' })
+    expect(p.sets).toEqual({ done: 2, total: 4 })
+    expect(p.exercises.done).toBe(1)
+    const prev = weekProgress(program, state, sessions, ex, { scope: 'all', week: 0, from: '2026-01-05', to: '2026-01-11' })
+    expect(prev.sets.done).toBe(2)
+  })
+})
+
 describe('Übungsbilder (Mapping)', () => {
   it('mappt nur auf vorhandene App-Übungen und vorhandene Poster', () => {
     for (const [id, slug] of Object.entries(MEDIA_MAP)) {
