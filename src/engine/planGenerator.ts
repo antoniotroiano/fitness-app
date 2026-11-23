@@ -89,6 +89,91 @@ export function weeklyTarget(config: ProgramConfig, muscle: MuscleId): number {
   return Math.max(3, Math.round(sets))
 }
 
+/** Große Muskeln: bekommen bei knappem Budget vor den kleinen ihr volles Wochenziel. */
+const BIG_MUSCLES: MuscleId[] = ['quads', 'hamstrings', 'glutes', 'chest', 'lats', 'upperBack']
+/** Gewicht der Priorität: Fokus "Höher" vor großen Muskeln vor dem Rest (Rest skaliert zuerst herunter). */
+const PRIORITY_WEIGHT = { focus: 1.8, big: 1.6, rest: 1 }
+/** Ab diesem Tagesbudget (Basissätze) behält jeder große Muskel mindestens 3 Sätze pro Woche (ab '20-40'). */
+const BIG_FLOOR_FROM_DAY_CAP = 9
+/** Kleinere Zuteilung ist als eigene Übung sinnlos: Der Muskel entfällt, sein Anteil geht an die übrigen. */
+const MIN_ALLOCATION = 2.5
+
+/**
+ * Verteilt das Wochenbudget auf die Muskeln: Priorisierung statt globalem Faktor.
+ * Passt alles, gilt das Wochenziel. Sonst bekommt jeder Muskel min(Ziel, λ · Gewicht · Ziel) mit λ aus dem Budget,
+ * so dass Fokus-Muskeln und große Muskeln zuerst ihr volles Ziel erreichen und der Rest skaliert. Bei Hypertrophie sind
+ * für Bizeps, Trizeps und seitliche Schulter vorab 2 Sätze (eine Direktübung) reserviert; Muskeln unter `MIN_ALLOCATION`
+ * Sätzen entfallen, von den niedrigsten Prioritäten aus. Das Budget je Tag (`dayCap` in Basissätzen) begrenzt die Muskeln
+ * eines Tages gemeinsam: was ein voller Tag nicht aufnimmt, geht an Muskeln, die auf anderen Tagen noch Platz haben.
+ * `dayMuscles` = Muskeln je Tag.
+ */
+export function allocateWeekly(
+  config: ProgramConfig, dayMuscles: MuscleId[][], dayCap: number,
+): Partial<Record<MuscleId, number>> {
+  const muscles = [...new Set(dayMuscles.flat())]
+  const freq = (m: MuscleId) => dayMuscles.filter((d) => d.includes(m)).length
+  const target = new Map(muscles.map((m) => [m, weeklyTarget(config, m)]))
+  const budget = dayCap * dayMuscles.length
+  const out: Partial<Record<MuscleId, number>> = {}
+  const total = muscles.reduce((a, m) => a + target.get(m)!, 0)
+  if (total <= budget && dayMuscles.every((d) => d.reduce((a, m) => a + target.get(m)! / freq(m), 0) <= dayCap)) {
+    muscles.forEach((m) => { out[m] = target.get(m)! })
+    return out
+  }
+
+  const weight = (m: MuscleId) => config.focus[m] === 'high' ? PRIORITY_WEIGHT.focus : BIG_MUSCLES.includes(m) ? PRIORITY_WEIGHT.big : PRIORITY_WEIGHT.rest
+  // Mindestanteil: Direktübung (Hypertrophie) für Bizeps/Trizeps/seitliche Schulter, bei normalem Budget auch 3 Sätze je großem Muskel
+  const bigFloor = dayCap >= BIG_FLOOR_FROM_DAY_CAP
+  const floor = (m: MuscleId) => {
+    if (config.goal === 'hypertrophy' && DIRECT_MIN_MUSCLES.includes(m) && config.focus[m] !== 'high') return Math.min(2, target.get(m)!)
+    return bigFloor && BIG_MUSCLES.includes(m) ? Math.min(3, target.get(m)!) : 0
+  }
+  // Niedrigste Priorität zuerst streichen: kleines Gewicht, dann spät in ORDER
+  const dropOrder = [...muscles].sort((a, b) => weight(a) - weight(b) || ORDER.indexOf(b) - ORDER.indexOf(a))
+  const ub = new Map(target)
+  const active = new Set(muscles)
+  const solve = (): Map<MuscleId, number> => {
+    const share = (m: MuscleId, l: number) => Math.max(floor(m), Math.min(ub.get(m)!, l * weight(m) * target.get(m)!))
+    for (;;) {
+      let lo = 0, hi = 4
+      const sum = (l: number) => [...active].reduce((a, m) => a + share(m, l), 0)
+      for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (sum(mid) > budget) hi = mid; else lo = mid }
+      const drop = dropOrder.find((m) => active.has(m) && floor(m) === 0 && share(m, lo) < MIN_ALLOCATION)
+      if (!drop || active.size <= 1) return new Map([...active].map((m) => [m, share(m, lo)]))
+      active.delete(drop)
+    }
+  }
+  let alloc = solve()
+  for (let iter = 0; iter < 12; iter++) {
+    let overloaded = false
+    for (const d of dayMuscles) {
+      const load = d.reduce((a, m) => a + (alloc.get(m) ?? 0) / freq(m), 0)
+      if (load <= dayCap * 1.02) continue
+      overloaded = true
+      // Gleiche Gewichtung wie global: Fokus und große Muskeln behalten ihren Anteil am Tag am längsten
+      const part = (m: MuscleId) => (alloc.get(m) ?? 0) / freq(m)
+      const dayShare = (m: MuscleId, l: number) => Math.max(floor(m) / freq(m), Math.min(part(m), l * weight(m) * part(m)))
+      const act = new Set(d)
+      for (;;) {
+        let lo = 0, hi = 4
+        for (let i = 0; i < 40; i++) {
+          const mid = (lo + hi) / 2
+          if ([...act].reduce((a, m) => a + dayShare(m, mid), 0) > dayCap) hi = mid; else lo = mid
+        }
+        // Wie global: Anteile unter dem Minimum entfallen, niedrigste Priorität zuerst
+        const drop = dropOrder.find((m) => act.has(m) && floor(m) === 0 && dayShare(m, lo) * freq(m) < MIN_ALLOCATION)
+        if (!drop || act.size <= 1) { act.forEach((m) => { ub.set(m, Math.min(ub.get(m)!, dayShare(m, lo) * freq(m))) }); break }
+        act.delete(drop)
+        ub.set(drop, 0)
+      }
+    }
+    if (!overloaded) break
+    alloc = solve()
+  }
+  muscles.forEach((m) => { out[m] = alloc.get(m) ?? 0 })
+  return out
+}
+
 function pickExercises(
   pool: Exercise[], muscle: MuscleId, count: number, used: Set<string>, rotate: number,
 ): Exercise[] {
@@ -158,14 +243,15 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
   // Wochenvolumen an das Zeitbudget anpassen (Budget gilt für die Spitzenwoche)
   const cap = SESSION_SET_CAP[config.time]
   const baseCap = cap / PEAK_SETS_FACTOR
-  const weeklyWanted = Object.keys(freq).reduce((a, m) => a + weeklyTarget(config, m as MuscleId), 0)
-  const scale = Math.min(1, (baseCap * types.length) / weeklyWanted)
+  const allocation = allocateWeekly(config, types.map(dayMuscles), baseCap)
 
   // Noch zu verteilende Wochensätze und verbleibende Tage je Muskel: nicht platzierte Sätze wandern so auf spätere Tage
   const left: Partial<Record<MuscleId, number>> = {}
   const daysLeft: Partial<Record<MuscleId, number>> = { ...freq }
-  for (const m of Object.keys(freq) as MuscleId[]) left[m] = weeklyTarget(config, m) * scale
+  for (const m of Object.keys(freq) as MuscleId[]) left[m] = allocation[m] ?? 0
 
+  // Bei sehr knappem Budget (u20) reichen 2 Sätze für eine Verbundübung, sonst bliebe kein Platz neben der Direktübung
+  const compoundMin = cap < SESSION_SET_CAP['20-40'] ? 2 : 3
   const states: DayState[] = types.map((type, index) => ({
     index, type, credit: {}, used: new Set<string>(), planned: [], sortKey: new Map(), remaining: cap, mains: 0,
     // Fokus "Höher" wird zuerst platziert (bekommt das Zeitbudget vor allen anderen), die Anzeigereihenfolge folgt `ORDER`
@@ -192,7 +278,7 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
     // Mindestens 3 Sätze für Verbundübungen, 2 für Isolation; ab 5 Sätzen zwei Übungen
     const lead = pickExercises(pool, m, 1, d.used, d.index)[0]
     if (!lead) return 0
-    const min = lead.compound ? 3 : 2
+    const min = lead.compound ? compoundMin : 2
     for (let sets = Math.max(want, min); sets >= min; sets--) {
       const chosen = pickExercises(pool, m, sets >= 5 ? 2 : 1, d.used, d.index)
       if (!chosen.length) return 0
@@ -203,6 +289,36 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
     }
     return 0
   }
+
+  /** Hypertrophie: pro Woche mindestens eine direkte Übung für Bizeps, Trizeps, seitliche Schulter. */
+  const ensureDirect = () => {
+    if (config.goal !== 'hypertrophy') return
+    for (const m of DIRECT_MIN_MUSCLES) {
+      const dayOf = states.filter((d) => d.muscles.includes(m))
+      if (!dayOf.length) continue
+      const has = states.some((d) => d.planned.some((p) => { const ex = byId.get(p.exerciseId); return !!ex && isDirectFor(ex, m) }))
+      if (has) continue
+      for (const d of [...dayOf].sort((a, b) => b.remaining - a.remaining)) {
+        const ex = pool.filter((e) => isDirectFor(e, m) && !d.used.has(e.id))
+        const pick = ex[d.index % Math.max(1, ex.length)]
+        if (!pick) continue
+        const sets = 2
+        // Fehlt Platz im Budget, geben andere Übungen des Tages Sätze ab (nie unter 2 Sätze)
+        while (d.remaining < peakCost(sets)) {
+          const donor = [...d.planned].filter((p) => p.sets > 2).sort((a, b) => b.sets - a.sets)[0]
+          if (!donor) break
+          donor.sets -= 1
+          d.remaining += peakCost(donor.sets + 1) - peakCost(donor.sets)
+        }
+        if (d.remaining < peakCost(sets)) continue
+        add(d, pick, sets, m)
+        break
+      }
+    }
+  }
+
+  // Bei knappem Budget zuerst die Direktübungen reservieren, bevor Verbundübungen den Tag füllen
+  if (Object.keys(freq).some((m) => (allocation[m as MuscleId] ?? 0) < weeklyTarget(config, m as MuscleId) - 0.01)) ensureDirect()
 
   // 1. Durchgang: Tag für Tag, Rest des Wochenziels verteilt sich auf die verbleibenden Tage des Muskels
   for (const d of states) {
@@ -227,31 +343,8 @@ export function generate(config: ProgramConfig, exercises: Exercise[]): Generate
     }
   }
 
-  // 3. Hypertrophie: pro Woche mindestens eine direkte Übung für Bizeps, Trizeps, seitliche Schulter
-  if (config.goal === 'hypertrophy') {
-    for (const m of DIRECT_MIN_MUSCLES) {
-      const dayOf = states.filter((d) => d.muscles.includes(m))
-      if (!dayOf.length) continue
-      const has = states.some((d) => d.planned.some((p) => { const ex = byId.get(p.exerciseId); return !!ex && isDirectFor(ex, m) }))
-      if (has) continue
-      for (const d of [...dayOf].sort((a, b) => b.remaining - a.remaining)) {
-        const ex = pool.filter((e) => isDirectFor(e, m) && !d.used.has(e.id))
-        const pick = ex[d.index % Math.max(1, ex.length)]
-        if (!pick) continue
-        const sets = 2
-        // Fehlt Platz im Budget, geben andere Übungen des Tages Sätze ab (nie unter 2 Sätze)
-        while (d.remaining < peakCost(sets)) {
-          const donor = [...d.planned].filter((p) => p.sets > 2).sort((a, b) => b.sets - a.sets)[0]
-          if (!donor) break
-          donor.sets -= 1
-          d.remaining += peakCost(donor.sets + 1) - peakCost(donor.sets)
-        }
-        if (d.remaining < peakCost(sets)) continue
-        add(d, pick, sets, m)
-        break
-      }
-    }
-  }
+  // 3. Sicherheitsnetz, falls oben nichts davon platziert wurde
+  ensureDirect()
 
   const days: WorkoutDay[] = states.map((d) => {
     const nameIndex = types.slice(0, d.index + 1).filter((t) => t === d.type).length
