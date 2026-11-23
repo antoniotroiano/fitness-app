@@ -7,7 +7,10 @@ import { t } from '../../i18n'
 
 export interface RestState { endsAt: number; total: number }
 
-const PRESETS = [30, 60, 90, 120, 180]
+/** Neustart-Zeiten: 15-s-Schritte bis 3 min */
+const PRESETS = Array.from({ length: 12 }, (_, i) => (i + 1) * 15)
+/** Verlängern/Verkürzen des laufenden Timers (Sekunden) */
+const ADJUST = [10, 15]
 
 const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
 
@@ -63,23 +66,23 @@ export function RestSheet({ open, onClose, rest, onAdjust, onStop, onStart }: {
   onAdjust: (deltaSec: number) => void; onStop: () => void; onStart: (sec: number) => void
 }) {
   const left = useRemaining(open ? rest : null)
-  const btn = 'flex-1 h-11 rounded-xl bg-surface2 text-sm font-medium active:opacity-70'
+  const btn = 'h-11 rounded-xl bg-surface2 text-sm font-medium active:opacity-70'
   return (
     <BottomSheet open={open} onClose={onClose} title={t('Pausen-Timer')}>
       <div className="space-y-4">
         {rest ? (
           <>
             <div className="text-center text-4xl font-semibold tabular-nums">{mmss(left)}</div>
-            <div className="flex gap-2">
-              <button className={btn} onClick={() => onAdjust(-15)}>−15 s</button>
-              <button className={btn} onClick={() => onAdjust(15)}>+15 s</button>
-              <button className={cx(btn, 'text-danger')} onClick={() => { onStop(); onClose() }}>{t('Stoppen')}</button>
+            <div className="grid grid-cols-4 gap-2">
+              {[...ADJUST].reverse().map((d) => <button key={`-${d}`} className={btn} onClick={() => onAdjust(-d)}>−{d} s</button>)}
+              {ADJUST.map((d) => <button key={`+${d}`} className={btn} onClick={() => onAdjust(d)}>+{d} s</button>)}
             </div>
+            <button className={cx(btn, 'w-full text-danger')} onClick={() => { onStop(); onClose() }}>{t('Stoppen')}</button>
           </>
         ) : <p className="text-sm text-muted">{t('Kein Timer aktiv. Nach jedem abgehakten Satz startet die Pause automatisch.')}</p>}
         <div>
           <div className="text-xs text-muted mb-2">{rest ? t('Neu starten mit') : t('Timer starten')}</div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {PRESETS.map((sec) => (
               <button key={sec} className={btn} onClick={() => { onStart(sec); onClose() }}>{mmss(sec)}</button>
             ))}

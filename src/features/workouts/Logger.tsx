@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { Exercise, LoggedExercise, LoggedSet, MuscleId, PlannedExercise, Settings, WarmupStep } from '../../types'
+import type { Exercise, MuscleId, PlannedExercise, Settings, WarmupStep } from '../../types'
 import { ExercisePicker } from '../wizard/shared'
 import { Button, Card, cx } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
@@ -12,22 +12,23 @@ import { DEFAULT_SETTINGS } from '../../db/db'
 import { smartSteps, resolveWarmup, effectiveMode, dedupeWarmups } from '../../engine/warmup'
 import { restCategory } from '../../engine/rest'
 import { noLoadStats, volumeFactor } from '../../engine/stats'
-import { splitsSides, weakerSide } from '../../engine/sides'
+import { splitsSides } from '../../engine/sides'
 import { prefillSets } from '../../engine/prefill'
 import { platesFor } from '../../engine/plates'
 import { usesBodyweight } from '../../engine/bodyweight'
 
 import type { PlannedView } from '../../engine/plannedDay'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
-import { adaptNextSets, loadSteps } from '../../engine/progression'
+import { loadSteps } from '../../engine/progression'
+import { adaptFollowingRows, buildSession, collectExercises, daysWithKept, weekStateAfterFinish } from '../../engine/loggerCore'
 import { MYO_REST_SEC, nextSegment } from '../../engine/setTypes'
 import { removeFromDay, replaceInDay, swapEntry } from '../../engine/dayEdit'
 import { alternatives, recommendable } from '../../engine/swap'
-import { linksOf, nextInSuperset, setSupersetLink, supersetMembers, withLinks } from '../../engine/superset'
+import { nextInSuperset, setSupersetLink, supersetMembers } from '../../engine/superset'
 import { neutralWeek, weekPlan } from '../../engine/periodization'
 import { distanceUnitOf, isRepless, METRIC_RANGE } from '../../engine/metric'
 import { restSecondsFor } from '../../engine/rest'
-import { historyUpTo, markSlot, maxReachedWeek, weekLabel } from '../../engine/weekCycle'
+import { historyUpTo, maxReachedWeek, weekLabel } from '../../engine/weekCycle'
 import { elapsedMs, pauseClock, resumeClock, startClock } from '../../engine/workoutClock'
 import { displayToKg, kgToDisplay } from '../../utils/units'
 import { fmt, formatDate, parse, todayStr } from '../../utils/dates'
@@ -42,7 +43,7 @@ import { CompleteSheet, ExerciseActionsSheet, FinishChoiceSheet, SuggestionSheet
 import { NoteSheet, scopeLabel, type NoteScope } from './sheets'
 import { WarmupSheet } from './WarmupSheet'
 import { isSegment, uid, withSides, type ActiveWorkout, type Row, type SideRow } from './state'
-import { num, rowToSet, sideSet } from './sessionRows'
+import { num } from './sessionRows'
 import { de } from '../../i18n/de'
 import { progressionNote, reasonText } from './progressionNote'
 import { t, LOCALE } from '../../i18n'
@@ -283,37 +284,10 @@ export default function Logger() {
     setRows(current.pe.exerciseId, (rs) => rs.map((r) => (r.id === rowId && r.right
       ? { ...r, right: { ...r.right, ...p }, ...(p.weight !== undefined || p.reps !== undefined ? { manual: true } : {}) } : r)))
 
-  /**
-   * Nach einem abgehakten Arbeitssatz: Gewicht und Wdh. der noch offenen, nicht von Hand geänderten Folgesätze
-   * neu berechnen (Ermüdung je Satz Abstand eingerechnet). Lief der Satz wie geplant, bleibt alles unverändert.
-   * Ohne Verlauf (kein Planungsgewicht) kalibriert der erste Satz. Assistierte, Zeit- und Cardioübungen nicht.
-   */
-  const adaptFollowing = (rs: Row[], doneRow: Row): Row[] => {
-    if (doneRow.type !== 'work' || current.ex.cardio || current.ex.assisted || isRepless(current.ex.metric) || doneRow.rir === '' || doneRow.planReps === undefined) return rs
-    const idx = rs.findIndex((r) => r.id === doneRow.id)
-    // Links/rechts getrennt: die schwächere Seite bestimmt die Folgesätze
-    const src = doneRow.right && doneRow.right.rir !== ''
-      && weakerSide(sideSet(doneRow, wl), sideSet(doneRow.right, wl), false, current.bodyLoad) === 'r' ? doneRow.right : doneRow
-    const done = {
-      weight: displayToKg(num(src.weight), wl), reps: num(src.reps), rir: num(src.rir),
-      planWeight: doneRow.planKg, planReps: doneRow.planReps, planRir: doneRow.planRir ?? num(doneRow.rir),
-    }
-    // Alle folgenden Arbeitssätze zählen für den Abstand; angepasst werden nur offene, nicht von Hand geänderte
-    const following = rs.map((r, i) => ({ r, i })).filter(({ r, i }) => i > idx && r.type === 'work')
-    const open = following.filter(({ r }) => !r.done && !r.manual)
-    if (!open.length) return rs
-    const res = adaptNextSets(done, open.map(({ r }) => ({ planWeight: r.planKg ?? null, rir: r.rir === '' ? (r.planRir ?? 2) : num(r.rir) })),
-      current.range, current.ex.equipment, wl, overrides[current.pe.exerciseId]?.weightScale, current.bodyLoad)
-    const byId = new Map(open.map(({ r }, k) => [r.id, res[k]]))
-    return rs.map((r) => {
-      const next = byId.get(r.id)
-      if (!next) return r
-      // Neue Erwartung für diesen Satz: Vergleichsbasis, wenn er abgehakt wird
-      const weight = String(kgToDisplay(next.weight, wl))
-      const reps = String(next.reps)
-      return { ...r, weight, reps, planKg: next.weight, planReps: next.reps, ...(r.right && !r.right.done ? { right: { ...r.right, weight, reps } } : {}) }
-    })
-  }
+  /** Folgesätze nach einem abgehakten Satz neu berechnen (`engine/loggerCore.ts`) */
+  const adaptFollowing = (rs: Row[], doneRow: Row): Row[] => adaptFollowingRows(rs, doneRow, {
+    ex: current.ex, wl, range: current.range, scale: overrides[current.pe.exerciseId]?.weightScale, bodyLoad: current.bodyLoad,
+  })
 
   /**
    * Haken setzen/entfernen. Links/rechts getrennt (`side`): eine Seite abhaken startet die Seitenpause, erst mit beiden
@@ -596,39 +570,24 @@ export default function Logger() {
     if (saving.current) return
     saving.current = true
     setSaveError(null)
-    const exercises: LoggedExercise[] = []
-    for (const v of views) {
-      const take = (r: Row) => (mode === 'completed' ? r.done : v.ex.cardio ? num(r.minutes) > 0 : num(r.reps) > 0)
-      const sets: LoggedSet[] = (active.rows[v.pe.exerciseId] ?? []).filter(take).map((r) => rowToSet(r, v.ex, v.bodyLoad, { weight: wl, distance: settings.distanceUnit }))
-      if (sets.length) exercises.push({ exerciseId: v.pe.exerciseId, sets })
-    }
+    const exercises = collectExercises(views.map((v) => ({ exerciseId: v.pe.exerciseId, ex: v.ex, bodyLoad: v.bodyLoad })), active.rows, mode,
+      { weight: wl, distance: settings.distanceUnit })
     setClosed(true)
     try {
       const now = Date.now()
       // Nachgetragen: Datum aus der Wahl, Uhrzeit mittags, Dauer unbekannt (im Verlauf änderbar)
       const date = backfill?.date ?? fmt(new Date(active.clock.startedAt))
       const noon = backfill ? parse(backfill.date).getTime() + 12 * 3600_000 : null
-      const notes = Object.fromEntries(Object.entries(active.notes ?? {}).filter(([id, t]) => t && exercises.some((e) => e.exerciseId === id)))
       // Einheit, Wochenstand und Löschen des laufenden Workouts atomar: schlägt etwas fehl, bleibt das Training erhalten.
       await db.transaction('rw', db.sessions, db.kv, db.programs, async () => {
         if (exercises.length) {
-          await db.sessions.add({
-            programId: program.id ?? null, dayIndex: dayIdx, date, finishedAt: noon ?? now, week: curWeek, exercises,
-            ...(noon === null ? { startedAt: active.clock.startedAt, durationSec: Math.floor(elapsedMs(active.clock, now) / 1000) } : { startedAt: noon }),
-            ...(Object.keys(notes).length ? { notes } : {}),
-          })
-          if (slotIdx !== null && !foreign && !backfill) await saveWeekState(markSlot(week, slotIdx, date))
-          // Im Workout hinzugefügte (und trainierte) Übungen dauerhaft in den Trainingstag übernehmen
-          const keep = (active.added ?? []).filter((pe) => exercises.some((e) => e.exerciseId === pe.exerciseId))
-          if (keep.length && program.id != null) {
-            const days = program.days.map((d, i) => {
-              if (i !== dayIdx) return d
-              const list = [...d.exercises, ...keep.filter((pe) => !d.exercises.some((e) => e.exerciseId === pe.exerciseId))]
-              // Nicht trainierte hinzugefügte Übungen fehlen: Supersätze neu zusammensetzen (nur Benachbarte bleiben verbunden)
-              return { ...d, exercises: withLinks(list, linksOf(list)) }
-            })
-            await db.programs.update(program.id, { days })
-          }
+          await db.sessions.add(buildSession({
+            exercises, programId: program.id ?? null, dayIndex: dayIdx, date, week: curWeek, clock: active.clock, now, noonMs: noon, notes: active.notes,
+          }))
+          const nextWeek = weekStateAfterFinish(week, slotIdx, date, { saved: true, foreign, backfill: !!backfill })
+          if (nextWeek) await saveWeekState(nextWeek)
+          const days = program.id != null ? daysWithKept(program.days, dayIdx, active.added, exercises) : null
+          if (days && program.id != null) await db.programs.update(program.id, { days })
         }
         await clearActiveWorkout()
       })
