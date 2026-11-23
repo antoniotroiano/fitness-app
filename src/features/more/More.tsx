@@ -20,7 +20,7 @@ import { MuscleThumb } from '../../components/MuscleFigure'
 import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/library'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
 import { de } from '../../i18n/de'
-import { APP_VERSION } from '../../data/version'
+import { APP_VERSION, IS_BETA } from '../../data/version'
 import { todayStr, daysBetween } from '../../utils/dates'
 import { t, LOCALE, setLanguage } from '../../i18n'
 
@@ -637,7 +637,7 @@ export function AboutPage() {
     <Page title="About" back={() => nav('/more')}>
       <Card className="space-y-2 text-sm">
         <div className="text-lg font-bold">Lift Lab</div>
-        <div className="text-muted">Version {APP_VERSION}</div>
+        <div className="text-muted">Version {APP_VERSION}{IS_BETA ? ' (Beta)' : ''}</div>
         <p>{t('Eigenständige Trainings-App mit regelbasierter Progression (Double Progression, e1RM, RIR). Alle Daten bleiben auf deinem Gerät.')}</p>
         <p className="text-muted text-xs">{t('Die Vorschläge sind allgemeine Trainingsheuristiken und ersetzen keine individuelle Beratung durch Trainer:innen oder Ärzt:innen.')}</p>
       </Card>

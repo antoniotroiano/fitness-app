@@ -5,11 +5,15 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vite'
 import pkg from './package.json' with { type: 'json' }
 
+// Beta-Build (Workflow beta.yml): eigener Pfad, eigener Name, eigene Datenbank (siehe data/version.ts)
+const BETA = process.env.APP_CHANNEL === 'beta'
+const BASE = process.env.APP_BASE ?? '/fitness-app/'
+
 export default defineConfig({
-    base: '/fitness-app/',
+    base: BASE,
 
     // Version aus package.json (einzige Quelle), in der App als APP_VERSION (data/version.ts)
-    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+    define: { __APP_VERSION__: JSON.stringify(pkg.version), __APP_BETA__: JSON.stringify(BETA) },
 
     plugins: [
         react(),
@@ -20,16 +24,16 @@ export default defineConfig({
             // Poster (klein, ~1,4 MB) mit vorcachen, damit sie offline sichtbar sind
             workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,jpg,woff2}'] },
             manifest: {
-                name: 'Lift Lab',
-                short_name: 'Lift Lab',
+                name: BETA ? 'Lift Lab Beta' : 'Lift Lab',
+                short_name: BETA ? 'Lift Beta' : 'Lift Lab',
                 description: 'Trainingsplaner mit automatischer Progression',
                 theme_color: '#0f172a',
                 background_color: '#0f172a',
                 display: 'standalone',
 
                 // Wichtig für GitHub Pages und die PWA
-                start_url: '/fitness-app/',
-                scope: '/fitness-app/',
+                start_url: BASE,
+                scope: BASE,
 
                 icons: [
                     { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

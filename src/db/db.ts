@@ -20,7 +20,7 @@ import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
 import { t } from '../i18n'
-import { APP_VERSION } from '../data/version'
+import { APP_VERSION, DB_NAME } from '../data/version'
 
 interface KV { key: string; value: unknown }
 
@@ -33,7 +33,7 @@ class LiftDB extends Dexie {
   kv!: EntityTable<KV, 'key'>
 
   constructor() {
-    super('liftlab')
+    super(DB_NAME)
     this.version(1).stores({
       programs: '++id, active',
       sessions: '++id, programId, date',

@@ -1,0 +1,60 @@
+name: Beta (main -> fitness-app-beta)
+
+# Jeder Push auf main baut einen Beta-Stand und legt ihn per Deploy Key als Branch gh-pages ins Repo
+# antoniotroiano/fitness-app-beta (dort: Pages = Deploy from branch gh-pages). Die produktive Seite
+# (deploy.yml) bleibt unberührt und kommt nur per Release-Tag.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta
+  cancel-in-progress: true
+
+jobs:
+  beta:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build (Beta)
+        run: npm run build
+        env:
+          APP_CHANNEL: beta
+          APP_BASE: /fitness-app-beta/
+
+      - name: Publish to fitness-app-beta (gh-pages)
+        env:
+          BETA_DEPLOY_KEY: ${{ secrets.BETA_DEPLOY_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$BETA_DEPLOY_KEY" > ~/.ssh/beta_key
+          chmod 600 ~/.ssh/beta_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/beta_key -o IdentitiesOnly=yes"
+          touch dist/.nojekyll
+          cd dist
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Beta build ${GITHUB_SHA::7}"
+          git remote add beta git@github.com:antoniotroiano/fitness-app-beta.git
+          git push --force beta gh-pages

@@ -4,6 +4,7 @@ import { useLayoutPrefs, useSettings, useSettingsLoaded } from './db/db'
 import { visibleIds } from './engine/layout'
 import { BottomSheet, cx } from './components/ui'
 import { UpdatePrompt } from './components/UpdatePrompt'
+import { IS_BETA } from './data/version'
 import { Icon, type IconName } from './components/icons'
 import Dashboard from './features/dashboard/Dashboard'
 import Workouts from './features/workouts/Workouts'
@@ -163,6 +164,11 @@ function Shell() {
         </nav>
       )}
 
+      {IS_BETA && (
+        <div aria-hidden className="pointer-events-none fixed top-0 inset-x-0 z-50 safe-top flex justify-center">
+          <span className="mt-0.5 rounded-full bg-danger px-2 text-[10px] font-bold tracking-widest text-white">BETA</span>
+        </div>
+      )}
       <UpdatePrompt />
 
       <BottomSheet open={sheet} onClose={() => setSheet(false)} title={t('Hinzufügen')}>
