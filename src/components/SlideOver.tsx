@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useHistoryLayer } from '../utils/historyLayer'
 import { t } from '../i18n'
 
 /**
@@ -8,12 +9,7 @@ import { t } from '../i18n'
 export function SlideOver({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const [mounted, setMounted] = useState(open)
   const [shown, setShown] = useState(false)
-  const pushed = useRef(false)
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
-  const unmounting = useRef(false)
-  // Muss vor dem History-Effekt stehen: Cleanups laufen in Deklarationsreihenfolge
-  useEffect(() => { unmounting.current = false; return () => { unmounting.current = true } }, [])
+  useHistoryLayer(open, onClose)
 
   useEffect(() => {
     if (open) {
@@ -24,23 +20,6 @@ export function SlideOver({ open, onClose, title, children }: { open: boolean; o
     setShown(false)
     const t = setTimeout(() => setMounted(false), 260)
     return () => clearTimeout(t)
-  }, [open])
-
-  // History-Eintrag solange das Panel offen ist
-  useEffect(() => {
-    if (!open) return
-    try { window.history.pushState(window.history.state, '') } catch { return }
-    pushed.current = true
-    const onPop = () => { pushed.current = false; onCloseRef.current() }
-    window.addEventListener('popstate', onPop, { once: true })
-    return () => {
-      window.removeEventListener('popstate', onPop)
-      if (pushed.current && !unmounting.current) {
-        pushed.current = false
-        // Schließen per Button/Hintergrund: den eigenen Eintrag wieder entfernen
-        try { window.history.back() } catch { /* ignore */ }
-      }
-    }
   }, [open])
 
   if (!mounted) return null

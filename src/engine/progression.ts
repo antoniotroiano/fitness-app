@@ -122,6 +122,8 @@ export interface Suggestion {
   level?: 'info' | 'check'
   /** Letzte Einheit: schwerstes Gewicht und schwächste Wdh. daran (Zusatzgewicht bei Körperlast), für den Begründungstext */
   prev?: { weight: number; reps: number }
+  /** Ein Satz am schwersten Gewicht der letzten Einheit hatte Teilwiederholungen und ging als RIR 0 ein (nur Begründung, `suggestNext` ungeändert) */
+  partialRir0?: boolean
 }
 
 /**
@@ -219,7 +221,8 @@ export function explainSuggestion(input: SuggestInput, sug: Suggestion): Suggest
   const topWeight = Math.max(...worked.map((s) => s.weight))
   const topSets = worked.filter((s) => s.weight === topWeight)
   const prev = { weight: topWeight, reps: Math.min(...topSets.map((s) => s.reps)) }
-  const done = (reason: SuggestionReason, level: 'info' | 'check' = 'info'): Suggestion => ({ ...sug, reason, level, prev })
+  const partialRir0 = topSets.some((s) => s.partial && s.partial > 0)
+  const done = (reason: SuggestionReason, level: 'info' | 'check' = 'info'): Suggestion => ({ ...sug, reason, level, prev, ...(partialRir0 ? { partialRir0 } : {}) })
   if (isRepless(input.metric)) return done('time')
   const bodyOnly = input.assisted || topWeight <= 0
   if (bodyOnly) return done(!input.assisted && sug.weight > 0 ? 'bwLoad' : 'reps')

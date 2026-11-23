@@ -43,5 +43,7 @@ export function reasonText(sug: Suggestion, range: RepRange, unit: Settings['wei
     gap: t('Mit den verfügbaren Gewichten ist der Zielbereich nicht sauber erreichbar (Stufen zu groß oder schwerstes Gewicht erreicht).'),
   }
   const check = sug.level === 'check' ? t('Auffällige Änderung gegenüber der letzten Einheit (über 10 % Gewicht oder mehr als 3 Wdh.): bitte prüfen. ') : ''
-  return { title: REASON_TITLE[sug.reason], text: `${check}${prev}${now}${body[sug.reason]}` }
+  // Teilwiederholungen zählten als RIR 0 (nur wenn der RIR die Rechnung beeinflusst, also nicht bei Zeit/Distanz)
+  const partial = sug.partialRir0 && sug.reason !== 'time' ? ` ${t('Ein Satz mit Teilwiederholungen ging als RIR 0 (Muskelversagen) in die Rechnung ein.')}` : ''
+  return { title: REASON_TITLE[sug.reason], text: `${check}${prev}${now}${body[sug.reason]}${partial}` }
 }

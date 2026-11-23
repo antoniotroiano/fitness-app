@@ -306,7 +306,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         id: 'logging-pausen',
         title: 'Pausen-Timer einstellen',
         blocks: [
-          'Nach jedem abgehakten Satz startet ein Pausen-Timer. Die Uhr in der Kopfzeile zeigt die Restzeit. Ein Tipp darauf öffnet ein Menü mit ±15 Sekunden, Stopp und eigenen Timern.',
+          'Nach jedem abgehakten Satz startet ein Pausen-Timer. Die Uhr in der Kopfzeile zeigt die Restzeit. Ein Tipp darauf öffnet ein Menü mit ±10 und ±15 Sekunden, Stopp und einem Neustart in 15-Sekunden-Schritten bis 3 Minuten.',
           { steps: ['Allgemeine Pausen: **Mehr** › **Workouts** › **Pause**. Du stellst die Zeit je Übungstyp ein.', 'Nur für eine Übung: **Übungen** › Übung öffnen › **Pausentimer** › **Ändern**. **Zurück zum Default** hebt es wieder auf.', 'Ton ein- oder ausschalten: **Mehr** › **Workouts** › **Anzeige** › **Ton am Ende der Pause**.'] },
           'Der Ton kommt nur, wenn die App im Vordergrund ist und das Gerät nicht stumm geschaltet ist. Im Hintergrund oder bei gesperrtem Bildschirm bleibt es stumm, das ist bei einer Web-App technisch nicht anders möglich.',
         ],

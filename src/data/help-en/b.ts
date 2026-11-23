@@ -38,7 +38,7 @@ export const EN_B: Record<string, HelpTr> = {
   'logging-pausen': {
     title: 'Setting up the rest timer',
     blocks: [
-      'After every checked-off set a rest timer starts. The clock in the header shows the remaining time. Tapping it opens a menu with ±15 seconds, stop and custom timers.',
+      'After every checked-off set a rest timer starts. The clock in the header shows the remaining time. Tapping it opens a menu with ±10 and ±15 seconds, stop and a restart in 15-second steps up to 3 minutes.',
       { steps: ['General rests: **More** › **Workouts** › **Rest**. You set the time per exercise type.', 'For one exercise only: **Exercises** › open exercise › **Rest timer** › **Edit**. **Back to default** undoes it.', 'Switch the sound on or off: **More** › **Workouts** › **Display** › **Sound at end of rest**.'] },
       'The sound only plays if the app is in the foreground and the device is not muted. In the background or with a locked screen it stays silent; with a web app this is technically not possible otherwise.',
     ],

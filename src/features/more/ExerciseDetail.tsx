@@ -8,12 +8,15 @@ import { ExerciseFormSheet } from './ExerciseForm'
 import { REST_LABEL, formatRest, restCategory } from '../../engine/rest'
 import { ExerciseInfoSheet } from '../workouts/ExerciseInfoSheet'
 import { AutomationSheet, ListRow, NoteSheet, RestOverrideSheet, SchemeEditor, SchemeTable, WeightListSheet, WeightScaleSheet, automationLabel, scaleSummary, schemeSummary, usesWeightList } from '../workouts/sheets'
+import { useHistoryLayer } from '../../utils/historyLayer'
 import { de } from '../../i18n/de'
 import { t, lc } from '../../i18n'
 
 function SubPage({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const [mounted, setMounted] = useState(open)
   const [shown, setShown] = useState(false)
+  // Eigener History-Eintrag: Zurück-Wischen schließt nur die Unterseite, nicht die ganze Übungsseite
+  useHistoryLayer(open, onClose)
   useEffect(() => {
     if (open) {
       setMounted(true)

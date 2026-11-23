@@ -30,6 +30,8 @@ import { distanceUnitOf, isRepless, metricColumn, metricLabel, metricUnit } from
 import { instructionsFor } from '../data/instructions'
 import { targetMuscles } from './targetMuscles'
 import { weekProgress } from './weekProgress'
+import { adaptFollowingRows, buildSession, collectExercises, daysWithKept, weekStateAfterFinish } from './loggerCore'
+import type { Row } from '../features/workouts/state'
 import { filterSessions, parseProgramFile, parseWorkoutFile, programToFile, sessionsToCsv, workoutToFile } from './exportData'
 import { deloadSessionOf, plannedDay } from './plannedDay'
 import { MEDIA_MAP, posterSlug } from '../data/media'
@@ -2252,6 +2254,15 @@ describe('Begründung der Vorschläge (suggestExplained, PLAN-6 A1)', () => {
     const { weight, reps } = suggestExplained(input)
     expect({ weight, reps }).toEqual(suggestNext(input))
   })
+  it('Teilwiederholungen am schwersten Gewicht: partialRir0 gesetzt, Werte wie suggestNext; sonst kein Feld', () => {
+    const input = { ...base, last: [set(100, 8), set(100, 8), { weight: 100, reps: 8, rir: 3, partial: 3 }] }
+    const { weight, reps } = suggestExplained(input)
+    expect({ weight, reps }).toEqual(suggestNext(input))
+    expect(suggestExplained(input).partialRir0).toBe(true)
+    // Teilwdh. nur an einem leichteren Satz: zählt nicht für die Begründung
+    expect(suggestExplained({ ...base, last: [{ weight: 90, reps: 8, rir: 2, partial: 2 }, set(100, 8)] }).partialRir0).toBeUndefined()
+    expect(suggestExplained({ ...base, last: sets(100, 8) }).partialRir0).toBeUndefined()
+  })
   it('ohne Historie: start', () => {
     expect(suggestExplained(base)).toMatchObject({ weight: null, reason: 'start', level: 'info' })
   })
@@ -2661,5 +2672,109 @@ describe('Maße-Vergleich (PLAN-6 B21)', () => {
     expect(row(only, 'weight')).toMatchObject({ from: { date: '2026-03-01' }, delta: -1 })
     expect(row(compareRows(w, m, '2026-01-15', null), 'weight')).toBeUndefined()
     expect(rows.length).toBe(2)
+  })
+})
+
+describe('Logger-Kern (loggerCore, Review T1)', () => {
+  const row = (id: string, p: Partial<Row> = {}): Row => ({ id, type: 'work', weight: '100', reps: '8', rir: '', done: false, minutes: '', km: '', planKg: 100, planReps: 8, planRir: 3, ...p })
+  const ctx = { ex: { equipment: 'barbell' as const }, wl: 'kg' as const, range: { min: 6, max: 10 }, bodyLoad: 0 }
+  const units = { weight: 'kg' as const, distance: 'km' as const }
+
+  describe('adaptFollowingRows', () => {
+    it('Satz nach Plan: Zeilen bleiben unverändert', () => {
+      const rs = [row('a', { rir: '3', done: true }), row('b')]
+      expect(adaptFollowingRows(rs, rs[0], ctx)).toEqual(rs)
+    })
+    it('leichter als geplant: offener Folgesatz bekommt mehr Wdh. und neue Plan-Werte, erledigte/manuelle bleiben', () => {
+      const rs = [row('a', { rir: '5', done: true }), row('b'), row('c', { manual: true, reps: '7' }), row('d', { done: true })]
+      const out = adaptFollowingRows(rs, rs[0], ctx)
+      expect(out[1]).toMatchObject({ weight: '100', reps: '9', planKg: 100, planReps: 9 })
+      expect(out[0]).toBe(rs[0])
+      expect(out[2]).toBe(rs[2])
+      expect(out[3]).toBe(rs[3])
+    })
+    it('offene rechte Seite übernimmt Gewicht und Wdh.', () => {
+      const right = { weight: '100', reps: '8', rir: '', done: false }
+      const rs = [row('a', { rir: '5', done: true }), row('b', { right, leftDone: false })]
+      expect(adaptFollowingRows(rs, rs[0], ctx)[1].right).toMatchObject({ weight: '100', reps: '9' })
+    })
+    it('keine Anpassung bei Aufwärmsatz, ohne RIR, ohne Plan-Wdh., assistiert, Zeit, Cardio', () => {
+      const next = row('b')
+      const base = row('a', { rir: '5', done: true })
+      for (const [r, c] of [
+        [{ ...base, type: 'warmup' as const }, ctx], [{ ...base, rir: '' }, ctx], [{ ...base, planReps: undefined }, ctx],
+        [base, { ...ctx, ex: { ...ctx.ex, assisted: true } }], [base, { ...ctx, ex: { ...ctx.ex, metric: 'time' as const } }],
+        [base, { ...ctx, ex: { ...ctx.ex, cardio: true } }],
+      ] as const) {
+        const rs = [r, next]
+        expect(adaptFollowingRows(rs, r, c)).toBe(rs)
+      }
+    })
+    it('ohne offene Folgesätze unverändert', () => {
+      const rs = [row('a', { rir: '5', done: true })]
+      expect(adaptFollowingRows(rs, rs[0], ctx)).toBe(rs)
+    })
+  })
+
+  describe('collectExercises', () => {
+    const views = [
+      { exerciseId: 'bench-press', ex: {}, bodyLoad: 0 },
+      { exerciseId: 'squat', ex: {}, bodyLoad: 0 },
+      { exerciseId: 'run', ex: { cardio: true }, bodyLoad: 0 },
+    ]
+    const rows = {
+      'bench-press': [row('a', { done: true, rir: '2' }), row('b', { reps: '6' })],
+      squat: [row('c', { reps: '0' })],
+      run: [row('d', { minutes: '20', km: '3' })],
+    }
+    it('completed: nur abgehakte Sätze, Übungen ohne Satz entfallen', () => {
+      const out = collectExercises(views, rows, 'completed', units)
+      expect(out.map((e) => e.exerciseId)).toEqual(['bench-press'])
+      expect(out[0].sets).toEqual([{ weight: 100, reps: 8, rir: 2 }])
+    })
+    it('all: jeder Satz mit Wdh., Cardio mit Minuten', () => {
+      const out = collectExercises(views, rows, 'all', units)
+      expect(out.map((e) => e.exerciseId)).toEqual(['bench-press', 'run'])
+      expect(out[0].sets).toHaveLength(2)
+      expect(out[1].sets[0]).toMatchObject({ minutes: 20, km: 3 })
+    })
+  })
+
+  describe('buildSession / Wochenstand / Übernahme', () => {
+    const exercises = [{ exerciseId: 'bench-press', sets: [{ weight: 100, reps: 8 }] }]
+    const clock = pauseClock(startClock(1_000_000), 1_000_000 + 600_000)
+    it('Training: Start und aktive Dauer (ohne Pause), Notizen nur trainierter Übungen', () => {
+      const s = buildSession({
+        exercises, programId: 3, dayIndex: 1, date: '2026-11-23', week: 2, clock, now: 1_000_000 + 900_000, noonMs: null,
+        notes: { 'bench-press': 'ok', squat: 'weg', leer: '' },
+      })
+      expect(s).toMatchObject({ programId: 3, dayIndex: 1, week: 2, startedAt: 1_000_000, durationSec: 600, finishedAt: 1_900_000, notes: { 'bench-press': 'ok' } })
+    })
+    it('Nachtrag: 12:00 Uhr, keine Dauer, ohne Notizen kein Feld', () => {
+      const s = buildSession({ exercises, programId: null, dayIndex: -1, date: '2026-11-01', week: 0, clock, now: 5, noonMs: 42 })
+      expect(s).toMatchObject({ finishedAt: 42, startedAt: 42 })
+      expect('durationSec' in s).toBe(false)
+      expect('notes' in s).toBe(false)
+    })
+    it('Wochenstand: nur bei gespeicherter Einheit, nicht bei Bibliothek, Nachtrag oder ohne Slot', () => {
+      const w = emptyWeek(0)
+      const ok = { saved: true, foreign: false, backfill: false }
+      expect(weekStateAfterFinish(w, 2, '2026-11-23', ok)?.done[2]).toBe(true)
+      expect(weekStateAfterFinish(w, 2, '2026-11-23', { ...ok, saved: false })).toBeNull()
+      expect(weekStateAfterFinish(w, 2, '2026-11-23', { ...ok, foreign: true })).toBeNull()
+      expect(weekStateAfterFinish(w, 2, '2026-11-23', { ...ok, backfill: true })).toBeNull()
+      expect(weekStateAfterFinish(w, null, '2026-11-23', ok)).toBeNull()
+    })
+    it('hinzugefügte Übungen: nur trainierte kommen in den Tag, vorhandene nicht doppelt', () => {
+      const pe = (id: string) => ({ exerciseId: id, sets: 3, repMin: 8, repMax: 12, rir: 2 })
+      const days = [{ id: 'a', name: 'A', exercises: [pe('bench-press')] }, { id: 'b', name: 'B', exercises: [pe('squat')] }]
+      const added = [pe('curl'), pe('bench-press'), pe('lunge')]
+      const done = [{ exerciseId: 'curl', sets: [{ weight: 10, reps: 10 }] }, { exerciseId: 'bench-press', sets: [{ weight: 1, reps: 1 }] }]
+      const out = daysWithKept(days, 0, added, done)
+      expect(out?.[0].exercises.map((e) => e.exerciseId)).toEqual(['bench-press', 'curl'])
+      expect(out?.[1]).toBe(days[1])
+      expect(daysWithKept(days, 0, added, [])).toBeNull()
+      expect(daysWithKept(days, 0, undefined, done)).toBeNull()
+    })
   })
 })
