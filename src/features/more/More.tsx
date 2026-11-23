@@ -169,9 +169,16 @@ export default function More() {
 export function DashboardSettingsPage() {
   const nav = useNavigate()
   const prefs = useLayoutPrefs()
+  const settings = useSettings()
   return (
     <Page title="Dashboard" back={() => nav('/more')}>
       <LayoutEditor prefs={prefs} />
+      <Card className="space-y-2">
+        <div className="text-sm font-semibold">{t('Glättung des Gewichts-Trends')}</div>
+        <Segmented value={String(settings.trendDays)} onChange={(v) => void patchSettings({ trendDays: Number(v) })}
+          options={[3, 5, 7, 10, 14].map((d) => ({ value: String(d), label: t('{0} Tage', d) }))} />
+        <p className="text-xs text-muted">{t('Wie stark der Trend Tagesschwankungen ausgleicht. Kürzer folgt dem Gewicht schneller, länger ist ruhiger. Standard: 7 Tage. Der Körpergewichtsanteil bei Klimmzügen und Dips rechnet mit diesem Trend.')}</p>
+      </Card>
     </Page>
   )
 }

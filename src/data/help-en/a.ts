@@ -34,15 +34,15 @@ export const EN_A: Record<string, HelpTr> = {
     blocks: [
       'Your body weight fluctuates daily because of water, food and digestion. The trend smooths this so you can see the real direction.',
       { steps: ['Open **More** › **Data** › **Bodyweight**.', 'The dots are your measurements, the line is the trend.'] },
-      'Only the raw value is stored; the trend is calculated for display. The trend is also used as body weight for exercises with a bodyweight share (e.g. pull-ups), so a single heavy day does not distort the load.',
+      'On the dashboard the **Bodyweight** tile shows the trend below the latest value. How strongly it is smoothed (3 to 14 days, default 7) is set under **More** › **Feature settings** › **Dashboard**. If the trend falls clearly (from about 0.75 % per week) while your working sets of the last two weeks drop by at least 15 %, a note appears below the body metrics. This is a rule of thumb, not a diagnosis. Only the raw value is stored; the trend is calculated for display. The trend is also used as body weight for exercises with a bodyweight share (e.g. pull-ups), so a single heavy day does not distort the load.',
     ],
   },
   'dashboard-anpassen': {
     title: 'Customizing the dashboard and plus menu',
     blocks: [
       'You decide which sections the dashboard shows and in what order. The same goes for the quick actions in the plus menu.',
-      { steps: ['On the **Dashboard** tap **Customize dashboard** (slider icon), or open **More** › **Feature settings** › **Dashboard**.', 'Switch sections **On** or **Off**.', 'Change the order with **Move up** and **Move down**.', 'Use **Reset** to restore the default.'] },
-      'The rings and records at the top are always visible. New sections from app updates are appended at the end automatically.',
+      { steps: ['On the **Dashboard** tap **Customize dashboard** (slider icon), or open **More** › **Feature settings** › **Dashboard**.', 'Switch sections **On** or **Off**.', 'Change the order by dragging the handle, or with **Move up** and **Move down**.', 'Use **Reset** to restore the default.'] },
+      'The weekly rings and records at the top can be hidden too. For the body metrics you choose individual tiles (weight, body fat, measurements, ratios). New sections from app updates are appended at the end automatically.',
     ],
   },
   'dashboard-plusmenue': {
@@ -162,7 +162,7 @@ export const EN_A: Record<string, HelpTr> = {
     blocks: [
       'For individual weeks you can override the **Sets**, rep range (**reps**) and RIR of an exercise, or skip the exercise.',
       { steps: ['Open the workout preview.', 'Tap **Targets** on the exercise.', 'Under **Applies to** choose whether it applies **In every block** (same week of every block) or **This week only**. “This week only” takes precedence.', 'Fill in only the fields you want to change. **Empty fields** take the value from the weekly plan.', '**Skip this week** drops the exercise completely this week.', 'Tap **Save**.'] },
-      '**Apply to all exercises of the day** copies the filled-in fields to the whole workout. **Reset** removes the target again. If you swap an exercise for another type, its weekly targets are discarded.',
+      '**Apply to all exercises of the day** copies the filled-in fields to the whole workout, and with the extra switch **Also apply to all other days** to the whole program. **Reset** removes the target again (everywhere with the switches). If you swap an exercise for another type, its weekly targets are discarded.',
     ],
   },
   'programm-teilen': {

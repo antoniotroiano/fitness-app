@@ -18,7 +18,7 @@ type Row = { id: number; repMin: string; repMax: string; rir: string }
  * entfernen), dazu „Auslassen“ und „Für alle Übungen des Tages“ unter „Weitere Optionen“.
  * `scopes`: wofür das Ziel gilt (z. B. nur diese Woche / jeden Block); das erste ist vorausgewählt.
  */
-export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), computed: computedIn, current, scopes: scopesIn, dayWide, onSave, onClose }: {
+export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), computed: computedIn, current, scopes: scopesIn, dayWide, allDays, onSave, onClose }: {
   open: boolean; title: string; unit?: string
   computed: WeekValues
   /** Bestehende eigene Ziele je Scope-Schlüssel */
@@ -26,8 +26,10 @@ export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), compute
   scopes: WeekScope[]
   /** Schalter „Auf alle Übungen des Tages anwenden“ anbieten */
   dayWide?: boolean
-  /** `day`: gilt für alle Übungen des Tages; `raw` = Ziele ungefiltert (undefined beim Zurücksetzen) */
-  onSave: (key: string, target: WeekTarget | undefined, day?: { raw?: WeekTarget }) => void
+  /** Zusätzlich „Auch auf alle anderen Tage“ anbieten (nur zusammen mit dem Tages-Schalter) */
+  allDays?: boolean
+  /** `day`: gilt für alle Übungen des Tages (mit `all` auch aller anderen Tage); `raw` = Ziele ungefiltert (undefined beim Zurücksetzen) */
+  onSave: (key: string, target: WeekTarget | undefined, day?: { raw?: WeekTarget; all?: boolean }) => void
   onClose: () => void
 }) {
   // Beim Schließen (Animation) die letzten Werte weiter zeigen, auch wenn der Aufrufer schon zurückgesetzt hat
@@ -39,6 +41,7 @@ export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), compute
   const [rows, setRows] = useState<Row[]>([])
   const [skip, setSkip] = useState(false)
   const [wide, setWide] = useState(false)
+  const [all, setAll] = useState(false)
   const base = (): SetTarget[] => computed.perSet?.length === computed.sets && computed.sets > 0
     ? computed.perSet
     : Array.from({ length: Math.max(1, computed.sets) }, () => ({ repMin: computed.repMin, repMax: computed.repMax, rir: computed.rir }))
@@ -66,6 +69,7 @@ export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), compute
     setScope(first)
     load(first)
     setWide(false)
+    setAll(false)
   }, [open])
 
   const upd = (id: number, k: 'repMin' | 'repMax' | 'rir', v: string) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, [k]: v.replace(/\D/g, '') } : r)))
@@ -82,7 +86,7 @@ export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), compute
     const list = parsed()
     const b = base()
     const same = list.length === b.length && list.every((x, i) => x.repMin === b[i].repMin && x.repMax === b[i].repMax && x.rir === b[i].rir)
-    onSave(scope, { setTargets: same ? undefined : list, skip: skip || undefined }, wide ? { raw: { setTargets: list, skip: skip || undefined } } : undefined)
+    onSave(scope, { setTargets: same ? undefined : list, skip: skip || undefined }, wide ? { raw: { setTargets: list, skip: skip || undefined }, all: all || undefined } : undefined)
     onClose()
   }
   const has = !!current(scope)
@@ -139,16 +143,28 @@ export function WeekTargetSheet({ open, title: titleIn, unit = t('Wdh'), compute
                   <span className="block text-sm font-medium">{t('Auf alle Übungen des Tages anwenden')}</span>
                   <span className="block text-xs text-muted">{t('Überträgt diese Satzziele. Zurücksetzen entfernt das Ziel bei allen Übungen des Tages.')}</span>
                 </span>
-                <button role="switch" aria-checked={wide} aria-label={t('Auf alle Übungen des Tages anwenden')} onClick={() => setWide((x) => !x)}
+                <button role="switch" aria-checked={wide} aria-label={t('Auf alle Übungen des Tages anwenden')} onClick={() => { setWide((x) => !x); setAll(false) }}
                   className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', wide ? 'bg-accent' : 'bg-line')}>
                   <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', wide ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
+                </button>
+              </label>
+            )}
+            {dayWide && allDays && (
+              <label className={cx('flex items-center gap-3', !wide && 'opacity-40 pointer-events-none')}>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium">{t('Auch auf alle anderen Tage')}</span>
+                  <span className="block text-xs text-muted">{t('Gilt dann für das ganze Programm. Zurücksetzen entfernt das Ziel überall.')}</span>
+                </span>
+                <button role="switch" aria-checked={all} aria-label={t('Auch auf alle anderen Tage')} disabled={!wide} onClick={() => setAll((x) => !x)}
+                  className={cx('relative w-12 h-7 rounded-full shrink-0 transition-colors', all ? 'bg-accent' : 'bg-line')}>
+                  <span className={cx('absolute top-0.5 left-0.5 w-6 h-6 rounded-full shadow transition-transform', all ? 'translate-x-5 bg-accent-fg' : 'bg-surface')} />
                 </button>
               </label>
             )}
           </div>
         </details>
         <div className="flex gap-2">
-          {(has || wide) && <Button variant="ghost" className="flex-1" onClick={() => { onSave(scope, undefined, wide ? {} : undefined); onClose() }}>{t('Zurücksetzen')}</Button>}
+          {(has || wide) && <Button variant="ghost" className="flex-1" onClick={() => { onSave(scope, undefined, wide ? { all: all || undefined } : undefined); onClose() }}>{t('Zurücksetzen')}</Button>}
           <Button className="flex-1" onClick={save}>{t('Speichern')}</Button>
         </div>
       </div>

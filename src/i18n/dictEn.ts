@@ -386,4 +386,13 @@ export const EN: Record<string, string> = {
   'Hängendes Beinheben mit Hüftbeuge': 'Hanging Leg Raise with Hip Flexion', 'Crunch mit Drehung': 'Twisting Crunch', 'Bankcrunch': 'Bench Crunch', 'Sit-ups auf dem Gymnastikball': 'Sit-ups (Stability Ball)', 'Cable Crunch stehend': 'Standing Cable Crunch',
   'Für diese Übung liegt noch keine Anleitung vor.': 'There are no instructions for this exercise yet.', 'Für diese Übung hast du noch keine Beschreibung eingetragen. Du kannst sie unter Bearbeiten ergänzen.': 'You have not entered a description for this exercise yet. You can add one under Edit.',
   'Wähle ein Tempo, das du über die gesamte Dauer halten kannst.': 'Choose a pace you can hold for the whole duration.', 'Trage Dauer und Distanz ein.': 'Enter the duration and distance.',
+  'Keine Kacheln gewählt. Über das Regler-Symbol oben wählst du Werte aus.': 'No tiles selected. Use the sliders icon at the top to choose values.', 'Defizit und weniger Sätze': 'Deficit and fewer sets',
+  'Der Trend fällt um {0} % pro Woche und die Arbeitssätze liegen {1} % unter den zwei Wochen davor. Ein kleineres Defizit oder mehr Erholung kann Kraft und Muskeln besser erhalten.': 'Your trend is falling by {0} % per week and your working sets are {1} % below the two weeks before. A smaller deficit or more recovery may protect strength and muscle better.',
+  'Wochenringe': 'Weekly rings', 'Rekorde': 'Records', 'Ziehen zum Sortieren': 'Drag to reorder', 'einblenden': 'show', 'ausblenden': 'hide', 'Oben': 'Top',
+  'Lege fest, was das Dashboard zeigt und was das Plus-Menü anbietet. Zum Sortieren am Griff ziehen oder die Pfeile nutzen.': 'Choose what the dashboard shows and what the plus menu offers. Drag the handle to reorder, or use the arrows.',
+  'Kacheln bei Körperwerte': 'Body metric tiles', 'Welche Werte der Bereich „Körperwerte“ zeigt.': 'Which values the “Body metrics” section shows.',
+  'Glättung des Gewichts-Trends': 'Weight trend smoothing',
+  'Wie stark der Trend Tagesschwankungen ausgleicht. Kürzer folgt dem Gewicht schneller, länger ist ruhiger. Standard: 7 Tage. Der Körpergewichtsanteil bei Klimmzügen und Dips rechnet mit diesem Trend.': 'How strongly the trend evens out day-to-day swings. Shorter follows your weight faster, longer is calmer. Default: 7 days. The bodyweight share for pull-ups and dips uses this trend.',
+  'Frei': 'Custom', 'Veränderung in Prozent je Wert': 'Change in percent per value',
+  'Auch auf alle anderen Tage': 'Also apply to all other days', 'Gilt dann für das ganze Programm. Zurücksetzen entfernt das Ziel überall.': 'Then applies to the whole program. Resetting removes the target everywhere.',
 }

@@ -10,7 +10,7 @@ import type {
 } from '../types'
 import { ALL_EXERCISES, exerciseById } from '../data/exercises'
 import { applyBodyweight } from '../engine/bodyweight'
-import { smoothWeights } from '../engine/body'
+import { TREND_DAYS, clampTrendDays, smoothWeights } from '../engine/body'
 import { emptyWeek, jumpToWeek, maxReachedWeek } from '../engine/weekCycle'
 import { weekStateAfterDelete, weekStateAfterMove, weekStateAfterWeekChange } from '../engine/history'
 import { appendDay, duplicateProgram, moveSlot, moveWeekSlot } from '../engine/programAdmin'
@@ -56,7 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   name: '', birthday: '', sex: '', heightCm: null,
   restSeconds: DEFAULT_REST, warmupRestBetween: DEFAULT_WARMUP_REST_BETWEEN, warmupRestLast: DEFAULT_WARMUP_REST_LAST,
   keepAlive: false, warmupMode: 'smart', warmupSchemes: DEFAULT_WARMUP_SCHEMES,
-  progressionTarget: 'mid', weightMatch: true, expandRange: true, hardSetFirst: false, hideDoneWarmups: true, autoAdvance: true, periodTracking: false, restSound: true, sideRest: 15, prefillMode: 'suggestion', barWeight: DEFAULT_BAR, plates: DEFAULT_PLATES,
+  progressionTarget: 'mid', weightMatch: true, expandRange: true, hardSetFirst: false, hideDoneWarmups: true, autoAdvance: true, periodTracking: false, restSound: true, sideRest: 15, trendDays: TREND_DAYS, prefillMode: 'suggestion', barWeight: DEFAULT_BAR, plates: DEFAULT_PLATES,
 }
 
 async function getKV<T>(key: string, fallback: T): Promise<T> {
@@ -68,6 +68,7 @@ const setKV = (key: string, value: unknown) => db.kv.put({ key, value })
 
 export const getSettings = () => getKV<Settings & { warmupsEnabled?: boolean }>('settings', DEFAULT_SETTINGS).then((s) => ({
   ...DEFAULT_SETTINGS, ...s,
+  trendDays: clampTrendDays(s.trendDays),
   restSeconds: { ...DEFAULT_SETTINGS.restSeconds, ...s.restSeconds },
   warmupSchemes: { ...cloneSchemes(DEFAULT_SETTINGS.warmupSchemes), ...s.warmupSchemes },
   // Alte Einstellung "Aufwärmen aus" in den neuen Modus übernehmen
@@ -162,12 +163,14 @@ export function useStatSessions(): Session[] {
  */
 export function useBodyweights(): WeightEntry[] {
   const raw = useWeights()
-  return useMemo(() => smoothWeights(raw), [raw])
+  const days = useSettings().trendDays
+  return useMemo(() => smoothWeights(raw, days), [raw, days])
 }
 /** Wie useBodyweights, aber undefined, solange die Abfrage noch lädt (für Werte, die einmalig daraus berechnet werden). */
 export function useWeightsLoaded(): WeightEntry[] | undefined {
   const raw = useLiveQuery(() => db.weights.orderBy('date').toArray(), [])
-  return useMemo(() => (raw ? smoothWeights(raw) : undefined), [raw])
+  const days = useSettings().trendDays
+  return useMemo(() => (raw ? smoothWeights(raw, days) : undefined), [raw, days])
 }
 export function useMeasures(): MeasureEntry[] {
   return useLiveQuery(() => db.measures.orderBy('date').toArray(), [], []) ?? []

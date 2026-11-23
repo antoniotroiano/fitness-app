@@ -5,8 +5,8 @@ import { Button, Card, Page, Segmented, cx, inputCls } from '../../components/ui
 import { db, parseWeightFile, saveBodyEntry, setWeight, useMeasures, useSettings, useWeights } from '../../db/db'
 import { EntrySheet } from './EntrySheet'
 import { cmToDisplay, displayToCm, displayToKg, kgToDisplay } from '../../utils/units'
-import { formatDate, todayStr } from '../../utils/dates'
-import { compareRows, trendSeries, type ComparePeriod } from '../../engine/body'
+import { addDays, formatDate, todayStr } from '../../utils/dates'
+import { compareRows, trendSeries, type CompareRow } from '../../engine/body'
 import { bodyUnit, formatBody } from './format'
 import { streakDays } from '../../engine/habits'
 import { CalendarLegend, MonthCalendar } from '../dashboard/widgets'
@@ -26,7 +26,7 @@ export function WeightPage() {
   const u = settings.weightUnit
 
   const points = useMemo(() => weights.map((w) => ({ date: w.date, value: w.kg })), [weights])
-  const trend = useMemo(() => trendSeries(points), [points])
+  const trend = useMemo(() => trendSeries(points, settings.trendDays), [points, settings.trendDays])
   const dates = useMemo(() => new Set(weights.map((w) => w.date)), [weights])
   const latest = weights.at(-1)
   const todayW = weights.find((w) => w.date === todayStr())
@@ -114,6 +114,33 @@ const SITES: { region: string; items: { id: MeasureSite; label: string }[] }[] =
   ] },
 ]
 
+/** Waagerechtes Diagramm der Veränderung in Prozent je Kennzahl: Nulllinie in der Mitte, Abnahme links, Zunahme rechts. */
+function PctChart({ rows }: { rows: CompareRow[] }) {
+  const max = Math.max(1, ...rows.map((r) => Math.abs(r.pct)))
+  const rowH = 22, labelW = 120, half = 80, W = labelW + half * 2 + 50, mid = labelW + half
+  const sorted = [...rows].sort((a, b) => b.pct - a.pct)
+  return (
+    <svg viewBox={`0 0 ${W} ${sorted.length * rowH + 4}`} className="w-full" role="img"
+      aria-label={t('Veränderung in Prozent je Wert')}>
+      <line x1={mid} x2={mid} y1={0} y2={sorted.length * rowH + 4} stroke="var(--line)" strokeWidth={1} />
+      {sorted.map((r, i) => {
+        const w = Math.max(1, (Math.abs(r.pct) / max) * half)
+        const y = i * rowH + 4
+        const up = r.pct >= 0
+        return (
+          <g key={r.key}>
+            <text x={labelW - 6} y={y + 11} textAnchor="end" fontSize={9} fill="var(--muted)">{r.label.length > 20 ? `${r.label.slice(0, 19)}…` : r.label}</text>
+            <rect x={up ? mid : mid - w} y={y} width={w} height={14} rx={3} fill="var(--chart-bar)" opacity={up ? 1 : 0.55} />
+            <text x={W - 2} y={y + 11} textAnchor="end" fontSize={9} fill="var(--fg)" className="tabular-nums">
+              {r.pct > 0 ? '+' : r.pct < 0 ? '−' : ''}{Math.abs(r.pct).toLocaleString(LOCALE)} %
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
 export function MeasuresPage() {
   const nav = useNavigate()
   const measures = useMeasures()
@@ -122,9 +149,12 @@ export function MeasuresPage() {
   const [vals, setVals] = useState<Partial<Record<MeasureSite, string>>>({})
   const [site, setSite] = useState<MeasureSite>('waist')
   const weights = useWeights()
-  const [period, setPeriod] = useState<ComparePeriod>(90)
+  const [periodKey, setPeriodKey] = useState<'28' | '90' | '365' | 'null' | 'custom'>('90')
   const today = todayStr()
-  const compare = useMemo(() => compareRows(weights, measures, today, period), [weights, measures, today, period])
+  const [from, setFrom] = useState(addDays(today, -90))
+  const [to, setTo] = useState(today)
+  const compare = useMemo(() => compareRows(weights, measures, today,
+    periodKey === 'custom' ? { from, to } : periodKey === 'null' ? null : (Number(periodKey) as 28 | 90 | 365)), [weights, measures, today, periodKey, from, to])
 
   const save = async () => {
     const values: Partial<Record<MeasureSite, number>> = {}
@@ -169,8 +199,17 @@ export function MeasuresPage() {
       </Card>
       <Card className="space-y-3">
         <div className="font-semibold text-sm">{t('Vergleich')}</div>
-        <Segmented value={String(period)} onChange={(v) => setPeriod(v === 'null' ? null : (Number(v) as ComparePeriod))}
-          options={[{ value: '28', label: t('4 Wochen') }, { value: '90', label: t('3 Monate') }, { value: '365', label: t('1 Jahr') }, { value: 'null', label: t('Gesamt') }]} />
+        <Segmented value={periodKey} onChange={(v) => setPeriodKey(v as typeof periodKey)}
+          options={[{ value: '28', label: t('4 Wochen') }, { value: '90', label: t('3 Monate') }, { value: '365', label: t('1 Jahr') }, { value: 'null', label: t('Gesamt') }, { value: 'custom', label: t('Frei') }]} />
+        {periodKey === 'custom' && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-muted space-y-1">{t('Von')}
+              <input type="date" className={inputCls} value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /></label>
+            <label className="text-xs text-muted space-y-1">{t('Bis')}
+              <input type="date" className={inputCls} value={to} min={from} max={today} onChange={(e) => e.target.value && setTo(e.target.value)} /></label>
+          </div>
+        )}
+        {compare.length > 0 && <PctChart rows={compare} />}
         {compare.length === 0 ? (
           <p className="text-sm text-muted">{t('Für einen Vergleich braucht ein Wert mindestens zwei Einträge an verschiedenen Tagen.')}</p>
         ) : (

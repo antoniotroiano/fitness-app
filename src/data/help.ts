@@ -65,7 +65,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         blocks: [
           'Dein Körpergewicht schwankt täglich durch Wasser, Essen und Verdauung. Der Trend glättet das, damit du die echte Richtung siehst.',
           { steps: ['Öffne **Mehr** › **Daten** › **Körpergewicht**.', 'Die Punkte sind deine Messwerte, die Linie ist der Trend.'] },
-          'Gespeichert wird immer nur der Rohwert, den Trend rechnet die App bei der Anzeige. Der Trend dient auch als Körpergewicht bei Übungen mit Körpergewichtsanteil (z. B. Klimmzüge), damit ein einzelner schwerer Tag die Last nicht verfälscht.',
+          'Auf dem Dashboard zeigt die Kachel **Körpergewicht** den Trend unter dem letzten Wert. Wie stark geglättet wird (3 bis 14 Tage, Standard 7), stellst du unter **Mehr** › **Funktionseinstellungen** › **Dashboard** ein. Fällt der Trend deutlich (ab etwa 0,75 % pro Woche) und sinken zugleich deine Arbeitssätze der letzten zwei Wochen um mindestens 15 %, erscheint ein Hinweis unter den Körperwerten. Das ist eine Faustregel, kein Befund. Gespeichert wird immer nur der Rohwert, den Trend rechnet die App bei der Anzeige. Der Trend dient auch als Körpergewicht bei Übungen mit Körpergewichtsanteil (z. B. Klimmzüge), damit ein einzelner schwerer Tag die Last nicht verfälscht.',
         ],
         related: ['koerper-gewicht', 'logging-koerpergewicht'],
       },
@@ -74,8 +74,8 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: 'Dashboard und Plus-Menü anpassen',
         blocks: [
           'Du bestimmst, welche Bereiche das Dashboard zeigt und in welcher Reihenfolge. Das gilt auch für die Schnellaktionen im Plus-Menü.',
-          { steps: ['Tippe im **Dashboard** auf **Dashboard anpassen** (Slider-Symbol), oder öffne **Mehr** › **Funktionseinstellungen** › **Dashboard**.', 'Schalte Bereiche mit **An** oder **Aus** ein oder aus.', 'Ändere die Reihenfolge mit **Nach oben** und **Nach unten**.', 'Mit **Zurücksetzen** stellst du den Standard wieder her.'] },
-          'Die Ringe und Rekorde oben bleiben immer sichtbar. Neue Bereiche aus App-Updates werden automatisch hinten angehängt.',
+          { steps: ['Tippe im **Dashboard** auf **Dashboard anpassen** (Slider-Symbol), oder öffne **Mehr** › **Funktionseinstellungen** › **Dashboard**.', 'Schalte Bereiche mit **An** oder **Aus** ein oder aus.', 'Ändere die Reihenfolge, indem du am Griff ziehst, oder mit **Nach oben** und **Nach unten**.', 'Mit **Zurücksetzen** stellst du den Standard wieder her.'] },
+          'Auch die Wochenringe und Rekorde oben lassen sich ausblenden. Bei den Körperwerten wählst du einzelne Kacheln (Gewicht, Körperfett, Maße, Verhältnisse). Neue Bereiche aus App-Updates werden automatisch hinten angehängt.',
         ],
         related: ['dashboard-plusmenue'],
       },
@@ -229,7 +229,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         blocks: [
           'Für einzelne Wochen kannst du **Sätze**, Wiederholungsbereich (**Wdh**) und RIR einer Übung überschreiben oder die Übung auslassen.',
           { steps: ['Öffne die Vorschau des Workouts.', 'Tippe bei der Übung auf **Ziele**.', 'Wähle unter **Gilt für**, ob es **In jedem Block** (gleiche Woche jedes Blocks) oder **Nur diese Woche** gelten soll. „Nur diese Woche“ hat Vorrang.', 'Fülle nur die Felder aus, die du ändern willst. **Leere Felder** übernehmen den Wert aus dem Wochenplan.', 'Mit **In dieser Woche auslassen** entfällt die Übung diese Woche komplett.', 'Tippe auf **Speichern**.'] },
-          'Mit **Auf alle Übungen des Tages anwenden** überträgst du die ausgefüllten Felder auf das ganze Workout. **Zurücksetzen** entfernt das Ziel wieder. Tauschst du eine Übung gegen eine andere Art, werden ihre Wochenziele verworfen.',
+          'Mit **Auf alle Übungen des Tages anwenden** überträgst du die ausgefüllten Felder auf das ganze Workout, mit dem zusätzlichen Schalter **Auch auf alle anderen Tage** auf das ganze Programm. **Zurücksetzen** entfernt das Ziel wieder (mit den Schaltern überall). Tauschst du eine Übung gegen eine andere Art, werden ihre Wochenziele verworfen.',
         ],
         related: ['programm-rep-schemata', 'logging-ueberspringen'],
       },
@@ -592,8 +592,8 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         id: 'koerper-vergleich',
         title: 'Veränderungen über die Zeit vergleichen',
         blocks: [
-          { steps: ['Öffne **Mehr** › **Daten** › **Körpermaße**.', 'Scrolle zur Karte **Vergleich**.', 'Wähle **4 Wochen**, **3 Monate**, **1 Jahr** oder **Gesamt**.'] },
-          'Der Ausgangswert ist der letzte Eintrag am oder vor Beginn des Zeitraums, sonst der erste Eintrag darin. Verglichen wird mit dem neuesten. Ein Wert braucht mindestens zwei Einträge an verschiedenen Tagen.',
+          { steps: ['Öffne **Mehr** › **Daten** › **Körpermaße**.', 'Scrolle zur Karte **Vergleich**.', 'Wähle **4 Wochen**, **3 Monate**, **1 Jahr** oder **Gesamt**. Mit **Frei** legst du Von- und Bis-Datum selbst fest.'] },
+          'Das Diagramm zeigt die Veränderung in Prozent je Wert, auch für die Verhältnisse (z. B. Taille / Hüfte). Der Ausgangswert ist der letzte Eintrag am oder vor Beginn des Zeitraums, sonst der erste Eintrag darin. Verglichen wird mit dem neuesten. Ein Wert braucht mindestens zwei Einträge an verschiedenen Tagen.',
         ],
       },
       {

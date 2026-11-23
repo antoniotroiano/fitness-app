@@ -79,8 +79,8 @@ export const EN_C: Record<string, HelpTr> = {
   'koerper-vergleich': {
     title: 'Comparing changes over time',
     blocks: [
-      { steps: ['Open **More** › **Data** › **Body measurements**.', 'Scroll to the **Comparison** card.', 'Choose **4 weeks**, **3 months**, **1 year** or **All time**.'] },
-      'The starting value is the last entry on or before the start of the period, otherwise the first entry within it. It is compared with the newest one. A value needs at least two entries on different days.',
+      { steps: ['Open **More** › **Data** › **Body measurements**.', 'Scroll to the **Comparison** card.', 'Choose **4 weeks**, **3 months**, **1 year** or **All time**. With **Custom** you set the from and to dates yourself.'] },
+      'The chart shows the change in percent per value, including the ratios (e.g. waist / hips). The starting value is the last entry on or before the start of the period, otherwise the first entry within it. It is compared with the newest one. A value needs at least two entries on different days.',
     ],
   },
   'koerper-import': {
