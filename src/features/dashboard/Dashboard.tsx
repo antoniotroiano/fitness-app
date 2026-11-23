@@ -6,7 +6,7 @@ import { SlideOver } from '../../components/SlideOver'
 import { MUSCLES } from '../../data/muscles'
 import { exerciseById } from '../../data/exercises'
 import { saveBodyEntry, useActiveProgram, useAllExercises, useLayoutPrefs, useMeasures, useSessions, useSettings, useStatSessions, useWeekState, useWeights } from '../../db/db'
-import { MEASURE_GROUPS, RATIOS, bodyLabel, bodySeries, lastEntries, type BodyKey } from '../../engine/body'
+import { MEASURE_GROUPS, RATIOS, bodyLabel, bodySeries, deficitHint, lastEntries, trendSeries, workSetsBetween, type BodyKey } from '../../engine/body'
 import { bodyUnit, formatBody } from '../body/format'
 import { EntrySheet } from '../body/EntrySheet'
 import { cardioDaily, exerciseDaily, muscleDaily, noLoadStats } from '../../engine/stats'
@@ -20,7 +20,7 @@ import { addDays, todayStr, weekStart } from '../../utils/dates'
 import { CalendarLegend, HabitBox, MetricBox, MonthCalendar, RingStat, SectionHeader, StatBox } from './widgets'
 import { de } from '../../i18n/de'
 import { BodyMap, VolumeTile } from './BodyMap'
-import { t } from '../../i18n'
+import { t, LOCALE } from '../../i18n'
 
 const COLOR = { weight: 'var(--habit-weight)', workout: 'var(--habit-workout)' }
 
@@ -63,6 +63,9 @@ export default function Dashboard() {
     const el = pager.current
     if (el) setPageIdx(el.scrollLeft > el.clientWidth * 0.3 ? 1 : 0)
   }
+  const showRings = !layout.top.hidden.includes('rings')
+  const showRecords = !layout.top.hidden.includes('records')
+  const topPages = [showRings, showRecords].filter(Boolean).length
   // Notch-Fläche passend zum weißen Kopfbereich einfärben
   useEffect(() => {
     document.documentElement.style.setProperty('--notch', 'var(--surface)')
@@ -120,12 +123,23 @@ export default function Dashboard() {
   const top = <T extends { total: number }>(list: T[]) =>
     list.map((x, i) => ({ x, i })).sort((a, b) => b.x.total - a.x.total || a.i - b.i).slice(0, 2).map((e) => e.x)
 
+  const trend = useMemo(() => trendSeries(weights.map((w) => ({ date: w.date, value: w.kg })), settings.trendDays), [weights, settings.trendDays])
+  const trendNow = trend.length > 1 ? trend[trend.length - 1].value : null
+  // Hinweis „Defizit + sinkende Sätze“: Trend fällt deutlich und die Arbeitssätze der letzten 14 Tage liegen darunter
+  const hint = useMemo(() => {
+    const skip = (id: string) => !!lookup(id)?.cardio
+    const recent = workSetsBetween(sessions, addDays(today, -13), today, skip)
+    const prior = workSetsBetween(sessions, addDays(today, -27), addDays(today, -14), skip)
+    return deficitHint(trend, recent, prior, today)
+  }, [trend, sessions, lookup, today])
+
   const bodyBox = (key: BodyKey, title = bodyLabel(key)) => {
     const pts = lastEntries(bodySeries(key, weights, measures), 7)
     const last = pts.at(-1)
     return (
       <MetricBox key={key} title={title} values={pts.map((p) => p.value)} unit={bodyUnit(key, settings)}
-        last={last ? formatBody(key, last.value, settings) : null} onClick={() => goStats(`/stats/body/${key}`)} />
+        last={last ? formatBody(key, last.value, settings) : null} onClick={() => goStats(`/stats/body/${key}`)}
+        extra={key === 'weight' && trendNow != null ? `Trend ${formatBody('weight', trendNow, settings)} ${bodyUnit('weight', settings)}` : undefined} />
     )
   }
 
@@ -150,10 +164,15 @@ export default function Dashboard() {
     body: (
       <section key="body" className="space-y-2">
         <SectionHeader title={de.dashboard.bodyMetrics} onAll={() => setPanel('body')} />
-        <div className="grid grid-cols-2 gap-3">
-          {bodyBox('weight')}
-          {bodyBox('bodyFat')}
-        </div>
+        {visibleIds(layout.bodyTiles).length === 0
+          ? <Card className="text-sm text-muted">{t('Keine Kacheln gewählt. Über das Regler-Symbol oben wählst du Werte aus.')}</Card>
+          : <div className="grid grid-cols-2 gap-3">{visibleIds(layout.bodyTiles).map((k) => bodyBox(k as BodyKey))}</div>}
+        {hint && (
+          <Card className="text-xs text-muted">
+            <span className="font-semibold text-fg">{t('Defizit und weniger Sätze')}</span>{' '}
+            {t('Der Trend fällt um {0} % pro Woche und die Arbeitssätze liegen {1} % unter den zwei Wochen davor. Ein kleineres Defizit oder mehr Erholung kann Kraft und Muskeln besser erhalten.', Math.abs(hint.pctPerWeek).toLocaleString(LOCALE), Math.abs(hint.setsPct))}
+          </Card>
+        )}
       </section>
     ),
     volume: (
@@ -199,7 +218,7 @@ export default function Dashboard() {
         </div>
         <div ref={pager} onScroll={onPagerScroll}
           className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar max-w-2xl mx-auto" style={{ scrollbarWidth: 'none' }}>
-          <div className="w-full shrink-0 snap-center px-4 pb-2 space-y-4">
+          {showRings && <div className="w-full shrink-0 snap-center px-4 pb-2 space-y-4">
             {!program && (
               <div className="text-center space-y-3 py-4">
                 <div className="flex justify-center"><ProgramBadge size={56} /></div>
@@ -229,8 +248,8 @@ export default function Dashboard() {
                 </div>
               </>
             )}
-          </div>
-          <div className="w-full shrink-0 snap-center px-4 pb-2 space-y-3">
+          </div>}
+          {showRecords && <div className="w-full shrink-0 snap-center px-4 pb-2 space-y-3">
             <div className="flex justify-between items-baseline">
               <div className="font-semibold">{de.dashboard.recentRecords}</div>
               <div className="text-xs text-muted">{recMetric === 'volume' ? t('Bester Satz ({0})', u) : recMetric === 'reps' ? t('Wdh. im besten Satz') : `1RM (${u})`}</div>
@@ -253,11 +272,12 @@ export default function Dashboard() {
                   className={`rounded-lg px-3 py-1 text-2xs font-semibold transition-colors ${recMetric === v ? 'bg-surface text-fg shadow-sm' : 'text-muted'}`}>{label}</button>
               ))}
             </div></div>
-          </div>
+          </div>}
         </div>
-        <div className="flex justify-center gap-2 pb-3" aria-hidden>
+        {topPages > 1 && <div className="flex justify-center gap-2 pb-3" aria-hidden>
           {[0, 1].map((i) => <i key={i} className={`h-2 rounded-full transition-all ${pageIdx === i ? 'w-5 bg-fg' : 'w-2 bg-muted/50'}`} />)}
-        </div>
+        </div>}
+        {topPages === 0 && <div className="pb-2" />}
       </div>
 
       <div className="px-4 py-4 space-y-4 max-w-2xl mx-auto">

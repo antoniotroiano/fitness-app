@@ -1,5 +1,5 @@
-import type { MeasureEntry, MeasureSite, WeightEntry } from '../types'
-import type { Point } from './stats'
+import type { MeasureEntry, MeasureSite, Session, WeightEntry } from '../types'
+import { mainSets, type Point } from './stats'
 import { addDays, daysBetween } from '../utils/dates'
 import { t } from '../i18n'
 
@@ -81,6 +81,10 @@ export const lastEntries = (points: Point[], n = 7): Point[] => points.slice(Mat
 
 /** Zeitkonstante des Gewichts-Trends in Tagen: nach dieser Zeit hat ein neuer Wert rund 63 % des Abstands aufgeholt. */
 export const TREND_DAYS = 7
+/** Einstellbarer Bereich der Glättung (Tage): kürzer = folgt dem Gewicht schneller, länger = ruhiger. */
+export const TREND_DAYS_RANGE = { min: 3, max: 14 } as const
+export const clampTrendDays = (d?: number | null): number =>
+  d == null || !Number.isFinite(d) ? TREND_DAYS : Math.min(TREND_DAYS_RANGE.max, Math.max(TREND_DAYS_RANGE.min, Math.round(d)))
 
 /**
  * Geglätteter Gewichts-Trend (exponentiell, lückentolerant): Der Trend startet beim ersten Wert; jeder weitere
@@ -106,15 +110,59 @@ export function trendSeries(points: Point[], days = TREND_DAYS): Point[] {
  * Körpergewichtsanteil rechnet so mit einem stabilen Wert, ein einzelner Ausreißer ändert die Vorschläge kaum.
  * Nur für Berechnungen, gespeichert wird immer der Rohwert.
  */
-export function smoothWeights<T extends { date: string; kg: number }>(weights: T[]): T[] {
-  const trend = new Map(trendSeries(weights.map((w) => ({ date: w.date, value: w.kg }))).map((p) => [p.date, p.value]))
+export function smoothWeights<T extends { date: string; kg: number }>(weights: T[], days = TREND_DAYS): T[] {
+  const trend = new Map(trendSeries(weights.map((w) => ({ date: w.date, value: w.kg })), days).map((p) => [p.date, p.value]))
   return weights
     .filter((w) => trend.has(w.date))
     .map((w) => ({ ...w, kg: Math.round(trend.get(w.date)! * 10) / 10 }))
 }
 
-/** Zeitraum der Vergleichsansicht in Tagen, `null` = seit dem ersten Eintrag. */
-export type ComparePeriod = 28 | 90 | 365 | null
+/** Schwellen des Hinweises „Defizit + sinkende Sätze“. */
+export const DEFICIT_PCT_PER_WEEK = 0.75
+export const DEFICIT_MIN_DAYS = 14
+export const SETS_DROP_PCT = 15
+export const SETS_MIN_PRIOR = 8
+
+/** Arbeitssätze (ohne Aufwärmen/Segmente) in den Tagen `from`…`to` (inklusive), Cardio über `skip` ausgenommen. */
+export function workSetsBetween(sessions: Session[], from: string, to: string, skip: (exerciseId: string) => boolean = () => false): number {
+  let n = 0
+  for (const s of sessions) {
+    if (s.date < from || s.date > to) continue
+    for (const e of s.exercises) if (!skip(e.exerciseId)) n += mainSets(e.sets).length
+  }
+  return n
+}
+
+export interface DeficitHint {
+  /** Änderung des Trends in Prozent des Körpergewichts pro Woche (negativ) */
+  pctPerWeek: number
+  /** Arbeitssätze der letzten 14 Tage gegenüber den 14 Tagen davor, Prozent (negativ) */
+  setsPct: number
+}
+
+/**
+ * Hinweis „Defizit + sinkende Sätze“ (PLAN-6 B8): Der Trend fällt deutlich (≥ `DEFICIT_PCT_PER_WEEK` % des
+ * Körpergewichts pro Woche, gemessen über mindestens `DEFICIT_MIN_DAYS` Tage) und die Arbeitssätze der letzten 14
+ * Tage liegen um mindestens `SETS_DROP_PCT` % unter den 14 Tagen davor (vorher mindestens `SETS_MIN_PRIOR` Sätze,
+ * sonst fehlt die Vergleichsbasis). Einfache Faustregel, kein Befund: zu schnelles Abnehmen kostet oft Leistung.
+ */
+export function deficitHint(trend: Point[], recentSets: number, priorSets: number, today: string): DeficitHint | null {
+  const pts = trend.filter((p) => p.date <= today)
+  const last = pts.at(-1)
+  if (!last || pts.length < 2 || daysBetween(last.date, today) > 7) return null
+  const base = [...pts].reverse().find((p) => daysBetween(p.date, last.date) >= DEFICIT_MIN_DAYS)
+  if (!base || base.value <= 0) return null
+  const days = daysBetween(base.date, last.date)
+  const pctPerWeek = ((last.value - base.value) / base.value) * 100 / (days / 7)
+  if (pctPerWeek > -DEFICIT_PCT_PER_WEEK) return null
+  if (priorSets < SETS_MIN_PRIOR) return null
+  const setsPct = ((recentSets - priorSets) / priorSets) * 100
+  if (setsPct > -SETS_DROP_PCT) return null
+  return { pctPerWeek: Math.round(pctPerWeek * 100) / 100, setsPct: Math.round(setsPct) }
+}
+
+/** Zeitraum der Vergleichsansicht in Tagen, `null` = seit dem ersten Eintrag, oder ein freier Bereich (Daten inklusive). */
+export type ComparePeriod = 28 | 90 | 365 | null | { from: string; to: string }
 
 export interface CompareRow {
   key: BodyKey
@@ -128,16 +176,19 @@ export interface CompareRow {
 }
 
 /**
- * Vergleichsansicht (PLAN-6 B21): Veränderung jeder erfassten Kennzahl (Gewicht, Körperfett, alle Maßstellen,
- * keine Verhältnisse) über einen Zeitraum. Ausgangswert = letzter Eintrag am oder vor dem Beginn des Zeitraums,
- * gibt es keinen, der erste Eintrag im Zeitraum. Aktuell = letzter Eintrag. Mindestens zwei verschiedene Tage nötig.
+ * Vergleichsansicht (PLAN-6 B21): Veränderung jeder erfassten Kennzahl (Gewicht, Körperfett, alle Maßstellen und
+ * Verhältnisse) über einen Zeitraum. Ausgangswert = letzter Eintrag am oder vor dem Beginn des Zeitraums, gibt es
+ * keinen, der erste Eintrag im Zeitraum. Aktuell = letzter Eintrag (bei freiem Bereich: am oder vor `to`).
+ * Mindestens zwei verschiedene Tage nötig. Differenz auf 0,1 gerundet, bei Verhältnissen auf 0,01.
  */
 export function compareRows(weights: WeightEntry[], measures: MeasureEntry[], today: string, period: ComparePeriod): CompareRow[] {
-  const cutoff = period === null ? null : addDays(today, -period)
-  const keys: BodyKey[] = ['weight', 'bodyFat', ...MEASURE_GROUPS.flatMap((g) => g.items.map((i) => i.id))]
+  const range = period !== null && typeof period === 'object' ? period : null
+  const end = range ? (range.to < today ? range.to : today) : today
+  const cutoff = range ? range.from : period === null ? null : addDays(today, -period)
+  const keys: BodyKey[] = ['weight', 'bodyFat', ...MEASURE_GROUPS.flatMap((g) => g.items.map((i) => i.id)), ...RATIOS.map((r) => r.id)]
   const rows: CompareRow[] = []
   for (const key of keys) {
-    const pts = bodySeries(key, weights, measures).filter((p) => p.date <= today)
+    const pts = bodySeries(key, weights, measures).filter((p) => p.date <= end)
     if (pts.length < 2) continue
     const to = pts[pts.length - 1]
     let from: Point | undefined
@@ -147,8 +198,9 @@ export function compareRows(weights: WeightEntry[], measures: MeasureEntry[], to
       from = before.length ? before[before.length - 1] : pts.find((p) => p.date > cutoff)
     }
     if (!from || from.date === to.date || from.value <= 0) continue
+    const f = isRatio(key) ? 100 : 10
     rows.push({
-      key, label: bodyLabel(key), from, to, delta: Math.round((to.value - from.value) * 10) / 10,
+      key, label: bodyLabel(key), from, to, delta: Math.round((to.value - from.value) * f) / f,
       pct: Math.round(((to.value - from.value) / from.value) * 1000) / 10,
     })
   }

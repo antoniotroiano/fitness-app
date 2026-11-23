@@ -3,7 +3,7 @@ import { mergeSides, splitsSides, weakerSide } from './sides'
 import { prefillSets } from './prefill'
 import { DEFAULT_PLATES, platesFor } from './plates'
 import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, rirOf, sessionE1rm, suggestExplained, suggestNext, weightForReps } from './progression'
-import { DASHBOARD_SECTIONS, SHORTCUTS, moveItem, normalizeLayout, normalizePrefs, toggleHidden, visibleIds, type ListLayout } from './layout'
+import { BODY_TILES, DASHBOARD_SECTIONS, SHORTCUTS, TOP_ITEMS, defaultPrefs, dropIndex, moveItem, normalizeLayout, normalizePrefs, toggleHidden, visibleIds, type ListLayout } from './layout'
 import { averageCycle, cycleLengths, cycleSummary, periodStarts, togglePeriodDay } from './cycle'
 import {
   DEFAULT_WARMUP_SCHEMES, collapsedWarmups, dedupeWarmups, effectiveMode, freshnessFor, intensityOf, isFirstForMuscle, resolveWarmup, smartSteps, stepsToSets,
@@ -18,7 +18,7 @@ import { axisTicks, bucketSpan, chartWindow, clampOffset, formatRange, niceTicks
 import { dailyValues, dailySeries, habitDots, monthGrid, shiftMonth, streakDays, streakWeeks, weekCount } from './habits'
 import { elapsedMs, formatClock, pauseClock, resumeClock, startClock } from './workoutClock'
 import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
-import { baseRepRange, effectiveSets, exerciseTargets, weekSetTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, setWeekTargetForDay, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
+import { baseRepRange, effectiveSets, exerciseTargets, weekSetTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, setWeekTargetForDay, setWeekTargetForProgram, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives, recommendable, swapPlanned } from './swap'
 import { removeFromDay, swapInDay } from './dayEdit'
@@ -46,8 +46,8 @@ import { BODYWEIGHT_SHARE } from '../data/exercises'
 import { canFreeSlot, moveSessionToDate, sessionSummary, setSessionDuration, setSessionStartTime, weekStateAfterDelete, weekStateAfterMove, weekStateAfterWeekChange } from './history'
 import { buildImportSessions, parseTrainingCsv, suggestMapping } from './trainingImport'
 import { IMPORT_ALIASES } from '../data/importAliases'
-import { bodySeries, compareRows, lastEntries, ratioSeries, smoothWeights, trendSeries, weightSeries } from './body'
-import type { MeasureEntry, Program, ProgramConfig, Session, WeightEntry } from '../types'
+import { clampTrendDays, deficitHint, workSetsBetween, bodySeries, compareRows, lastEntries, ratioSeries, smoothWeights, trendSeries, weightSeries } from './body'
+import type { MeasureEntry, PlannedExercise, Program, ProgramConfig, Session, WeightEntry } from '../types'
 
 const range = { min: 6, max: 10 }
 
@@ -2661,5 +2661,91 @@ describe('Maße-Vergleich (PLAN-6 B21)', () => {
     expect(row(only, 'weight')).toMatchObject({ from: { date: '2026-03-01' }, delta: -1 })
     expect(row(compareRows(w, m, '2026-01-15', null), 'weight')).toBeUndefined()
     expect(rows.length).toBe(2)
+  })
+})
+
+describe('Dashboard-Reste (B8, B17, B21, A9)', () => {
+  const trendFalling = [{ date: '2026-03-01', value: 82 }, { date: '2026-03-15', value: 80.8 }]
+  it('Glättung: Standard 7, Bereich 3–14', () => {
+    expect(clampTrendDays(undefined)).toBe(7)
+    expect(clampTrendDays(1)).toBe(3)
+    expect(clampTrendDays(99)).toBe(14)
+    expect(clampTrendDays(9.6)).toBe(10)
+    const slow = trendSeries([{ date: '2026-01-01', value: 80 }, { date: '2026-01-02', value: 83 }], 14).at(-1)!.value
+    const fast = trendSeries([{ date: '2026-01-01', value: 80 }, { date: '2026-01-02', value: 83 }], 3).at(-1)!.value
+    expect(fast).toBeGreaterThan(slow)
+  })
+  it('Hinweis Defizit + sinkende Sätze', () => {
+    // −1,46 % in 14 Tagen = −0,73 %/Woche: knapp unter der Schwelle → kein Hinweis, auch bei sinkenden Sätzen
+    expect(deficitHint(trendFalling, 10, 20, '2026-03-15')).toBeNull()
+    // −0,91 %/Woche und −20 % Sätze → Hinweis
+    expect(deficitHint([{ date: '2026-03-01', value: 82 }, { date: '2026-03-15', value: 80.5 }], 16, 20, '2026-03-15')).toEqual({ pctPerWeek: -0.91, setsPct: -20 })
+  })
+  it('Hinweis: Regeln im Einzelnen', () => {
+    const steep = [{ date: '2026-03-01', value: 82 }, { date: '2026-03-15', value: 80 }]
+    expect(deficitHint(steep, 14, 20, '2026-03-15')).toEqual({ pctPerWeek: -1.22, setsPct: -30 })
+    expect(deficitHint(steep, 19, 20, '2026-03-15')).toBeNull() // Sätze fast gleich
+    expect(deficitHint(steep, 3, 6, '2026-03-15')).toBeNull() // zu wenig Vergleichsbasis
+    expect(deficitHint([{ date: '2026-03-08', value: 82 }, { date: '2026-03-15', value: 80 }], 10, 20, '2026-03-15')).toBeNull() // < 14 Tage
+    expect(deficitHint(steep, 10, 20, '2026-04-15')).toBeNull() // Trend veraltet
+    expect(deficitHint([{ date: '2026-03-01', value: 80 }, { date: '2026-03-15', value: 82 }], 10, 20, '2026-03-15')).toBeNull() // Zunahme
+    expect(deficitHint([], 10, 20, '2026-03-15')).toBeNull()
+  })
+  it('workSetsBetween zählt nur Arbeitssätze im Zeitraum', () => {
+    const set = (warmup = false, segment?: 'drop') => ({ weight: 50, reps: 8, rir: 2, ...(warmup ? { warmup: true } : {}), ...(segment ? { segment } : {}) })
+    const sess = (date: string, exerciseId: string) => ({ programId: 1, dayIndex: 0, date, finishedAt: 0, week: 0, exercises: [{ exerciseId, sets: [set(true), set(), set(false, 'drop'), set()] }] }) as unknown as Session
+    const list = [sess('2026-03-10', 'a'), sess('2026-03-11', 'run'), sess('2026-02-01', 'a')]
+    expect(workSetsBetween(list, '2026-03-01', '2026-03-31')).toBe(4)
+    expect(workSetsBetween(list, '2026-03-01', '2026-03-31', (id) => id === 'run')).toBe(2)
+  })
+  it('Layout: alte Speicherstände bleiben gültig, oben und Kacheln ergänzt', () => {
+    const old = normalizePrefs({ sections: { order: ['exercises', 'habits'], hidden: ['volume'] } })
+    expect(old.top).toEqual({ order: [...TOP_ITEMS], hidden: [] })
+    expect(visibleIds(old.bodyTiles)).toEqual(['weight', 'bodyFat'])
+    expect(old.sections.order[0]).toBe('exercises')
+    const picked = normalizePrefs({ bodyTiles: { order: ['waist', 'weight', 'ghost'], hidden: ['weight'] }, top: { order: [], hidden: ['rings', 'x'] } })
+    expect(picked.bodyTiles.order.slice(0, 2)).toEqual(['waist', 'weight'])
+    expect(picked.bodyTiles.order.length).toBe(BODY_TILES.length)
+    expect(visibleIds(picked.bodyTiles)[0]).toBe('waist')
+    expect(picked.top.hidden).toEqual(['rings'])
+    expect(defaultPrefs().bodyTiles.order).toEqual([...BODY_TILES])
+  })
+  it('Ziehen: Zielzeile aus der Zeigerposition', () => {
+    const mids = [10, 30, 50]
+    expect(dropIndex(mids, -5)).toBe(0)
+    expect(dropIndex(mids, 19)).toBe(0)
+    expect(dropIndex(mids, 25)).toBe(1)
+    expect(dropIndex(mids, 41)).toBe(2)
+    expect(dropIndex(mids, 500)).toBe(2)
+    expect(dropIndex([], 5)).toBe(0)
+  })
+  it('Vergleich: Verhältnisse und freier Zeitraum', () => {
+    const w = [{ date: '2026-01-01', kg: 80 }, { date: '2026-02-01', kg: 79 }, { date: '2026-03-01', kg: 78 }] as WeightEntry[]
+    const m = [
+      { date: '2026-01-01', values: { waist: 90, hips: 100 } },
+      { date: '2026-02-01', values: { waist: 88, hips: 100 } },
+      { date: '2026-03-01', values: { waist: 85, hips: 100 } },
+    ] as MeasureEntry[]
+    const all = compareRows(w, m, '2026-03-10', null)
+    expect(all.find((r) => r.key === 'waistHip')).toMatchObject({ delta: -0.05, pct: -5.6, from: { value: 0.9 }, to: { value: 0.85 } })
+    const r = compareRows(w, m, '2026-03-10', { from: '2026-01-15', to: '2026-02-10' })
+    expect(r.find((x) => x.key === 'weight')).toMatchObject({ from: { date: '2026-01-01' }, to: { date: '2026-02-01' }, delta: -1 })
+    expect(r.find((x) => x.key === 'waist')).toMatchObject({ delta: -2 })
+    // „bis“ in der Zukunft wird auf heute begrenzt
+    expect(compareRows(w, m, '2026-02-10', { from: '2026-01-01', to: '2030-01-01' }).find((x) => x.key === 'weight')?.to.date).toBe('2026-02-01')
+  })
+  it('Wochenziel für das ganze Programm', () => {
+    const pe = (id: string): PlannedExercise => ({ exerciseId: id, sets: 3, repMin: 8, repMax: 12, rir: 2 })
+    const days = [{ id: 'a', name: 'A', exercises: [pe('x'), pe('y')] }, { id: 'b', name: 'B', exercises: [pe('z'), pe('t')] }]
+    const repsOk = (e: { exerciseId: string }) => e.exerciseId !== 't'
+    // ohne all: andere Tage unverändert
+    const one = setWeekTargetForProgram(days, 0, 0, 'b1', { sets: 5 }, { raw: { sets: 5 } }, repsOk)
+    expect(one[0].exercises[1].weeks?.b1).toEqual({ sets: 5 })
+    expect(one[1]).toBe(days[1])
+    const all = setWeekTargetForProgram(days, 0, 0, 'b1', { sets: 5, repMin: 4, repMax: 6 }, { raw: { sets: 5, repMin: 4, repMax: 6 }, all: true }, repsOk)
+    expect(all[1].exercises[0].weeks?.b1).toEqual({ sets: 5, repMin: 4, repMax: 6 })
+    expect(all[1].exercises[1].weeks?.b1).toEqual({ sets: 5 })
+    const reset = setWeekTargetForProgram(all, 0, 0, 'b1', undefined, { all: true }, repsOk)
+    expect(reset.every((d) => d.exercises.every((e) => !e.weeks))).toBe(true)
   })
 })

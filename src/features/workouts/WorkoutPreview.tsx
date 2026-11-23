@@ -13,7 +13,7 @@ import { rirColor } from '../../components/rir'
 import { progressionNote, reasonText } from './progressionNote'
 import { db, saveWeekState, useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useBodyweights } from '../../db/db'
 import { muscleLabel } from '../../data/muscles'
-import { exerciseTargets, neutralWeek, plannedSets, setRir, setWeekTarget, setWeekTargetForDay, weekPlan } from '../../engine/periodization'
+import { exerciseTargets, neutralWeek, plannedSets, setRir, setWeekTarget, setWeekTargetForProgram, weekPlan } from '../../engine/periodization'
 import { WeekTargetSheet } from './WeekTargetSheet'
 import { weekLabel } from '../../engine/weekCycle'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
@@ -87,10 +87,10 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
   const targets = useMemo(() => targetMuscles(active.map((v) => ({ ex: v.ex, sets: v.sets }))), [active])
   const editPe = editIdx !== null ? day?.exercises[editIdx] : undefined
   const editView = editPe ? views.find((v) => v.pe === editPe) : undefined
-  const saveWeek = (key: string, tgt: Parameters<typeof setWeekTarget>[2], wide?: { raw?: Parameters<typeof setWeekTarget>[2] }) => {
+  const saveWeek = (key: string, tgt: Parameters<typeof setWeekTarget>[2], wide?: { raw?: Parameters<typeof setWeekTarget>[2]; all?: boolean }) => {
     if (!program?.id || editIdx === null) return
     const repsOk = (x: PlannedExercise) => !isRepless(exerciseById(x.exerciseId, all)?.metric)
-    const days = program.days.map((d, di) => (di !== dayIdx ? d : { ...d, exercises: setWeekTargetForDay(d.exercises, editIdx, key, tgt, wide, repsOk) }))
+    const days = setWeekTargetForProgram(program.days, dayIdx, editIdx, key, tgt, wide, repsOk)
     void db.programs.update(program.id, { days })
   }
 
@@ -354,7 +354,8 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         })()}
         scopes={[{ key: `w${curWeek}`, label: t('Nur diese Woche') }, ...(program.config && plan.blockPos != null ? [{ key: `b${plan.blockPos}`, label: t('In jedem Block') }] : [])]}
         current={(key) => editPe?.weeks?.[key]}
-        dayWide={(day?.exercises.length ?? 0) > 1}
+        dayWide={(day?.exercises.length ?? 0) > 1 || program.days.length > 1}
+        allDays={program.days.length > 1}
         onSave={saveWeek} />
 
     </>

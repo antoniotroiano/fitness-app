@@ -94,8 +94,10 @@ export function StatBox({ title, values, line, total, unit, onClick }: {
 }
 
 /** Kachel für Körperkennzahlen: letzte 7 Einträge als Linie, darunter der zuletzt erfasste Wert. */
-export function MetricBox({ title, values, last, unit, onClick }: {
+export function MetricBox({ title, values, last, unit, onClick, extra }: {
   title: string; values: number[]; last: string | null; unit: string; onClick: () => void
+  /** Zusatzzeile unter dem Wert (z. B. Gewichts-Trend) */
+  extra?: string
 }) {
   return (
     <button onClick={onClick} className="text-left rounded-2xl bg-surface border border-line p-3 active:opacity-70 min-w-0">
@@ -104,6 +106,7 @@ export function MetricBox({ title, values, last, unit, onClick }: {
       {values.length ? <MiniLine values={values} /> : <div className="h-9 flex items-center text-xs text-muted">{t('Noch keine Daten')}</div>}
       <div className="mt-2 pt-2 border-t border-line text-xs text-muted">
         <span className="text-fg font-semibold tabular-nums">{last ?? '–'}</span> {last ? unit : ''}
+        {extra && <span className="block text-2xs mt-0.5 tabular-nums">{extra}</span>}
       </div>
     </button>
   )

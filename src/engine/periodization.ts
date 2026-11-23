@@ -184,24 +184,42 @@ export function setWeekTargetForDay(
   exercises: PlannedExercise[], index: number, key: string, target: WeekTarget | undefined,
   dayWide?: { raw?: WeekTarget }, repsOk: (pe: PlannedExercise) => boolean = () => true,
 ): PlannedExercise[] {
-  return exercises.map((pe, i) => {
-    if (i === index) return setWeekTarget(pe, key, target)
-    if (!dayWide) return pe
-    const raw = dayWide.raw
-    if (!raw) return setWeekTarget(pe, key, undefined)
-    const patch: WeekTarget = {}
-    if (raw.sets != null) patch.sets = raw.sets
-    if (raw.rir != null) patch.rir = raw.rir
-    if (raw.setTargets && repsOk(pe)) patch.setTargets = raw.setTargets
-    if (repsOk(pe)) {
-      if (raw.repMin != null) patch.repMin = raw.repMin
-      if (raw.repMax != null) patch.repMax = raw.repMax
-    }
-    if (raw.skip) patch.skip = true
-    if (!Object.keys(patch).length) return pe
-    const merged = { ...pe.weeks?.[key], ...patch }
-    if (merged.repMin != null && merged.repMax != null && merged.repMax < merged.repMin) merged.repMax = merged.repMin
-    return setWeekTarget(pe, key, merged)
+  return exercises.map((pe, i) => (i === index ? setWeekTarget(pe, key, target) : applyWide(pe, key, dayWide, repsOk)))
+}
+
+/** Die ausdrücklich eingetragenen Felder (`dayWide.raw`) auf eine weitere Übung übertragen; ohne `raw` entfernt es den Eintrag. */
+function applyWide(pe: PlannedExercise, key: string, dayWide: { raw?: WeekTarget } | undefined, repsOk: (pe: PlannedExercise) => boolean): PlannedExercise {
+  if (!dayWide) return pe
+  const raw = dayWide.raw
+  if (!raw) return setWeekTarget(pe, key, undefined)
+  const patch: WeekTarget = {}
+  if (raw.sets != null) patch.sets = raw.sets
+  if (raw.rir != null) patch.rir = raw.rir
+  if (raw.setTargets && repsOk(pe)) patch.setTargets = raw.setTargets
+  if (repsOk(pe)) {
+    if (raw.repMin != null) patch.repMin = raw.repMin
+    if (raw.repMax != null) patch.repMax = raw.repMax
+  }
+  if (raw.skip) patch.skip = true
+  if (!Object.keys(patch).length) return pe
+  const merged = { ...pe.weeks?.[key], ...patch }
+  if (merged.repMin != null && merged.repMax != null && merged.repMax < merged.repMin) merged.repMax = merged.repMin
+  return setWeekTarget(pe, key, merged)
+}
+
+/**
+ * Wie `setWeekTargetForDay`, zusätzlich mit `dayWide.all` auf alle Übungen aller anderen Tage des Programms (A9,
+ * „ganzes Programm“). Ohne `all` bleiben die anderen Tage unverändert; Zurücksetzen (ohne `raw`) mit `all`
+ * entfernt das Ziel überall.
+ */
+export function setWeekTargetForProgram<D extends { exercises: PlannedExercise[] }>(
+  days: D[], dayIdx: number, index: number, key: string, target: WeekTarget | undefined,
+  dayWide?: { raw?: WeekTarget; all?: boolean }, repsOk: (pe: PlannedExercise) => boolean = () => true,
+): D[] {
+  return days.map((d, di) => {
+    if (di === dayIdx) return { ...d, exercises: setWeekTargetForDay(d.exercises, index, key, target, dayWide, repsOk) }
+    if (!dayWide?.all) return d
+    return { ...d, exercises: d.exercises.map((pe) => applyWide(pe, key, dayWide, repsOk)) }
   })
 }
 

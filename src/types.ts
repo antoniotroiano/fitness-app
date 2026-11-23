@@ -248,6 +248,8 @@ export interface Settings {
   restSound: boolean
   /** Pause zwischen linker und rechter Seite eines Satzes, Sekunden (0 = kein Timer) */
   sideRest: number
+  /** Glättung des Gewichts-Trends in Tagen (3–14, Standard 7) */
+  trendDays: number
   /** Logger-Vorbelegung der Arbeitssätze: Progressionsvorschlag oder Werte der letzten Einheit */
   prefillMode: 'suggestion' | 'last'
   /** Scheibenrechner: Gewicht der Langhantelstange und verfügbare Scheiben (kg) */
