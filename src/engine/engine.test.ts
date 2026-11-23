@@ -18,7 +18,7 @@ import { axisTicks, bucketSpan, chartWindow, clampOffset, formatRange, niceTicks
 import { dailyValues, dailySeries, habitDots, monthGrid, shiftMonth, streakDays, streakWeeks, weekCount } from './habits'
 import { elapsedMs, formatClock, pauseClock, resumeClock, startClock } from './workoutClock'
 import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
-import { baseRepRange, effectiveSets, exerciseTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, setWeekTargetForDay, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
+import { baseRepRange, effectiveSets, exerciseTargets, weekSetTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, setWeekTargetForDay, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
 import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives, recommendable, swapPlanned } from './swap'
 import { removeFromDay, swapInDay } from './dayEdit'
@@ -1848,6 +1848,16 @@ describe('Periodisierung: Blocklänge, Deload am Anfang, Wochenziele', () => {
     expect(weekPlan(cfg, 4).failureLastSet).toBe(true)
     expect(weekLabel({ config: { ...cfg } as ProgramConfig }, 0)).toBe('Deload')
     expect(weekLabel({ config: { ...cfg } as ProgramConfig }, 1)).toBe('Woche 1')
+  })
+  it('Ziele je Satz bestimmen Satzanzahl und nehmen den ersten Satz als Basis', () => {
+    const cfg = { repScheme: 'static' as const, deload: true }
+    const st = [{ repMin: 6, repMax: 8, rir: 2 }, { repMin: 8, repMax: 10, rir: 1 }]
+    const edited = setWeekTarget(pe, 'b1', { sets: 5, setTargets: st })
+    const plan = weekPlan(cfg, 1)
+    expect(plannedSets(edited, plan)).toBe(2)
+    expect(weekSetTargets(edited, plan)).toEqual(st)
+    expect(exerciseTargets(edited, plan, 0, false)).toEqual({ range: { min: 6, max: 8 }, rir: 2 })
+    expect(weekSetTargets(edited, weekPlan(cfg, 0))).toBeUndefined()
   })
   it('Wochenziel je Block überschreibt Sätze, Bereich und RIR in jedem Block', () => {
     const cfg = { repScheme: 'static' as const, deload: true }

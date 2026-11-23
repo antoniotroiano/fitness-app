@@ -61,6 +61,12 @@ function plateHint(kg: number, s: Settings, wl: Settings['weightUnit']): string 
 /** Körperlast für die Anzeige (eine Nachkommastelle) */
 const fmtLoad = (n: number) => (Math.round(n * 10) / 10).toLocaleString(LOCALE)
 
+/** Wiederholungen eines Satzes mit eigenem Bereich (Ziele je Satz) in dessen Bereich halten */
+const repsIn = (v: PlannedView, i: number, reps: number) => {
+  const r = v.setRanges[i]
+  return r === v.range ? reps : Math.min(r.max, Math.max(r.min, reps))
+}
+
 /** Startzeilen einer Übung: Aufwärmsätze und Arbeitssätze aus der Planung. */
 function buildRows(v: PlannedView, wl: Settings['weightUnit'], sides = false, mode: Settings['prefillMode'] = 'suggestion'): Row[] {
   const fill = prefillSets(v.ex.cardio ? 'suggestion' : mode, v.sug, v.sets, v.previous.work)
@@ -71,9 +77,9 @@ function buildRows(v: PlannedView, wl: Settings['weightUnit'], sides = false, mo
   const work: Row[] = Array.from({ length: v.sets }, (_, i) => ({
     ...blank, id: uid(), type: 'work',
     weight: fill[i].weight == null ? '' : String(kgToDisplay(fill[i].weight!, wl)),
-    reps: v.ex.cardio ? '' : String(fill[i].reps),
+    reps: v.ex.cardio ? '' : String(repsIn(v, i, fill[i].reps)),
     rir: v.ex.cardio ? '' : String(v.setRirs[i]),
-    ...(v.ex.cardio ? {} : { planKg: fill[i].weight, planReps: fill[i].reps, planRir: v.setRirs[i] }),
+    ...(v.ex.cardio ? {} : { planKg: fill[i].weight, planReps: repsIn(v, i, fill[i].reps), planRir: v.setRirs[i] }),
     ...(i === v.failureIdx ? { failure: true } : {}),
   }))
   return [...warm, ...work.map((r, i) => {
@@ -668,7 +674,7 @@ export default function Logger() {
             {plan.isDeload && <span className="text-xs rounded-full bg-warn/20 text-warn px-2 py-1">Deload</span>}
           </div>
           {backfill && <p className="text-xs text-accent mt-0.5">{t('Nachgetragen für')} {formatDate(backfill.date, { day: '2-digit', month: 'long', year: 'numeric' })} · {weekLabel(program, backfill.week)}</p>}
-          {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : current.ex.metric === 'distance' ? de.logger.targetDistance(distanceUnitOf(current.ex)) : de.logger.targetReps)(current.range.min, current.range.max)}</p>}
+          {!current.ex.cardio && <p className="text-xs text-muted mt-0.5">{(current.ex.metric === 'time' ? de.logger.targetSeconds : current.ex.metric === 'distance' ? de.logger.targetDistance(distanceUnitOf(current.ex)) : de.logger.targetReps)(current.range.min, current.range.max)}{current.setRanges.some((r) => r !== current.range) && ` · ${t('je Satz')}: ${current.setRanges.map((r) => `${r.min}–${r.max}`).join(' / ')}`}</p>}
           {(() => {
             const why = current.ex.cardio ? null : reasonText(current.sug, current.range, wl, current.ex.metric ?? 'reps', current.bodyLoad, distanceUnitOf(current.ex))
             if (!why) return null

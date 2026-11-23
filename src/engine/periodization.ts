@@ -1,4 +1,4 @@
-import type { Experience, Goal, PlannedExercise, ProgramConfig, RepScheme, WeekTarget } from '../types'
+import type { Experience, Goal, PlannedExercise, ProgramConfig, RepScheme, SetTarget, WeekTarget } from '../types'
 import type { RepRange } from './progression'
 import { isRepless, METRIC_RANGE } from './metric'
 
@@ -129,6 +129,8 @@ export function exerciseTargets(
   const t = computedTargets(pe, plan, index, time, compound)
   const o = weekOverride(pe, plan)
   if (!o) return t
+  const st = o.setTargets?.[0]
+  if (st) return { range: { min: st.repMin, max: Math.max(st.repMin, st.repMax) }, rir: st.rir }
   const min = o.repMin ?? t.range.min
   return { range: { min, max: Math.max(min, o.repMax ?? t.range.max) }, rir: o.rir ?? t.rir }
 }
@@ -146,7 +148,14 @@ export function weekOverride(pe: Partial<Pick<PlannedExercise, 'weeks'>>, plan: 
 
 /** Sätze einer Übung in einer Woche (eigenes Wochenziel oder aus dem Wochenplan) */
 export function plannedSets(pe: Pick<PlannedExercise, 'sets'> & Partial<Pick<PlannedExercise, 'weeks'>>, plan: WeekPlan): number {
-  return weekOverride(pe, plan)?.sets ?? effectiveSets(pe.sets, plan)
+  const o = weekOverride(pe, plan)
+  return o?.setTargets?.length || o?.sets || effectiveSets(pe.sets, plan)
+}
+
+/** Eigene Ziele je Satz dieser Woche (undefined = keine) */
+export function weekSetTargets(pe: Partial<Pick<PlannedExercise, 'weeks'>>, plan: WeekPlan): SetTarget[] | undefined {
+  const st = weekOverride(pe, plan)?.setTargets
+  return st?.length ? st : undefined
 }
 
 /** Übung wird in dieser Woche ausgelassen */
@@ -183,6 +192,7 @@ export function setWeekTargetForDay(
     const patch: WeekTarget = {}
     if (raw.sets != null) patch.sets = raw.sets
     if (raw.rir != null) patch.rir = raw.rir
+    if (raw.setTargets && repsOk(pe)) patch.setTargets = raw.setTargets
     if (repsOk(pe)) {
       if (raw.repMin != null) patch.repMin = raw.repMin
       if (raw.repMax != null) patch.repMax = raw.repMax

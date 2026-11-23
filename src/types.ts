@@ -105,8 +105,12 @@ export interface WeekTarget {
   repMin?: number
   repMax?: number
   rir?: number
+  /** Ziele je Satz (Wdh.-Bereich + RIR); die Anzahl bestimmt die Sätze und hat Vorrang vor `sets`/`repMin`/`repMax`/`rir` */
+  setTargets?: SetTarget[]
   skip?: boolean
 }
+
+export interface SetTarget { repMin: number; repMax: number; rir: number }
 
 export interface WorkoutDay {
   id: string

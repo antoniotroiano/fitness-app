@@ -34,7 +34,7 @@ type StepId = 'mode' | 'goal' | 'days' | 'split' | 'time' | 'rep' | 'focus' | 'd
 const AUTO_STEPS: StepId[] = ['mode', 'goal', 'days', 'split', 'time', 'rep', 'focus', 'deload', 'exp', 'equipment', 'identity', 'preview']
 
 const TITLES: Record<StepId, string> = {
-  mode: 'Start', goal: t('Ziel'), days: t('Trainingstage'), split: 'Split', time: t('Zeit pro Session'), rep: t('Rep-Ranges'),
+  mode: 'Start', goal: t('Ziel'), days: t('Trainingstage'), split: 'Split', time: t('Zeit pro Session'), rep: t('Wiederholungsbereiche'),
   focus: t('Muskelfokus'), deload: t('Blocklänge & Deload'), exp: t('Erfahrung'), equipment: 'Equipment',
   identity: t('Name, Icon & Farbe'), preview: t('Dein Plan'),
 }
@@ -172,11 +172,11 @@ export default function Wizard() {
       {id === 'rep' && (
         <div className="space-y-3">
           {([
-            ['static', 'Static', t('Gleiches Rep-Ziel jede Woche.'), 'repStatic'],
-            ['linear', 'Linear', t('Wiederholungen sinken, Gewichte steigen über das Programm.'), 'repLinear'],
-            ['reverseLinear', 'Reverse Linear', t('Wiederholungen steigen, Gewichte sinken über das Programm.'), 'repReverse'],
-            ['undulating', 'Undulating', t('Wöchentlicher Wechsel zwischen schwer/wenige und leicht/viele Wiederholungen.'), 'repWave'],
-            ['rotating', t('Wechselnde Bereiche'), t('Enge Bereiche (3 Wdh.), die jede Übung wöchentlich wechselt. Jeder Tag hat schwere und leichte Übungen.'), 'repWave'],
+            ['static', t('Konstant'), t('Gleiches Wiederholungsziel jede Woche.'), 'repStatic'],
+            ['linear', t('Linear'), t('Wiederholungen sinken, Gewichte steigen über das Programm.'), 'repLinear'],
+            ['reverseLinear', t('Umgekehrt linear'), t('Wiederholungen steigen, Gewichte sinken über das Programm.'), 'repReverse'],
+            ['undulating', t('Wellenförmig'), t('Ganze Wochen wechseln: eine Woche schwer mit wenigen Wiederholungen, die nächste leichter mit vielen. Alle Übungen gleichzeitig.'), 'repWave'],
+            ['rotating', t('Wechselnde Bereiche'), t('Jede Übung wechselt von Woche zu Woche ihren engen Bereich (3 Wdh.). So hat jeder Tag schwere und leichte Übungen nebeneinander.'), 'repWave'],
           ] as [RepScheme, string, string, IconName][]).map(([v, t, d, i]) => (
             <Option key={v} active={!repAuto && cfg.repScheme === v} icon={i} title={t} desc={d} onClick={() => { setRepAuto(false); set({ repScheme: v }) }} />
           ))}

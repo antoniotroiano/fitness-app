@@ -576,10 +576,10 @@ export function DataPage() {
       <Card className="space-y-3">
         <p className="text-sm text-muted">{t('Einheiten als CSV (eine Zeile pro Satz) exportieren, z. B. für Tabellen, wahlweise nur ein Zeitraum oder eine Übung. Das Format passt zum Trainingsimport unten.')}</p>
         <div className="grid grid-cols-2 gap-3">
-          <label className="block text-xs text-muted">{t('Von')}
+          <label className="block min-w-0 text-xs text-muted">{t('Von')}
             <input type="date" className={`${inputCls} mt-1`} value={csvFrom} onChange={(e) => setCsvFrom(e.target.value)} />
           </label>
-          <label className="block text-xs text-muted">{t('Bis')}
+          <label className="block min-w-0 text-xs text-muted">{t('Bis')}
             <input type="date" className={`${inputCls} mt-1`} value={csvTo} onChange={(e) => setCsvTo(e.target.value)} />
           </label>
         </div>

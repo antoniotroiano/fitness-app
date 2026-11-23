@@ -1,7 +1,8 @@
 import { distanceUnitOf, isRepless, metricUnit } from '../../engine/metric'
 import { exerciseById } from '../../data/exercises'
 import type { PlannedExercise } from '../../types'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { MenuRow } from './MenuRow'
 import { todayStr } from '../../utils/dates'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BottomBar, BottomSheet, Button, Card, Page, cx } from '../../components/ui'
@@ -12,7 +13,7 @@ import { rirColor } from '../../components/rir'
 import { progressionNote, reasonText } from './progressionNote'
 import { db, saveWeekState, useProgramByParam, useActiveWorkoutParam, useAllExercises, useExerciseOverrides, useSessions, useSettings, useWeekState, useBodyweights } from '../../db/db'
 import { muscleLabel } from '../../data/muscles'
-import { exerciseTargets, neutralWeek, plannedSets, setWeekTarget, setWeekTargetForDay, weekPlan } from '../../engine/periodization'
+import { exerciseTargets, neutralWeek, plannedSets, setRir, setWeekTarget, setWeekTargetForDay, weekPlan } from '../../engine/periodization'
 import { WeekTargetSheet } from './WeekTargetSheet'
 import { weekLabel } from '../../engine/weekCycle'
 import { deloadSessionOf, plannedDay } from '../../engine/plannedDay'
@@ -58,6 +59,14 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
   /** Übung, deren Vorschlagsbegründung offen ist */
   const [whyId, setWhyId] = useState<string | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
+  /** Index der Übung, deren Menü (⋯) offen ist */
+  const [menuIdx, setMenuIdx] = useState<number | null>(null)
+  /** Langes Drücken + Ziehen: Reihenfolge innerhalb des Tages ändern */
+  const [drag, setDrag] = useState<{ from: number; over: number; dy: number; h: number; shift: number } | null>(null)
+  const dragRef = useRef<typeof drag>(null)
+  dragRef.current = drag
+  const cardEls = useRef<(HTMLDivElement | null)[]>([])
+  const press = useRef<{ idx: number; x: number; y: number; timer: number; rects: DOMRect[] } | null>(null)
 
   const local = param.replace(/^p\d+-/, '')
   const slotIdx = local.startsWith('s') ? Number(local.slice(1)) : null
@@ -98,6 +107,64 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
     if (!program?.id) return
     void db.programs.update(program.id, { days: program.days.map((d, i) => (i === dayIdx ? { ...d, exercises: f(d.exercises) } : d)) })
   }
+  const dayRef = useRef({ program, dayIdx, day })
+  dayRef.current = { program, dayIdx, day }
+  const endPress = () => { if (press.current) { window.clearTimeout(press.current.timer); press.current = null } }
+  const startPress = (e: React.PointerEvent, idx: number) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return
+    endPress()
+    const x = e.clientX, y = e.clientY
+    const timer = window.setTimeout(() => {
+      const rects = cardEls.current.map((el) => el?.getBoundingClientRect() as DOMRect)
+      if (!press.current || rects.some((r) => !r)) return
+      press.current.rects = rects
+      const gap = rects.length > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 16
+      navigator.vibrate?.(15)
+      setDrag({ from: idx, over: idx, dy: 0, h: rects[idx].height, shift: rects[idx].height + gap })
+    }, 380)
+    press.current = { idx, x, y, timer, rects: [] }
+  }
+  useEffect(() => {
+    // iOS: Scrollen unterbinden, solange gezogen wird (muss nicht-passiv registriert sein)
+    const block = (e: TouchEvent) => { if (dragRef.current) e.preventDefault() }
+    const move = (e: PointerEvent) => {
+      const pr = press.current
+      if (!pr) return
+      const d = dragRef.current
+      if (!d) {
+        if (Math.hypot(e.clientX - pr.x, e.clientY - pr.y) > 10) endPress()
+        return
+      }
+      const dy = e.clientY - pr.y
+      const r = pr.rects[d.from]
+      const c = r.top + r.height / 2 + dy
+      let over = d.from
+      let best = Infinity
+      pr.rects.forEach((q, i) => { const dist = Math.abs(q.top + q.height / 2 - c); if (dist < best) { best = dist; over = i } })
+      setDrag({ ...d, dy, over })
+    }
+    const up = (e: PointerEvent) => {
+      const d = dragRef.current
+      endPress()
+      if (!d) return
+      setDrag(null)
+      if (e.type === 'pointercancel') return
+      const { program: pr, dayIdx: di, day: dy } = dayRef.current
+      const pe = dy?.exercises[d.from]
+      if (pr?.id && pe && d.over !== d.from) void db.programs.update(pr.id, { days: moveExercise(pr.days, di, di, pe.exerciseId, d.over) })
+    }
+    document.addEventListener('touchmove', block, { passive: false })
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      document.removeEventListener('touchmove', block)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      endPress()
+    }
+  }, [])
   const actPe = actIdx !== null ? day?.exercises[actIdx] : undefined
   const swapPe = swapIdx !== null ? day?.exercises[swapIdx] : undefined
   const swapEx = swapPe ? exerciseById(swapPe.exerciseId, all) : undefined
@@ -138,7 +205,9 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
 
       <div className="text-sm text-muted">{active.length} {active.length === 1 ? t('Übung') : t('Übungen')}{views.length > active.length ? t(' · {0} diese Woche ausgelassen', views.length - active.length) : ''}</div>
 
-      {views.map((v) => {
+      {views.length > 1 && <div className="text-xs text-muted -mt-2">{t('Zum Umsortieren eine Übung gedrückt halten und ziehen.')}</div>}
+
+      {views.map((v, vi) => {
         const lines = v.ex.cardio ? 1 : v.sets
         const dim = v.skipped || (focus !== null && !v.ex.primary.some((m) => m === focus))
         const idx = day.exercises.indexOf(v.pe)
@@ -147,8 +216,18 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
         const ss = v.skipped ? undefined : v.pe.superset
         const ssStart = !!ss && active[ai - 1]?.pe.superset !== ss && active[ai + 1]?.pe.superset === ss
         const ssLinked = !!ss && (active[ai - 1]?.pe.superset === ss || active[ai + 1]?.pe.superset === ss)
+        const dragged = drag?.from === vi
+        const shifted = !drag || dragged ? 0 : drag.from < drag.over ? (vi > drag.from && vi <= drag.over ? -drag.shift : 0) : (vi >= drag.over && vi < drag.from ? drag.shift : 0)
         return (
-          <div key={v.pe.exerciseId}>
+          <div key={v.pe.exerciseId} ref={(el) => { cardEls.current[vi] = el }}
+            onPointerDown={idx >= 0 && views.length > 1 ? (e) => startPress(e, vi) : undefined}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              transform: dragged ? `translateY(${drag!.dy}px) scale(1.02)` : shifted ? `translateY(${shifted}px)` : undefined,
+              transition: dragged ? 'none' : drag ? 'transform 150ms ease-out' : undefined,
+              WebkitTouchCallout: 'none', userSelect: drag ? 'none' : undefined,
+            }}
+            className={cx('relative', dragged && 'z-20 shadow-xl rounded-2xl')}>
           {ssStart && <div className="text-xs font-semibold text-accent flex items-center gap-1 mb-1 px-1"><Icon name="link" size={13} />{t('Supersatz')}</div>}
           <Card className={cx('!p-3 transition-opacity', ssLinked && 'border-l-4 border-l-accent', dim && 'opacity-40 grayscale')}>
             <div className="grid grid-cols-[64px_1fr_auto] gap-x-3 gap-y-1 items-center">
@@ -158,7 +237,7 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
               {Array.from({ length: lines }, (_, i) => (
                 <div key={i} className="contents">
                   <div className="text-sm text-muted">
-                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? t('Satz {0} · {1}+ Wdh, bis zum Versagen', i + 1, v.range.min) : t('Satz {0} · {1}–{2} {3}', i + 1, v.range.min, v.range.max, metricUnit(v.ex.metric, distanceUnitOf(v.ex)))}
+                    {v.ex.cardio ? 'Cardio' : i === v.failureIdx ? t('Satz {0} · {1}+ Wdh, bis zum Versagen', i + 1, v.setRanges[i].min) : t('Satz {0} · {1}–{2} {3}', i + 1, v.setRanges[i].min, v.setRanges[i].max, metricUnit(v.ex.metric, distanceUnitOf(v.ex)))}
                   </div>
                   <div className="text-sm font-bold text-right tabular-nums" style={v.ex.cardio ? undefined : { color: rirColor(v.setRirs[i]) }}>
                     {v.ex.cardio ? '' : v.setRirs[i]}
@@ -178,11 +257,9 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
                 )
               })()}
               <div className="text-xs text-muted col-span-2 space-y-1.5">
-                <div>{v.skipped ? t('Diese Woche ausgelassen') : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? t(' · {0} Aufwärmsätze', v.warmups.length) : ''}</>}</div>
-                <div className="flex items-center justify-end gap-4">
-                  {idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setActIdx(idx)}>{t('Tauschen')}</button>}
-                  {program.days.length > 1 && day.exercises.length > 1 && idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setMoveIdx(idx)}>{t('Verschieben')}</button>}
-                  {!v.ex.cardio && idx >= 0 && <button className="text-accent pointer-events-auto py-1" onClick={() => setEditIdx(idx)}>{v.pe.weeks ? t('Ziele · eigen') : t('Ziele')}</button>}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0">{v.skipped ? t('Diese Woche ausgelassen') : <>{v.ex.primary.map(muscleLabel).join(', ')}{v.warmups.length > 0 ? t(' · {0} Aufwärmsätze', v.warmups.length) : ''}</>}</span>
+                  {idx >= 0 && <button onClick={() => setMenuIdx(idx)} aria-label={t('Aktionen für {0}', v.ex.name)} className="pointer-events-auto -my-2 -mr-2 w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-fg active:opacity-70"><Icon name="more" /></button>}
                 </div>
               </div>
             </div>
@@ -190,6 +267,22 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
           </div>
         )
       })}
+
+      <BottomSheet open={menuIdx !== null} onClose={() => setMenuIdx(null)} title={menuIdx !== null ? (exerciseById(day.exercises[menuIdx]?.exerciseId ?? '', all)?.name ?? '') : ''}>
+        {(() => {
+          const i = menuIdx
+          const pe = i !== null ? day.exercises[i] : undefined
+          const ex = pe ? exerciseById(pe.exerciseId, all) : undefined
+          if (i === null || !pe) return null
+          return (
+            <div className="divide-y divide-line">
+              <MenuRow icon="automation" label={t('Tauschen')} onClick={() => { setMenuIdx(null); setActIdx(i) }} />
+              {!ex?.cardio && <MenuRow icon="target" label={pe.weeks ? t('Ziele · eigen') : t('Ziele')} onClick={() => { setMenuIdx(null); setEditIdx(i) }} />}
+              {program.days.length > 1 && day.exercises.length > 1 && <MenuRow icon="program" label={t('In anderes Workout verschieben')} onClick={() => { setMenuIdx(null); setMoveIdx(i) }} />}
+            </div>
+          )
+        })()}
+      </BottomSheet>
 
       <BottomSheet open={moveIdx !== null} onClose={closeMove} title={moveDay === null ? t('Übung verschieben') : t('Position wählen')}>
         {(() => {
@@ -253,10 +346,11 @@ export default function WorkoutPreview({ param: paramProp, embedded }: { param?:
       <WeekTargetSheet open={!!editView} onClose={() => setEditIdx(null)} unit={metricUnit(editView?.ex.metric, distanceUnitOf(editView?.ex))}
         title={editView ? `${editView.ex.name} · ${weekLabel(program, curWeek)}` : ''}
         computed={(() => {
-          if (!editView || editIdx === null) return { sets: 0, repMin: 0, repMax: 0, rir: 0 }
+          if (!editView || editIdx === null) return { sets: 0, repMin: 0, repMax: 0, rir: 0, perSet: [] }
           const base = { ...editView.pe, weeks: undefined }
           const tg = exerciseTargets(base, plan, editIdx, isRepless(editView.ex.metric), editView.ex.compound)
-          return { sets: plannedSets(base, plan), repMin: tg.range.min, repMax: tg.range.max, rir: tg.rir }
+          const n = plannedSets(base, plan)
+          return { sets: n, repMin: tg.range.min, repMax: tg.range.max, rir: tg.rir, perSet: Array.from({ length: n }, (_, i) => ({ repMin: tg.range.min, repMax: tg.range.max, rir: setRir(tg.rir, i, n, !!editView.ex.compound, !!settings.hardSetFirst) })) }
         })()}
         scopes={[{ key: `w${curWeek}`, label: t('Nur diese Woche') }, ...(program.config && plan.blockPos != null ? [{ key: `b${plan.blockPos}`, label: t('In jedem Block') }] : [])]}
         current={(key) => editPe?.weeks?.[key]}

@@ -1,6 +1,6 @@
 import type { Exercise, Program, Session, WorkoutDay, PlannedExercise } from '../types'
 import { isStalled, previousSets, sessionPerformance, suggestExplained, type RepRange, type Suggestion } from './progression'
-import { exerciseTargets, failureSetIndex, isSkipped, plannedSets, setRir, weekPlan, type WeekPlan } from './periodization'
+import { exerciseTargets, failureSetIndex, isSkipped, plannedSets, setRir, weekPlan, weekSetTargets, type WeekPlan } from './periodization'
 import { effectiveMode, freshnessFor, intensityOf, resolveWarmup, type WarmupContext, type WarmupSet } from './warmup'
 import { restCategory } from './rest'
 import type { ExerciseOverride, Settings, WeightEntry } from '../types'
@@ -17,6 +17,8 @@ export interface PlannedView {
   sets: number
   /** Ziel-RIR pro Arbeitssatz */
   setRirs: number[]
+  /** Wdh.-Bereich pro Arbeitssatz (alle gleich `range`, außer bei eigenen Zielen je Satz) */
+  setRanges: RepRange[]
   /** Ein Arbeitssatz bis zum Versagen (letzte Arbeitswoche des Blocks), siehe `failureIdx` */
   failureLast: boolean
   /** Index des Satzes bis zum Versagen (−1: keiner); bei „harter Satz zuerst“ der erste, sonst der letzte */
@@ -86,8 +88,10 @@ export function plannedDay(
     const failureLast = !!plan.failureLastSet && !ex.cardio && !time
     const hardFirst = !!warmup.hardSetFirst
     const failureIdx = failureLast ? failureSetIndex(sets, hardFirst) : -1
-    const setRirs = Array.from({ length: sets }, (_, i) => (i === failureIdx ? 0 : setRir(rir, i, sets, ex.compound, hardFirst)))
-    out.push({ pe, ex, range, rir, sets, setRirs, failureLast, failureIdx, sug, warmups, warmupCtx, warmupMode, previous, bodyLoad, skipped: isSkipped(pe, plan) })
+    const own = ex.cardio ? undefined : weekSetTargets(pe, plan)
+    const setRirs = Array.from({ length: sets }, (_, i) => (i === failureIdx ? 0 : own?.[i] ? own[i].rir : setRir(rir, i, sets, ex.compound, hardFirst)))
+    const setRanges = Array.from({ length: sets }, (_, i) => (own?.[i] ? { min: own[i].repMin, max: Math.max(own[i].repMin, own[i].repMax) } : range))
+    out.push({ pe, ex, range, rir, sets, setRirs, setRanges, failureLast, failureIdx, sug, warmups, warmupCtx, warmupMode, previous, bodyLoad, skipped: isSkipped(pe, plan) })
   })
   return out
 }

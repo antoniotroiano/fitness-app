@@ -229,4 +229,4 @@ export function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export const inputCls =
-  'w-full rounded-xl bg-surface2 border border-line px-3 py-2.5 text-sm outline-none focus:border-accent'
+  'w-full min-w-0 max-w-full appearance-none rounded-xl bg-surface2 border border-line px-3 py-2.5 text-sm outline-none focus:border-accent'
