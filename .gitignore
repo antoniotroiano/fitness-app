@@ -37,3 +37,7 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Interne Planung und Notizen (lokal, nicht öffentlich)
+docs/plan/
+docs/notes/

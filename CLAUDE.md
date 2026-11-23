@@ -1,6 +1,6 @@
 # Lift Lab
 
-Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. **Ausnahme (bewusste Entscheidung):** Übungsbilder und ausgewählte Texte aus `free-exercise-db-with-videos` (MIT), siehe `THIRD_PARTY.md`, `docs/PLAN-3.md`. Ausführliche Planung: `docs/PLAN-1.md` (Grundplan) und `docs/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard), `docs/PLAN-5.md` (geplant: Gerätegewichte, Wizard-Überarbeitung), `docs/PLAN-6.md` (Abgleich mit Referenz-App-Doku, **Checkliste mit Status: vor jeder Aufgabe lesen, Aufgabe abhaken**).
+Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. **Ausnahme (bewusste Entscheidung):** Übungsbilder und ausgewählte Texte aus `free-exercise-db-with-videos` (MIT), siehe `THIRD_PARTY.md`, `docs/plan/PLAN-3.md`. Ausführliche Planung (lokal, nicht im Repo: `docs/plan/` und `docs/notes/` stehen in `.gitignore`, ein frischer Clone oder Worktree enthält sie nicht): `docs/plan/PLAN-1.md` (Grundplan) und `docs/plan/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard), `docs/plan/PLAN-5.md` (geplant: Gerätegewichte, Wizard-Überarbeitung), `docs/plan/PLAN-6.md` (Abgleich mit einer Referenz-App, **Checkliste mit Status: vor jeder Aufgabe lesen, Aufgabe abhaken**).
 
 ## Befehle
 ```bash
@@ -25,7 +25,7 @@ Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Paramete
 - `db/db.ts`: Dexie-Schema, Hooks (`useSessions` …), Backup Export/Import, Gewichts-Import (Apple-Health-XML/CSV)
 - `engine/trainingImport.ts` + `data/importAliases.ts`: Import eines Trainingsverlaufs (CSV, eine Zeile pro Satz) als Sessions mit `programId: null`, `week: 0`, `dayIndex: -1`. Zuordnung über Alias-Tabelle (englische Namen → IDs), Rest wählt der Nutzer in der Vorschau (`features/more/TrainingImport.tsx`). Übungen, die am selben Tag schon geloggt sind, werden übersprungen (wiederholter Import unschädlich).
 - `features/`: `wizard`, `workouts` (Wochenplan, Vorschau, Logger mit Timer/Satztabelle/Numpad/Info-Sheet), `dashboard`, `stats`, `body` (Gewicht, Maße), `more`
-- `data/media/`: `map.json` (App-ID → Repo-Slug), `manifest.json` (vorhandene Poster, erzeugt von `scripts/build-media.mjs`), `index.ts` (`posterUrl`). Bilder in `public/exercise-media/poster/`. Videos: nur Idee, `docs/IDEAS-VIDEOS.md`.
+- `data/media/`: `map.json` (App-ID → Repo-Slug), `manifest.json` (vorhandene Poster, erzeugt von `scripts/build-media.mjs`), `index.ts` (`posterUrl`). Bilder in `public/exercise-media/poster/`. Videos: nur Idee, `docs/notes/IDEAS-VIDEOS.md`.
 - `data/instructions.ts` (+ `data/instr/*`): eigene Anleitungen pro Übungs-ID (Info-Sheet lädt sie per dynamischem Import; Seiten in `App.tsx` per `React.lazy`). `components/MuscleFigure.tsx`: eigene SVG-Muskelfigur (kein Fremd-Asset).
 - `components/ui.tsx`: gemeinsame UI-Bausteine; `utils/`: Datum und Einheiten
 

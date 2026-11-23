@@ -14,7 +14,7 @@ export function ExercisePhoto({ ex, size = 56 }: { ex: Exercise; size?: number }
   )
 }
 
-/** Großes Bild im Info-Sheet (Platz für ein späteres Video, siehe docs/IDEAS-VIDEOS.md). */
+/** Großes Bild im Info-Sheet (Platz für ein späteres Video, Idee: Videos statt Poster). */
 export function ExerciseHero({ ex }: { ex: Exercise }) {
   const url = ex.image ?? posterUrl(ex.id)
   const [failed, setFailed] = useState(false)
