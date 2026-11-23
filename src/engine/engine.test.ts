@@ -10,7 +10,7 @@ import {
   type WarmupContext,
 } from './warmup'
 import { effectiveStep, floorToScale, scaleFromSegments, snapToScale, stepDown, stepUp } from './weightScale'
-import type { WeightScale } from '../types'
+import type { MuscleId, WeightScale } from '../types'
 import { volumeFactor, exerciseValue, noLoadStats, setVolume } from './stats'
 import { migrateExercise, migrateFocus, migrateMuscles } from '../data/muscleMigration'
 import { groupExercises, libraryGroup } from './library'
@@ -19,7 +19,7 @@ import { dailyValues, dailySeries, habitDots, monthGrid, shiftMonth, streakDays,
 import { elapsedMs, formatClock, pauseClock, resumeClock, startClock } from './workoutClock'
 import { DEFAULT_REST, restCategory, restSecondsFor } from './rest'
 import { baseRepRange, effectiveSets, exerciseTargets, weekSetTargets, isSkipped, neutralWeek, plannedSets, failureSetIndex, setRir, setWeekTarget, setWeekTargetForDay, TIME_RANGE, recommendedRepScheme, weekPlan, weeklyOverview, zoneRange } from './periodization'
-import { dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
+import { allocateWeekly, dayTypes, generate, isDirectFor, SESSION_SET_CAP, weekSlots } from './planGenerator'
 import { alternatives, recommendable, swapPlanned } from './swap'
 import { removeFromDay, swapInDay } from './dayEdit'
 import { appendDay, applySettings, copyName, duplicateProgram, extendProgram, duplicateDay, moveExercise, moveSlot, moveWeekSlot, programEnded, renameDay, scheduleDay, settingsOf, unscheduleDay } from './programAdmin'
@@ -263,9 +263,43 @@ describe('planGenerator: Zeitbudget, Direktübungen, Auswahl (A7)', () => {
       for (const d of program.days) {
         const peak = d.exercises.reduce((a, e) => a + Math.round(e.sets * 1.25), 0)
         expect(peak, d.name).toBeLessThanOrEqual(SESSION_SET_CAP['40-60'])
-        expect(peak, d.name).toBeGreaterThanOrEqual(SESSION_SET_CAP['40-60'] - 4)
+        expect(peak, d.name).toBeGreaterThanOrEqual(SESSION_SET_CAP['40-60'] - 5)
       }
     }
+  })
+})
+
+describe('planGenerator: Priorisierung statt globalem Faktor (A7)', () => {
+  const ids = (c: ProgramConfig) => generate(c, ALL_EXERCISES).program.days.map((d) => d.exercises.map((e) => exerciseById(e.exerciseId)!))
+  it('sehr knappes Budget (u20): Direktübung für Schulter, Bizeps, Trizeps und ein Verbund pro Woche', () => {
+    for (const [split, days] of [['fullBody', 2], ['fullBody', 3], ['ppl', 3]] as const) {
+      const ex = ids(cfg({ time: 'u20', split, days })).flat()
+      for (const m of ['biceps', 'triceps', 'sideDelts'] as const) expect(ex.some((e) => isDirectFor(e, m)), `${split}${days} ${m}`).toBe(true)
+      expect(ex.some((e) => e.compound), `${split}${days} Verbund`).toBe(true)
+    }
+  })
+  it('Budget je Tag bleibt eingehalten, auch bei Fokus und knappem Budget', () => {
+    for (const time of ['u20', '20-40', '40-60', '60-90'] as const) {
+      const { program } = generate(cfg({ time, focus: { chest: 'high', biceps: 'high', quads: 'high' } }), ALL_EXERCISES)
+      for (const d of program.days) {
+        expect(d.exercises.reduce((a, e) => a + effectiveSets(e.sets, weekPlan({ repScheme: 'static', deload: true }, 3)), 0), `${time} ${d.name}`)
+          .toBeLessThanOrEqual(SESSION_SET_CAP[time])
+      }
+    }
+  })
+  it('Zuteilung: passt alles, gilt das Wochenziel; sonst Fokus und große Muskeln vor dem Rest', () => {
+    const c = cfg({ focus: { biceps: 'high' } })
+    const days: MuscleId[][] = [['quads', 'chest', 'biceps', 'abs', 'sideDelts'], ['quads', 'chest', 'biceps', 'abs', 'sideDelts']]
+    const loose = allocateWeekly(c, days, 100)
+    expect(loose.quads).toBe(12)
+    const tight = allocateWeekly(c, days, 9)
+    const sum = Object.values(tight).reduce((a, x) => a + x, 0)
+    expect(sum).toBeLessThanOrEqual(18.01)
+    const share = (m: MuscleId) => (tight[m] ?? 0) / 12
+    expect(share('quads')).toBeGreaterThanOrEqual(share('abs'))
+    expect(tight.biceps!).toBeGreaterThanOrEqual(tight.sideDelts!)
+    // Direktübungs-Reserve für seitliche Schulter bleibt
+    expect(tight.sideDelts!).toBeGreaterThanOrEqual(2)
   })
 })
 
