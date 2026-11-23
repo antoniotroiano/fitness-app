@@ -3,6 +3,7 @@ import { HashRouter, NavLink, Route, Routes, useNavigate, useLocation, useNaviga
 import { useLayoutPrefs, useSettings, useSettingsLoaded } from './db/db'
 import { visibleIds } from './engine/layout'
 import { BottomSheet, cx } from './components/ui'
+import { UpdatePrompt } from './components/UpdatePrompt'
 import { Icon, type IconName } from './components/icons'
 import Dashboard from './features/dashboard/Dashboard'
 import Workouts from './features/workouts/Workouts'
@@ -161,6 +162,8 @@ function Shell() {
           </div>
         </nav>
       )}
+
+      <UpdatePrompt />
 
       <BottomSheet open={sheet} onClose={() => setSheet(false)} title={t('Hinzufügen')}>
         <div className="grid grid-cols-2 gap-3">

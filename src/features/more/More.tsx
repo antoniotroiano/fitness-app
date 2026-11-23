@@ -20,12 +20,12 @@ import { MuscleThumb } from '../../components/MuscleFigure'
 import { GROUP_PREVIEW, groupExercises, type LibraryGroup } from '../../engine/library'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST, REST_CATEGORIES, REST_LABEL, formatRest } from '../../engine/rest'
 import { de } from '../../i18n/de'
+import { APP_VERSION } from '../../data/version'
 import { todayStr, daysBetween } from '../../utils/dates'
 import { t, LOCALE, setLanguage } from '../../i18n'
 
 export { WarmupSettingsPage } from './WarmupSettings'
 
-export const APP_VERSION = '0.1.0'
 
 function Row({ label, desc, to, icon }: { label: string; desc?: string; to: string; icon?: IconName }) {
   const nav = useNavigate()

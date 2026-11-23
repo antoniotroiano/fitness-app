@@ -3,15 +3,20 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vite'
+import pkg from './package.json' with { type: 'json' }
 
 export default defineConfig({
     base: '/fitness-app/',
+
+    // Version aus package.json (einzige Quelle), in der App als APP_VERSION (data/version.ts)
+    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
 
     plugins: [
         react(),
         tailwindcss(),
         VitePWA({
-            registerType: 'autoUpdate',
+            // 'prompt': der neue Service Worker wartet, bis der Nutzer im Banner aktualisiert (components/UpdatePrompt.tsx)
+            registerType: 'prompt',
             // Poster (klein, ~1,4 MB) mit vorcachen, damit sie offline sichtbar sind
             workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,jpg,woff2}'] },
             manifest: {

@@ -20,6 +20,7 @@ import { DEFAULT_WARMUP_SCHEMES, cloneSchemes } from '../engine/warmup'
 import { DEFAULT_REST, DEFAULT_WARMUP_REST_BETWEEN, DEFAULT_WARMUP_REST_LAST } from '../engine/rest'
 import { migrateExercise, migrateProgram } from '../data/muscleMigration'
 import { t } from '../i18n'
+import { APP_VERSION } from '../data/version'
 
 interface KV { key: string; value: unknown }
 
@@ -64,6 +65,8 @@ async function getKV<T>(key: string, fallback: T): Promise<T> {
   return (row?.value as T) ?? fallback
 }
 export const ACTIVE_WORKOUT_KEY = 'activeWorkout'
+/** Zuletzt angezeigte App-Version („Was ist neu“); gerätebezogen, nicht im Backup */
+export const LAST_SEEN_VERSION_KEY = 'lastSeenVersion'
 const setKV = (key: string, value: unknown) => db.kv.put({ key, value })
 
 export const getSettings = () => getKV<Settings & { warmupsEnabled?: boolean }>('settings', DEFAULT_SETTINGS).then((s) => ({
@@ -80,6 +83,8 @@ export const patchSettings = (p: Partial<Settings>) =>
   db.transaction('rw', db.kv, async () => { await saveSettings({ ...(await getSettings()), ...p }) })
 export const getWeekState = () => getKV<WeekState>('weekState', emptyWeek())
 export const loadActiveWorkout = <T>() => db.kv.get(ACTIVE_WORKOUT_KEY).then((r) => (r?.value as T | undefined) ?? null)
+export const getLastSeenVersion = () => getKV<string | undefined>(LAST_SEEN_VERSION_KEY, undefined)
+export const saveLastSeenVersion = (v: string) => setKV(LAST_SEEN_VERSION_KEY, v)
 export const saveActiveWorkout = (v: unknown) => setKV(ACTIVE_WORKOUT_KEY, v)
 export const clearActiveWorkout = () => db.kv.delete(ACTIVE_WORKOUT_KEY)
 export const saveWeekState = (w: WeekState) => setKV('weekState', w)
@@ -245,10 +250,10 @@ export async function exportAll(): Promise<string> {
     db.programs.toArray(), db.sessions.toArray(), db.weights.toArray(), db.measures.toArray(),
     db.customExercises.toArray(), db.kv.toArray(),
   ])
-  return JSON.stringify({ app: 'liftlab', version: 2, exportedAt: new Date().toISOString(),
+  return JSON.stringify({ app: 'liftlab', version: 2, appVersion: APP_VERSION, exportedAt: new Date().toISOString(),
     programs, sessions, weights, measures, customExercises,
     // Das laufende Workout ist flüchtig und gehört nicht ins Backup
-    kv: kv.filter((r) => r.key !== ACTIVE_WORKOUT_KEY) }, null, 2)
+    kv: kv.filter((r) => r.key !== ACTIVE_WORKOUT_KEY && r.key !== LAST_SEEN_VERSION_KEY) }, null, 2)
 }
 
 export async function importAll(json: string) {

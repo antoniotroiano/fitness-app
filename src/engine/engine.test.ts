@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mergeSides, splitsSides, weakerSide } from './sides'
 import { prefillSets } from './prefill'
+import { changesSince, compareVersions } from './release'
 import { DEFAULT_PLATES, platesFor } from './plates'
 import { adaptNextSets, detrainFactor, e1rm, effectiveRepsAt, incrementKg, isStalled, previousSets, rirOf, sessionE1rm, suggestExplained, suggestNext, weightForReps } from './progression'
 import { BODY_TILES, DASHBOARD_SECTIONS, SHORTCUTS, TOP_ITEMS, defaultPrefs, dropIndex, moveItem, normalizeLayout, normalizePrefs, toggleHidden, visibleIds, type ListLayout } from './layout'
@@ -2896,5 +2897,22 @@ describe('Dashboard-Reste (B8, B17, B21, A9)', () => {
     expect(all[1].exercises[1].weeks?.b1).toEqual({ sets: 5 })
     const reset = setWeekTargetForProgram(all, 0, 0, 'b1', undefined, { all: true }, repsOk)
     expect(reset.every((d) => d.exercises.every((e) => !e.weeks))).toBe(true)
+  })
+})
+
+describe('release', () => {
+  const log = [{ version: '0.3.0' }, { version: '0.2.1' }, { version: '0.2.0' }, { version: '0.1.0' }]
+  it('vergleicht SemVer numerisch', () => {
+    expect(compareVersions('0.10.0', '0.9.0')).toBeGreaterThan(0)
+    expect(compareVersions('1.0.0', '1.0.0')).toBe(0)
+    expect(compareVersions('0.1.9', '0.2.0')).toBeLessThan(0)
+    expect(compareVersions('1.0.0-beta', '1.0.0')).toBe(0)
+  })
+  it('zeigt nur ungesehene Einträge bis zur aktuellen Version', () => {
+    expect(changesSince(log, '0.1.0', '0.2.1').map((e) => e.version)).toEqual(['0.2.1', '0.2.0'])
+    expect(changesSince(log, '0.3.0', '0.3.0')).toEqual([])
+  })
+  it('Erstinstallation zeigt nichts', () => {
+    expect(changesSince(log, undefined, '0.3.0')).toEqual([])
   })
 })

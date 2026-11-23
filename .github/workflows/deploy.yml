@@ -1,10 +1,11 @@
 
 name: Deploy to GitHub Pages
 
+# Live geht nur ein getaggter Release (v1.2.3). Ablauf: Changelog ergänzen, `npm version minor|patch`,
+# `git push --follow-tags`. Ein erneutes Deployen geht über „Re-run jobs“ des Tag-Laufs.
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags: ['v*']
 
 permissions:
   contents: read
@@ -31,6 +32,13 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
+
+      - name: Check tag, package.json and changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          [ "$VERSION" = "$PKG" ] || { echo "::error::Tag $GITHUB_REF_NAME passt nicht zu package.json ($PKG)"; exit 1; }
+          grep -q "version: '$VERSION'" src/data/changelog.ts || { echo "::error::Kein Changelog-Eintrag für $VERSION in src/data/changelog.ts"; exit 1; }
 
       - name: Install dependencies
         run: npm ci
@@ -66,3 +74,17 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
         with:
           artifact_name: ${{ needs.build.outputs.artifact_name }}
+
+  release:
+    needs: deploy
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
