@@ -2,7 +2,7 @@ name: Beta (main -> fitness-app-beta)
 
 # Jeder Push auf main baut einen Beta-Stand und legt ihn per Deploy Key als Branch gh-pages ins Repo
 # antoniotroiano/fitness-app-beta (dort: Pages = Deploy from branch gh-pages). Die produktive Seite
-# (deploy.yml) bleibt unberührt und kommt nur per Release-Tag.
+# (release.yml, pages.yml) bleibt unberührt und kommt nur mit einem Release.
 on:
   push:
     branches: [main]

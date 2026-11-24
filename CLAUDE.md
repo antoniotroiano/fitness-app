@@ -51,6 +51,6 @@ Vor Arbeiten an einem Bereich die passende Datei lesen. Neue Invarianten gehöre
 - Englisch: Oberfläche, Übungs- und Muskelnamen sowie Anleitungen/Tipps der Standardübungen übersetzt (eigene Übungsbeschreibungen bleiben, wie eingegeben). Gespeicherte Texte (Programm-/Workout-Namen, Notizen) behalten die Sprache vom Anlegen.
 - Pausen-Ton: als PWA nur hörbar, wenn die App im Vordergrund läuft; über Musik wird nichts leiser oder unterbrochen (Audio-Session-Versuch wirkt auf dem Gerät nicht), im Hintergrund/Sperrbildschirm kein Ton. Richtiges Ducking und Hintergrund-Signal erst mit Capacitor-Wrapper.
 - Kein direkter Apple-Health/Health-Connect-Zugriff (Web-App): nur Datei-Import. Automatik erst mit Capacitor-Wrapper.
-- Deployment läuft nur bei Release-Tags `v*` (siehe docs/dev/data-i18n.md).
+- Deployment läuft nur bei einem neuen Release (Version in `package.json` erhöhen, pushen, dann legt `release.yml` Tag und Release an) (siehe docs/dev/data-i18n.md).
 - Progressions-Konstanten (Inkremente, Volumen, Rep-Ranges) sind Heuristiken, anpassbar in `engine/`.
 - Backup-Import und Übungstausch im Wizard sind nicht automatisiert getestet, aber vom Nutzer auf dem iPhone von Hand geprüft (2026-11-23, alles ok).

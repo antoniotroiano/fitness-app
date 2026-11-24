@@ -1,0 +1,81 @@
+name: Release
+
+# Läuft, nachdem CI auf einem Push nach main fertig ist. War CI grün und trägt package.json eine Version ohne Tag,
+# legt der Workflow Tag und GitHub-Release an und deployt genau diesen Commit auf GitHub Pages (pages.yml).
+# Ein Push ohne neue Version veröffentlicht nichts. Siehe docs/dev/data-i18n.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Nur erfolgreiche CI-Läufe eines Push nach main in diesem Repo (kein Pull Request, kein Fork).
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # nur dieser Job legt Tag und Release an
+    outputs:
+      released: ${{ steps.publish.outputs.released }}
+      sha: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      # Der Commit, den CI getestet hat, nicht die aktuelle Spitze von main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: lts/*
+      - name: Version und Changelog prüfen, Release-Notes erzeugen
+        id: check
+        run: node scripts/release-check.mjs --notes "$RUNNER_TEMP/release-notes.md"
+      - name: Tag und Release anlegen, falls es den Tag noch nicht gibt
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.check.outputs.version }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          tag="v${VERSION}"
+          if out=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" 2>&1); then
+            echo "Tag ${tag} existiert schon, nichts zu tun."
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          elif ! grep -q "HTTP 404" <<< "$out"; then
+            echo "Tag ${tag} konnte nicht geprüft werden: ${out}" >&2
+            exit 1
+          fi
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --title "$tag" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+          echo "Release ${tag} auf ${SHA} angelegt."
+          echo "released=true" >> "$GITHUB_OUTPUT"
+
+  pages:
+    # Ein Push nach main allein veröffentlicht die Seite nicht: nur ein neues Release.
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: ${{ needs.release.outputs.sha }}
