@@ -8,6 +8,13 @@ export type ChangelogEntry = { version: string; date: string; items: string[] }
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.0', date: '2026-11-24',
+    items: [
+      'Die App heißt jetzt TRAINRATE: WORKOUT.',
+      'Neues App-Icon und neues Favicon.',
+    ],
+  },
+  {
     version: '0.1.0', date: '2026-11-23',
     items: [
       'Erste veröffentlichte Version.',

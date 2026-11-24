@@ -183,6 +183,7 @@ export const EN: Record<string, string> = {
   'Neue Version verfügbar': 'New version available', 'Deine Daten bleiben erhalten.': 'Your data is kept.', 'Aktualisieren': 'Update',
   'Das ist neu': "What's new", 'Verstanden': 'Got it',
   'Erste veröffentlichte Version.': 'First released version.',
+  'Die App heißt jetzt TRAINRATE: WORKOUT.': 'The app is now called TRAINRATE: WORKOUT.', 'Neues App-Icon und neues Favicon.': 'New app icon and favicon.',
   'Hinweis bei neuer Version: Die App aktualisiert sich auf Knopfdruck, Pläne und Daten bleiben erhalten.': 'New-version notice: the app updates with one tap, your plans and data are kept.',
   'Erst ein Backup erstellen': 'Create a backup first', 'About': 'About', 'Version': 'Version',
   'Eigenständige Trainings-App mit regelbasierter Progression (Double Progression, e1RM, RIR). Alle Daten bleiben auf deinem Gerät.': 'Standalone training app with rule-based progression (double progression, e1RM, RIR). All data stays on your device.',
