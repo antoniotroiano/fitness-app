@@ -97,7 +97,7 @@ export default function ProgramPage() {
           <MenuRow icon="data" label={t('Programm exportieren')} desc={t('Datei mit Programm und eigenen Übungen')} onClick={async () => {
             close()
             const r = await exportProgramJson(id)
-            if (r) downloadText(`liftlab-programm-${safeFileName(r.name)}.json`, r.json, 'application/json')
+            if (r) downloadText(`trainrate-programm-${safeFileName(r.name)}.json`, r.json, 'application/json')
           }} />
           {!program.active && <MenuRow icon="check" label={t('Programm aktivieren')} desc={t('Wird zum aktiven Programm')} onClick={async () => { close(); await activateProgram(id); nav('/workouts') }} />}
           {program.archived

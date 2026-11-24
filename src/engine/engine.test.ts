@@ -827,7 +827,7 @@ describe('Export CSV und Programmdatei', () => {
   })
   it('Import lehnt fremde Dateien verständlich ab', () => {
     expect(() => parseProgramFile('kein json', [], new Set(), () => 'x')).toThrow(/JSON/)
-    expect(() => parseProgramFile('{"app":"andere"}', [], new Set(), () => 'x')).toThrow(/Lift-Lab/)
+    expect(() => parseProgramFile('{"app":"andere"}', [], new Set(), () => 'x')).toThrow(/TRAINRATE/)
     expect(() => parseProgramFile('{"app":"liftlab","version":2}', [], new Set(), () => 'x')).toThrow(/Programm-Export/)
     expect(() => parseProgramFile('{"app":"liftlab","kind":"program","program":{"days":[]}}', [], new Set(), () => 'x')).toThrow(/unvollständig/)
   })
@@ -865,7 +865,7 @@ describe('Export CSV und Programmdatei', () => {
   })
   it('Workout-Import lehnt falsche und kaputte Dateien verständlich ab', () => {
     expect(() => parseWorkoutFile('x', [], new Set())).toThrow(/JSON/)
-    expect(() => parseWorkoutFile('{"app":"x"}', [], new Set())).toThrow(/Lift-Lab/)
+    expect(() => parseWorkoutFile('{"app":"x"}', [], new Set())).toThrow(/TRAINRATE/)
     expect(() => parseWorkoutFile(JSON.stringify(programToFile(program, [])), [], new Set())).toThrow(/Programm-Export/)
     expect(() => parseProgramFile(JSON.stringify(workoutToFile(day, [])), [], new Set(), () => 'x')).toThrow(/Workout-Export/)
     expect(() => parseWorkoutFile('{"app":"liftlab","kind":"workout","workout":{"name":"A","exercises":[]}}', [], new Set())).toThrow(/unvollständig/)

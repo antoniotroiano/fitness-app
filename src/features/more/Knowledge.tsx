@@ -6,7 +6,7 @@ import { findArticle, searchArticles, type HelpBlock } from '../../data/help'
 import { CATS, INTRO } from '../../data/helpLang'
 import { t } from '../../i18n'
 
-const APP_NAME = 'Lift Lab'
+const APP_NAME = 'TRAINRATE: WORKOUT'
 
 /** `**fett**` im Text als Hervorhebung (Bedienelemente und Menünamen). */
 function Rich({ text }: { text: string }) {

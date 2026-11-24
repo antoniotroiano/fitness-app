@@ -112,7 +112,7 @@ export function parseProgramFile(
 ): ProgramImport {
   let data: Partial<ProgramFile> | null
   try { data = JSON.parse(json) } catch { throw new Error(t('Die Datei ist kein gültiges JSON.')) }
-  if (data?.app !== 'liftlab') throw new Error(t('Keine Lift-Lab-Datei.'))
+  if (data?.app !== 'liftlab') throw new Error(t('Keine TRAINRATE-Datei.'))
   if ((data as { kind?: string }).kind === 'workout') throw new Error(t('Das ist ein Workout-Export: importiere ihn im Menü (⋯) eines Programms über „Workout importieren“.'))
   if (data.kind !== 'program') throw new Error(t('Das ist kein Programm-Export (Backups über „Backup importieren“).'))
   const p = data.program
@@ -163,7 +163,7 @@ export interface WorkoutImport {
 export function parseWorkoutFile(json: string, existingDayNames: string[], existingExerciseIds: Set<string>): WorkoutImport {
   let data: Partial<WorkoutFile> | null
   try { data = JSON.parse(json) } catch { throw new Error(t('Die Datei ist kein gültiges JSON.')) }
-  if (data?.app !== 'liftlab') throw new Error(t('Keine Lift-Lab-Datei.'))
+  if (data?.app !== 'liftlab') throw new Error(t('Keine TRAINRATE-Datei.'))
   if ((data as { kind?: string }).kind === 'program') throw new Error(t('Das ist ein Programm-Export (Mehr › Daten › Programm importieren).'))
   if (data.kind !== 'workout') throw new Error(t('Das ist kein Workout-Export.'))
   const w = data.workout

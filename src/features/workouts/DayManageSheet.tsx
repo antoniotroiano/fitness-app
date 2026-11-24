@@ -36,7 +36,7 @@ export function DayManageSheet({ program, dayIdx, open, onClose, onUnscheduled }
           <MenuRow icon="data" label={t('Workout exportieren')} desc={t('Datei mit Übungen, Zielen und eigenen Übungen')}
             onClick={async () => {
               const r = await exportWorkoutJson(id, dayIdx)
-              if (r) downloadText(`liftlab-workout-${safeFileName(r.name)}.json`, r.json, 'application/json')
+              if (r) downloadText(`trainrate-workout-${safeFileName(r.name)}.json`, r.json, 'application/json')
               onClose()
             }} />
           {scheduled ? (

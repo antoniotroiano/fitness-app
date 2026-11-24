@@ -24,8 +24,8 @@ export default defineConfig({
             // Poster (klein, ~1,4 MB) mit vorcachen, damit sie offline sichtbar sind
             workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,jpg,woff2}'] },
             manifest: {
-                name: BETA ? 'Lift Lab Beta' : 'Lift Lab',
-                short_name: BETA ? 'Lift Beta' : 'Lift Lab',
+                name: BETA ? 'TRAINRATE: WORKOUT Beta' : 'TRAINRATE: WORKOUT',
+                short_name: BETA ? 'TRAINRATE Beta' : 'TRAINRATE',
                 description: 'Trainingsplaner mit automatischer Progression',
                 theme_color: '#0f172a',
                 background_color: '#0f172a',

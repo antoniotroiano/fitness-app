@@ -538,7 +538,7 @@ export function DataPage() {
   const [resetOpen, setResetOpen] = useState(false)
 
   const doExport = async () => {
-    downloadText(`liftlab-backup-${new Date().toISOString().slice(0, 10)}.json`, await exportAll(), 'application/json')
+    downloadText(`trainrate-backup-${new Date().toISOString().slice(0, 10)}.json`, await exportAll(), 'application/json')
     setMsg(t('Backup exportiert'))
   }
   const [csvFrom, setCsvFrom] = useState('')
@@ -550,7 +550,7 @@ export function DataPage() {
     if (csvFrom && csvTo && csvFrom > csvTo) { setMsg(t('Fehler: „Von“ liegt nach „Bis“.')); return }
     const csv = await exportSessionsCsv({ from: csvFrom || undefined, to: csvTo || undefined, exerciseIds: csvEx ? [csvEx.id] : undefined })
     if (csv.trim().split('\n').length < 2) { setMsg(t('Keine Einheiten im gewählten Zeitraum bzw. mit dieser Übung.')); return }
-    downloadText(`liftlab-einheiten-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv')
+    downloadText(`trainrate-einheiten-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv')
     setMsg(t('Einheiten als CSV exportiert'))
   }
   const doProgramImport = async (f?: File) => {
@@ -636,7 +636,8 @@ export function AboutPage() {
   return (
     <Page title="About" back={() => nav('/more')}>
       <Card className="space-y-2 text-sm">
-        <div className="text-lg font-bold">Lift Lab</div>
+        <div className="text-lg font-bold tracking-wide">TRAINRATE</div>
+        <div className="text-sm font-semibold">TRAINRATE: WORKOUT</div>
         <div className="text-muted">Version {APP_VERSION}{IS_BETA ? ' (Beta)' : ''}</div>
         <p>{t('Eigenständige Trainings-App mit regelbasierter Progression (Double Progression, e1RM, RIR). Alle Daten bleiben auf deinem Gerät.')}</p>
         <p className="text-muted text-xs">{t('Die Vorschläge sind allgemeine Trainingsheuristiken und ersetzen keine individuelle Beratung durch Trainer:innen oder Ärzt:innen.')}</p>

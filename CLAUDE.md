@@ -1,4 +1,4 @@
-# Lift Lab
+# TRAINRATE: WORKOUT
 
 Eigenständige Trainings-App (PWA, nur lokal, Deutsch) mit regelbasierter Progression. Eigenentwicklung: keine Übernahme von Code, Assets, Namen oder Texten anderer Apps. **Ausnahme (bewusste Entscheidung):** Übungsbilder und ausgewählte Texte aus `free-exercise-db-with-videos` (MIT), siehe `THIRD_PARTY.md`, `docs/plan/PLAN-3.md`. Ausführliche Planung (lokal, nicht im Repo: `docs/plan/` und `docs/notes/` stehen in `.gitignore`, ein frischer Clone oder Worktree enthält sie nicht): `docs/plan/PLAN-1.md` (Grundplan) und `docs/plan/PLAN-2.md` (Erweiterung: Warm-ups, Timer, Logger, Dashboard), `docs/plan/PLAN-5.md` (geplant: Gerätegewichte, Wizard-Überarbeitung), `docs/plan/PLAN-6.md` (Abgleich mit einer Referenz-App, **Checkliste mit Status: vor jeder Aufgabe lesen, Aufgabe abhaken**).
 
@@ -29,6 +29,7 @@ Vite 8, React 19, TypeScript (strict, `erasableSyntaxOnly`: keine Enums/Paramete
 - `components/ui.tsx`: gemeinsame UI-Bausteine; `utils/`: Datum und Einheiten
 
 ## Konventionen und Invarianten
+- **Name:** Marke TRAINRATE, Produkt TRAINRATE: WORKOUT (immer Großbuchstaben). Interne Kennungen (`liftlab` als DB-Name, Backup-`app`-Feld, Sprach-Storage-Key) bleiben bewusst unverändert, sonst brechen bestehende Daten und Backups.
 - **Speicherung immer metrisch** (kg, cm, km). Umrechnung nur bei Anzeige/Eingabe über `utils/units.ts`.
 - Datumsangaben sind lokale Strings `yyyy-mm-dd` (`utils/dates.ts`), keine UTC-ISO-Strings.
 - Neue Logik gehört in `engine/` (rein, mit Test in `engine.test.ts`), nicht in Komponenten.

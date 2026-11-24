@@ -1,8 +1,8 @@
-# Lift Lab
+# TRAINRATE: WORKOUT
 
 Trainings-App als PWA (Deutsch und Englisch, nur lokal) mit regelbasierter Progression. Du bekommst einen Trainingsplan, loggst deine Sätze, und die App schlägt dir beim nächsten Mal Gewicht und Wiederholungen vor, mit Begründung. Alle Daten bleiben auf deinem Gerät, es gibt kein Backend und keine Konten.
 
-<p align="center"><img src="public/icon-512.png" alt="Lift Lab Icon" width="120"></p>
+<p align="center"><img src="public/icon-512.png" alt="TRAINRATE: WORKOUT Icon" width="120"></p>
 
 **App:** https://antoniotroiano.github.io/fitness-app/
 

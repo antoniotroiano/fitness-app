@@ -222,7 +222,7 @@ export default function Dashboard() {
             {!program && (
               <div className="text-center space-y-3 py-4">
                 <div className="flex justify-center"><ProgramBadge size={56} /></div>
-                <div className="font-semibold">{t('Willkommen bei Lift Lab')}</div>
+                <div className="font-semibold">{t('Willkommen bei TRAINRATE')}</div>
                 <p className="text-sm text-muted">{t('Erstelle dein erstes Programm, um Fortschritt zu verfolgen.')}</p>
                 <Button onClick={() => nav('/new')}>{t('Programm erstellen')}</Button>
               </div>

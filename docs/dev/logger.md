@@ -1,6 +1,6 @@
 # Logger, Satztypen, Timer
 
-Teil der Entwicklerdoku von Lift Lab (Details zu `CLAUDE.md`). Logger und Workout-Ablauf: Warm-up, Satztypen, Folgesätze, Links/Rechts, Supersätze, Timer, Töne, Übung tauschen.
+Teil der Entwicklerdoku von TRAINRATE: WORKOUT (Details zu `CLAUDE.md`). Logger und Workout-Ablauf: Warm-up, Satztypen, Folgesätze, Links/Rechts, Supersätze, Timer, Töne, Übung tauschen.
 
 - **Warm-up**: `engine/warmup.ts`. Modus Smart (Schwere + Frische des Muskels), Scheme (5 Kategorie-Schemata in `Settings.warmupSchemes`) oder aus; pro Übung überschreibbar über `kv['exerciseOverrides']` (`warmupMode`, `warmupScheme`, `note`). Programm-Notizen in `kv['programNotes']`, Session-Notizen in `Session.notes`.
 - **Folgesätze im Logger** (`adaptNextSets`): Satz nach Plan (±1 RIR, `ADAPT_DEAD_ZONE`) → unverändert. Sonst Gewicht **und** Wdh. aus dem abgehakten Satz (reine Epley-Umrechnung), `FATIGUE_REPS` (1) je Satz Abstand; Gewicht einmal für den nächsten Satz gewählt (±10 %), spätere Sätze verlieren nur Wdh. Ohne `planKg` (keine Historie) kalibriert der erste Satz (±20 %). Angepasste Zeilen bekommen neue `planKg/planReps`. Von Hand geänderte Zeilen (`manual`, Gewicht oder Wdh.) bleiben.
